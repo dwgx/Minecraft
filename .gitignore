@@ -1,0 +1,22 @@
+# Build outputs
+/out/
+/build/
+/target/
+/assets/
+/run/
+/sources.txt
+*.class
+
+# IDE files
+/.idea/
+*.iml
+
+# Logs / misc
+*.log
+hs_err_pid*
+*.tmp
+*.swp
+
+# System junk
+.DS_Store
+Thumbs.db
