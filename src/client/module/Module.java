@@ -10,7 +10,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Shared module base with lifecycle hooks and managed settings.
+ * 模块基类：统一生命周期与设置容器。
  */
 public abstract class Module
 {

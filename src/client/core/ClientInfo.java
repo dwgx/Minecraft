@@ -1,7 +1,7 @@
 package client.core;
 
 /**
- * Runtime identity values shown in UI/logs.
+ * 运行时身份信息，用于 UI 与日志显示。
  */
 public final class ClientInfo
 {

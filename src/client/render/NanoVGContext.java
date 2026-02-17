@@ -9,7 +9,7 @@ import static org.lwjgl.nanovg.NanoVG.nvgSave;
 import static org.lwjgl.nanovg.NanoVG.nvgScissor;
 
 /**
- * Thin wrapper around the NanoVG frame lifecycle.
+ * NanoVG 帧生命周期封装。
  */
 public final class NanoVGContext
 {

@@ -1,7 +1,7 @@
 package client.setting;
 
 /**
- * Base setting model shared by module config and UI widgets.
+ * 设置基类，模块配置与 UI 控件共用这套模型。
  */
 public abstract class Setting<T>
 {

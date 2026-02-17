@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Minimal synchronous event bus with class-based subscriptions.
+ * 轻量同步事件总线，按事件类型进行订阅与分发。
  */
 public final class EventBus
 {

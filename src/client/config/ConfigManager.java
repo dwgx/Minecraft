@@ -29,7 +29,7 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * Split-domain config manager:
+ * 分域配置管理器：
  * - client.json
  * - modules.json
  * - hud.json

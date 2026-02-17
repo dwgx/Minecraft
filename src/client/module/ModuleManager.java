@@ -2,6 +2,7 @@ package client.module;
 
 import client.event.KeyEvent;
 import client.render.RenderContext2D;
+import client.setting.KeybindSetting;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -10,7 +11,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Registers modules and dispatches lifecycle updates.
+ * 模块注册中心：负责索引、查询与生命周期分发。
  */
 public final class ModuleManager implements ModuleStateListener
 {
@@ -102,9 +103,16 @@ public final class ModuleManager implements ModuleStateListener
         {
             Module module = snapshot.get(i);
 
-            if (event.isPressed() && module.getBind().getKeyCode() == event.getKeyCode() && module.getBind().getMode() == client.setting.KeybindSetting.BindMode.TOGGLE)
+            if (module.getBind().getKeyCode() == event.getKeyCode())
             {
-                module.toggle();
+                if (module.getBind().getMode() == KeybindSetting.BindMode.TOGGLE && event.isPressed())
+                {
+                    module.toggle();
+                }
+                else if (module.getBind().getMode() == KeybindSetting.BindMode.HOLD)
+                {
+                    module.setEnabled(event.isPressed());
+                }
             }
 
             if (module.isEnabled())

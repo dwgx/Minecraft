@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Ordered shutdown actions for saving state and releasing resources.
+ * 进程退出时按顺序执行的清理动作（保存配置、释放资源等）。
  */
 public final class ShutdownHook implements Runnable
 {

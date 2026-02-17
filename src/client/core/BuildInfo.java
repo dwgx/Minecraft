@@ -1,7 +1,7 @@
 package client.core;
 
 /**
- * Build metadata used by the custom client layer.
+ * 客户端层的构建信息。
  */
 public final class BuildInfo
 {

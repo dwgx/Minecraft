@@ -8,12 +8,14 @@ import client.event.Render2DEvent;
 import client.event.TickEvent;
 import client.hud.HudManager;
 import client.module.ModuleManager;
+import client.module.impl.movement.EageModule;
+import client.module.impl.movement.KeepSprintModule;
 import client.render.RenderContext2D;
 import java.io.IOException;
 import java.nio.file.Path;
 
 /**
- * Root entrypoint for the layered client runtime.
+ * 分层客户端运行时的统一入口。
  */
 public final class ClientBootstrap
 {
@@ -27,12 +29,13 @@ public final class ClientBootstrap
 
     private ConfigManager configManager;
     private boolean initialized;
+    private boolean modulesRegistered;
 
     private ClientBootstrap()
     {
     }
 
-    public static ClientBootstrap instance()
+    public static   ClientBootstrap instance()
     {
         return INSTANCE;
     }
@@ -45,6 +48,16 @@ public final class ClientBootstrap
         }
 
         this.configManager = new ConfigManager(configRoot, this.clientInfo, this.modules, this.hud);
+        this.registerBuiltinModules();
+
+        try
+        {
+            this.configManager.loadAll();
+        }
+        catch (IOException ignored)
+        {
+        }
+
         this.shutdownHook.addAction(new Runnable()
         {
             public void run()
@@ -59,6 +72,18 @@ public final class ClientBootstrap
             }
         });
         this.initialized = true;
+    }
+
+    private void registerBuiltinModules()
+    {
+        if (this.modulesRegistered)
+        {
+            return;
+        }
+
+        this.modules.register(new EageModule());
+        this.modules.register(new KeepSprintModule());
+        this.modulesRegistered = true;
     }
 
     public ClientInfo getClientInfo()

@@ -13,6 +13,9 @@ import com.mojang.authlib.minecraft.MinecraftSessionService;
 import com.mojang.authlib.properties.Property;
 import com.mojang.authlib.properties.PropertyMap;
 import com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService;
+import client.core.ClientBootstrap;
+import client.render.DisplayMetrics;
+import client.render.RenderContext2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -337,6 +340,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     private long field_175615_aJ = 0L;
     private final Thread mcThread = Thread.currentThread();
     private ModelManager modelManager;
+    private final ClientBootstrap clientBootstrap = ClientBootstrap.instance();
 
     /**
      * The BlockRenderDispatcher instance that will be used based off gamesettings
@@ -476,6 +480,16 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     {
         this.gameSettings = new GameSettings(this, this.mcDataDir);
         this.disableYield = Boolean.getBoolean("lwjgl3.disableYield");
+
+        try
+        {
+            this.clientBootstrap.initialize((new File(this.mcDataDir, "config/client")).toPath());
+        }
+        catch (Throwable throwable)
+        {
+            logger.warn("Failed to initialize client bootstrap", throwable);
+        }
+
         this.defaultResourcePacks.add(this.mcDefaultResourcePack);
         this.startTimerHackThread();
 
@@ -1053,6 +1067,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     {
         try
         {
+            this.clientBootstrap.getShutdownHook().run();
             this.stream.shutdownStream();
             logger.info("Stopping!");
 
@@ -1120,7 +1135,9 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
         for (int j = 0; j < this.timer.elapsedTicks; ++j)
         {
+            this.clientBootstrap.onTick(false);
             this.runTick();
+            this.clientBootstrap.onTick(true);
         }
 
         this.mcProfiler.endStartSection("preRenderErrors");
@@ -1174,6 +1191,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         GlStateManager.pushMatrix();
         this.framebufferMc.framebufferRender(this.displayWidth, this.displayHeight);
         GlStateManager.popMatrix();
+        this.clientBootstrap.onRender2D(new RenderContext2D((client.render.NanoVGContext)null, new DisplayMetrics(Display.getWindowWidth(), Display.getWindowHeight(), this.displayWidth, this.displayHeight), this.timer.renderPartialTicks));
         GlStateManager.pushMatrix();
         this.entityRenderer.renderStreamIndicator(this.timer.renderPartialTicks);
         GlStateManager.popMatrix();
@@ -1845,6 +1863,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             {
                 int i = Mouse.getEventButton();
                 KeyBinding.setKeyBindState(i - 100, Mouse.getEventButtonState());
+                this.clientBootstrap.onMouse(i, Mouse.getEventX(), Mouse.getEventY(), Mouse.getEventButtonState());
 
                 if (Mouse.getEventButtonState())
                 {
@@ -1911,6 +1930,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             {
                 int k = Keyboard.getEventKey() == 0 ? Keyboard.getEventCharacter() + 256 : Keyboard.getEventKey();
                 KeyBinding.setKeyBindState(k, Keyboard.getEventKeyState());
+                this.clientBootstrap.onKey(k, Keyboard.getEventKeyState());
 
                 if (Keyboard.getEventKeyState())
                 {

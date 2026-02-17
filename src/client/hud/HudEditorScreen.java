@@ -3,7 +3,7 @@ package client.hud;
 import net.minecraft.client.gui.GuiScreen;
 
 /**
- * Placeholder editor shell used to host HUD drag/drop widgets.
+ * HUD 编辑器外壳，后续用于承载拖拽与对齐交互。
  */
 public class HudEditorScreen extends GuiScreen
 {
