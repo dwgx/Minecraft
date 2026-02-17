@@ -7,7 +7,11 @@ public final class Sys {
     private Sys() {}
 
     public static String getVersion() {
-        return "LWJGL3-stub";
+        try {
+            return "LWJGL " + Version.getVersion() + " (compat)";
+        } catch (Throwable ignored) {
+            return "LWJGL3-compat";
+        }
     }
 
     public static long getTime() {
