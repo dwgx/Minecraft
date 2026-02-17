@@ -10,6 +10,7 @@ import java.net.InetSocketAddress;
 import java.net.PasswordAuthentication;
 import java.net.Proxy;
 import java.net.Proxy.Type;
+import java.util.Map;
 import java.util.List;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -73,7 +74,7 @@ public class Main
         final String s1 = (String)optionset.valueOf(optionspec7);
         final String s2 = (String)optionset.valueOf(optionspec8);
 
-        if (!proxy.equals(Proxy.NO_PROXY) && isNullOrEmpty(s1) && isNullOrEmpty(s2))
+        if (!proxy.equals(Proxy.NO_PROXY) && hasValue(s1) && hasValue(s2))
         {
             Authenticator.setDefault(new Authenticator()
             {
@@ -93,11 +94,11 @@ public class Main
         Gson gson = (new GsonBuilder()).registerTypeAdapter(PropertyMap.class, new Serializer()).create();
         PropertyMap propertymap = (PropertyMap)gson.fromJson((String)optionset.valueOf(optionspec15), PropertyMap.class);
         PropertyMap propertymap1 = (PropertyMap)gson.fromJson((String)optionset.valueOf(optionspec16), PropertyMap.class);
-        File file1 = (File)optionset.valueOf(optionspec2);
-        File file2 = optionset.has(optionspec3) ? (File)optionset.valueOf(optionspec3) : new File(file1, "assets/");
-        File file3 = optionset.has(optionspec4) ? (File)optionset.valueOf(optionspec4) : new File(file1, "resourcepacks/");
-        String s4 = optionset.has(optionspec10) ? (String)optionspec10.value(optionset) : (String)optionspec9.value(optionset);
+        File file1 = expandEnvInFile((File)optionset.valueOf(optionspec2));
         String s5 = optionset.has(optionspec17) ? (String)optionspec17.value(optionset) : null;
+        File file2 = resolveAssetsDirectory(file1, optionset.has(optionspec3) ? expandEnvInFile((File)optionset.valueOf(optionspec3)) : null, s5);
+        File file3 = optionset.has(optionspec4) ? expandEnvInFile((File)optionset.valueOf(optionspec4)) : new File(file1, "resourcepacks/");
+        String s4 = optionset.has(optionspec10) ? (String)optionspec10.value(optionset) : (String)optionspec9.value(optionset);
         String s6 = (String)optionset.valueOf(optionspec);
         Integer integer = (Integer)optionset.valueOf(optionspec1);
         Session session = new Session((String)optionspec9.value(optionset), s4, (String)optionspec11.value(optionset), (String)optionspec18.value(optionset));
@@ -113,8 +114,142 @@ public class Main
         (new Minecraft(gameconfiguration)).run();
     }
 
-    private static boolean isNullOrEmpty(String str)
+    private static boolean hasValue(String str)
     {
         return str != null && !str.isEmpty();
+    }
+
+    private static File expandEnvInFile(File file)
+    {
+        if (file == null)
+        {
+            return null;
+        }
+
+        String path = file.getPath();
+        String expanded = expandWindowsEnv(path);
+        return path.equals(expanded) ? file : new File(expanded);
+    }
+
+    private static String expandWindowsEnv(String path)
+    {
+        if (path == null || path.indexOf(37) < 0)
+        {
+            return path;
+        }
+
+        StringBuilder builder = new StringBuilder(path.length());
+        int index = 0;
+
+        while (index < path.length())
+        {
+            int start = path.indexOf(37, index);
+
+            if (start < 0 || start == path.length() - 1)
+            {
+                builder.append(path.substring(index));
+                break;
+            }
+
+            int end = path.indexOf(37, start + 1);
+
+            if (end < 0)
+            {
+                builder.append(path.substring(index));
+                break;
+            }
+
+            builder.append(path.substring(index, start));
+            String key = path.substring(start + 1, end);
+            String value = resolveEnvValue(key);
+            builder.append(value != null && !value.isEmpty() ? value : path.substring(start, end + 1));
+            index = end + 1;
+        }
+
+        return builder.toString();
+    }
+
+    private static String resolveEnvValue(String key)
+    {
+        String value = System.getenv(key);
+
+        if (value != null)
+        {
+            return value;
+        }
+
+        for (Map.Entry<String, String> entry : System.getenv().entrySet())
+        {
+            if (entry.getKey().equalsIgnoreCase(key))
+            {
+                return entry.getValue();
+            }
+        }
+
+        return null;
+    }
+
+    private static File resolveAssetsDirectory(File gameDir, File requestedAssetsDir, String assetIndex)
+    {
+        File fallbackAssetsDir = new File(gameDir, "assets/");
+        File candidate = requestedAssetsDir != null ? normalizeRequestedAssetsDir(gameDir, requestedAssetsDir, assetIndex) : fallbackAssetsDir;
+
+        if (assetIndex == null || assetIndex.isEmpty() || hasAssetIndex(candidate, assetIndex))
+        {
+            return candidate;
+        }
+
+        if (!candidate.getAbsoluteFile().equals(fallbackAssetsDir.getAbsoluteFile()) && hasAssetIndex(fallbackAssetsDir, assetIndex))
+        {
+            System.err.println("[LWJGL3-LAUNCH] Requested assetsDir missing index '" + assetIndex + ".json': " + candidate.getAbsolutePath());
+            System.err.println("[LWJGL3-LAUNCH] Falling back to gameDir assets: " + fallbackAssetsDir.getAbsolutePath());
+            return fallbackAssetsDir;
+        }
+
+        return candidate;
+    }
+
+    private static File normalizeRequestedAssetsDir(File gameDir, File requestedAssetsDir, String assetIndex)
+    {
+        if (requestedAssetsDir == null || requestedAssetsDir.isAbsolute() || assetIndex == null || assetIndex.isEmpty())
+        {
+            return requestedAssetsDir;
+        }
+
+        if (hasAssetIndex(requestedAssetsDir, assetIndex))
+        {
+            return requestedAssetsDir;
+        }
+
+        File fromGameDir = new File(gameDir, requestedAssetsDir.getPath());
+
+        if (hasAssetIndex(fromGameDir, assetIndex))
+        {
+            return fromGameDir;
+        }
+
+        File parent = gameDir != null ? gameDir.getAbsoluteFile().getParentFile() : null;
+
+        if (parent != null)
+        {
+            File fromParent = new File(parent, requestedAssetsDir.getPath());
+
+            if (hasAssetIndex(fromParent, assetIndex))
+            {
+                return fromParent;
+            }
+        }
+
+        return requestedAssetsDir;
+    }
+
+    private static boolean hasAssetIndex(File assetsDir, String assetIndex)
+    {
+        if (assetsDir == null || assetIndex == null || assetIndex.isEmpty())
+        {
+            return false;
+        }
+
+        return (new File(new File(assetsDir, "indexes"), assetIndex + ".json")).isFile();
     }
 }

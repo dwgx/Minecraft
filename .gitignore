@@ -2,9 +2,13 @@
 /out/
 /build/
 /target/
-/assets/
+/run/assets/
 /run/
 /sources.txt
+/docs/knowledge-base/
+/skiko-sandbox/
+/skija-sandbox/
+/lwjgl3-port/
 *.class
 
 # IDE files
