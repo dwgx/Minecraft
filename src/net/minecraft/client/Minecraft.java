@@ -185,6 +185,7 @@ import org.lwjgl.opengl.OpenGLException;
 import org.lwjgl.opengl.PixelFormat;
 import org.lwjgl.util.glu.GLU;
 
+@SuppressWarnings({"deprecation", "removal", "rawtypes", "unchecked", "FieldMayBeFinal", "FieldCanBeLocal", "unused"})
 public class Minecraft implements IThreadListener, IPlayerUsage
 {
     private static final Logger logger = LogManager.getLogger();
@@ -193,7 +194,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
     /** A 10MiB preallocation to ensure the heap is reasonably sized. */
     public static byte[] memoryReserve = new byte[10485760];
-    private static final List<DisplayMode> macDisplayModes = Lists.newArrayList(new DisplayMode[] {new DisplayMode(2560, 1600), new DisplayMode(2880, 1800)});
+    private static final List<DisplayMode> macDisplayModes = Lists.newArrayList(new DisplayMode(2560, 1600), new DisplayMode(2880, 1800));
     private final File fileResourcepacks;
     private final PropertyMap twitchDetails;
 
@@ -210,7 +211,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     private static Minecraft theMinecraft;
     public PlayerControllerMP playerController;
     private boolean fullscreen;
-    private boolean enableGLErrorChecking = true;
+    private final boolean enableGLErrorChecking = true;
     private boolean hasCrashed;
 
     /** Instance of CrashReport. */
@@ -220,10 +221,10 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
     /** True if the player is connected to a realms server */
     private boolean connectedToRealms = false;
-    private Timer timer = new Timer(20.0F);
+    private final Timer timer = new Timer(20.0F);
 
     /** Instance of PlayerUsageSnooper. */
-    private PlayerUsageSnooper usageSnooper = new PlayerUsageSnooper("client", this, MinecraftServer.getCurrentTimeMillis());
+    private final PlayerUsageSnooper usageSnooper = new PlayerUsageSnooper("client", this, MinecraftServer.getCurrentTimeMillis());
     public WorldClient theWorld;
     public RenderGlobal renderGlobal;
     private RenderManager renderManager;
@@ -249,10 +250,10 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     private int leftClickCounter;
 
     /** Display width */
-    private int tempDisplayWidth;
+    private final int tempDisplayWidth;
 
     /** Display height */
-    private int tempDisplayHeight;
+    private final int tempDisplayHeight;
 
     /** Instance of IntegratedServer. */
     private IntegratedServer theIntegratedServer;
@@ -447,7 +448,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             {
                 this.addGraphicsAndWorldToCrashReport(reportedexception.getCrashReport());
                 this.freeMemory();
-                logger.fatal((String)"Reported exception thrown!", (Throwable)reportedexception);
+                logger.fatal("Reported exception thrown!", (Throwable)reportedexception);
                 this.displayCrashReport(reportedexception.getCrashReport());
                 break;
             }
@@ -614,7 +615,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     {
         try
         {
-            this.stream = new TwitchStream(this, (Property)Iterables.getFirst(this.twitchDetails.get("twitch_access_token"), null));
+            this.stream = new TwitchStream(this, Iterables.getFirst(this.twitchDetails.get("twitch_access_token"), null));
         }
         catch (Throwable throwable)
         {
@@ -634,7 +635,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         }
         catch (LWJGLException lwjglexception)
         {
-            logger.error((String)"Couldn\'t set pixel format", (Throwable)lwjglexception);
+            logger.error("Couldn\'t set pixel format", (Throwable)lwjglexception);
 
             try
             {
@@ -690,7 +691,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             }
             catch (IOException ioexception)
             {
-                logger.error((String)"Couldn\'t set icon", (Throwable)ioexception);
+                logger.error("Couldn\'t set icon", (Throwable)ioexception);
             }
             finally
             {
@@ -807,7 +808,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         }
         catch (RuntimeException runtimeexception)
         {
-            logger.info((String)"Caught error stitching, removing all assigned resourcepacks", (Throwable)runtimeexception);
+            logger.info("Caught error stitching, removing all assigned resourcepacks", (Throwable)runtimeexception);
             list.clear();
             list.addAll(this.defaultResourcePacks);
             this.mcResourcePackRepository.setRepositories(Collections.<ResourcePackRepository.Entry>emptyList());
@@ -919,7 +920,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         }
         catch (IOException ioexception)
         {
-            logger.error((String)("Unable to load logo: " + locationMojangPng), (Throwable)ioexception);
+            logger.error("Unable to load logo: " + locationMojangPng, (Throwable)ioexception);
         }
         finally
         {
@@ -1007,7 +1008,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             this.ingameGUI.getChatGUI().clearChatMessages();
         }
 
-        this.currentScreen = (GuiScreen)guiScreenIn;
+        this.currentScreen = guiScreenIn;
 
         if (guiScreenIn != null)
         {
@@ -1015,7 +1016,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             ScaledResolution scaledresolution = new ScaledResolution(this);
             int i = scaledresolution.getScaledWidth();
             int j = scaledresolution.getScaledHeight();
-            ((GuiScreen)guiScreenIn).setWorldAndResolution(this, i, j);
+            guiScreenIn.setWorldAndResolution(this, i, j);
             this.skipRenderWorld = false;
         }
         else
@@ -1299,7 +1300,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
         if (list != null && !list.isEmpty())
         {
-            Profiler.Result profiler$result = (Profiler.Result)list.remove(0);
+            Profiler.Result profiler$result = list.remove(0);
 
             if (keyCount == 0)
             {
@@ -1317,14 +1318,14 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             {
                 --keyCount;
 
-                if (keyCount < list.size() && !((Profiler.Result)list.get(keyCount)).field_76331_c.equals("unspecified"))
+                if (keyCount < list.size() && !list.get(keyCount).field_76331_c.equals("unspecified"))
                 {
                     if (this.debugProfilerName.length() > 0)
                     {
                         this.debugProfilerName = this.debugProfilerName + ".";
                     }
 
-                    this.debugProfilerName = this.debugProfilerName + ((Profiler.Result)list.get(keyCount)).field_76331_c;
+                    this.debugProfilerName = this.debugProfilerName + list.get(keyCount).field_76331_c;
                 }
             }
         }
@@ -1338,7 +1339,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         if (this.mcProfiler.profilingEnabled)
         {
             List<Profiler.Result> list = this.mcProfiler.getProfilingData(this.debugProfilerName);
-            Profiler.Result profiler$result = (Profiler.Result)list.remove(0);
+            Profiler.Result profiler$result = list.remove(0);
             GlStateManager.clear(256);
             GlStateManager.matrixMode(5889);
             GlStateManager.enableColorMaterial();
@@ -1366,7 +1367,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
             for (int l = 0; l < list.size(); ++l)
             {
-                Profiler.Result profiler$result1 = (Profiler.Result)list.get(l);
+                Profiler.Result profiler$result1 = list.get(l);
                 int i1 = MathHelper.floor_double(profiler$result1.field_76332_a / 4.0D) + 1;
                 worldrenderer.begin(6, DefaultVertexFormats.POSITION_COLOR);
                 int j1 = profiler$result1.getColor();
@@ -1423,7 +1424,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
             for (int k2 = 0; k2 < list.size(); ++k2)
             {
-                Profiler.Result profiler$result2 = (Profiler.Result)list.get(k2);
+                Profiler.Result profiler$result2 = list.get(k2);
                 String s1 = "";
 
                 if (profiler$result2.field_76331_c.equals("unspecified"))
@@ -1700,7 +1701,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         }
         catch (Exception exception)
         {
-            logger.error((String)"Couldn\'t toggle fullscreen", (Throwable)exception);
+            logger.error("Couldn\'t toggle fullscreen", (Throwable)exception);
         }
     }
 
@@ -2952,7 +2953,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     {
         for (int i = 16384; i > 0; i >>= 1)
         {
-            GL11.glTexImage2D(GL11.GL_PROXY_TEXTURE_2D, 0, GL11.GL_RGBA, i, i, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (ByteBuffer)((ByteBuffer)null));
+            GL11.glTexImage2D(GL11.GL_PROXY_TEXTURE_2D, 0, GL11.GL_RGBA, i, i, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (ByteBuffer)null);
             int j = GL11.glGetTexLevelParameteri(GL11.GL_PROXY_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH);
 
             if (j != 0)
