@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Lightweight GLFW-backed replacement for LWJGL2 Display.
+ * Lightweight GLFW-backed replacement for legacy Display API usage.
  * Only methods used by Minecraft 1.8.9 are implemented.
  */
 public final class Display {

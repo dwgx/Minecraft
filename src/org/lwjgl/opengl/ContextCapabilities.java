@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * LWJGL2-style compatibility view over LWJGL3 capabilities.
+ * Legacy LWJGL-style compatibility view over LWJGL3 capabilities.
  */
 public class ContextCapabilities {
     private static final Map<String, Field> GL_CAPABILITY_FIELDS = buildGLCapabilityFieldMap();

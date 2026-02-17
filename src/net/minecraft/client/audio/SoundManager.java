@@ -32,7 +32,6 @@ import paulscode.sound.SoundSystemException;
 import paulscode.sound.SoundSystemLogger;
 import paulscode.sound.Source;
 import paulscode.sound.codecs.CodecJOrbis;
-import paulscode.sound.libraries.LibraryLWJGLOpenAL;
 
 public class SoundManager
 {
@@ -75,12 +74,37 @@ public class SoundManager
 
         try
         {
-            SoundSystemConfig.addLibrary(LibraryLWJGLOpenAL.class);
+            if (!this.tryAddLibrary("paulscode.sound.libraries.LibraryLWJGLOpenAL"))
+            {
+                this.tryAddLibrary("paulscode.sound.libraries.LibraryJavaSound");
+            }
+
             SoundSystemConfig.setCodec("ogg", CodecJOrbis.class);
         }
         catch (SoundSystemException soundsystemexception)
         {
-            logger.error(LOG_MARKER, (String)"Error linking with the LibraryJavaSound plug-in", (Throwable)soundsystemexception);
+            logger.error(LOG_MARKER, (String)"Error linking sound library plug-ins", (Throwable)soundsystemexception);
+        }
+    }
+
+    private boolean tryAddLibrary(String className) throws SoundSystemException
+    {
+        try
+        {
+            Class<?> oclass = Class.forName(className);
+            SoundSystemConfig.addLibrary((Class)oclass);
+            logger.info(LOG_MARKER, "Using sound library {}", new Object[] {className});
+            return true;
+        }
+        catch (ClassNotFoundException var3)
+        {
+            logger.warn(LOG_MARKER, "Sound library not present: {}", new Object[] {className});
+            return false;
+        }
+        catch (NoClassDefFoundError var4)
+        {
+            logger.warn(LOG_MARKER, "Sound library failed to link: {}", new Object[] {className});
+            return false;
         }
     }
 

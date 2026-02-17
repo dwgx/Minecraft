@@ -85,7 +85,7 @@ public final class AL {
     }
 
     /**
-     * LWJGL2-compatible bootstrap: opens default device, creates context, and sets capabilities.
+     * Legacy-compatible bootstrap: opens default device, creates context, and sets capabilities.
      */
     public static synchronized void create() throws LWJGLException {
         if (created) {

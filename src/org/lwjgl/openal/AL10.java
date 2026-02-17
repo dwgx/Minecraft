@@ -38,7 +38,7 @@ import static org.lwjgl.system.MemoryUtil.*;
 
 public class AL10 {
 
-    // LWJGL2 compatibility overloads used by paulscode SoundSystem
+    // Legacy API compatibility overloads used by paulscode SoundSystem
     public static void alListener(int paramName, FloatBuffer values) {
         alListenerfv(paramName, values);
     }

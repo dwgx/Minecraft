@@ -7,7 +7,7 @@ import java.util.Arrays;
 import java.util.Queue;
 
 /**
- * GLFW-backed LWJGL2 keyboard compatibility layer.
+ * GLFW-backed keyboard compatibility layer for legacy LWJGL-style callers.
  */
 public final class Keyboard {
     private static final int MAX_EVENT_QUEUE_SIZE = 1024;

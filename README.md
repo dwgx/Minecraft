@@ -6,7 +6,7 @@ Only manual tweak: a small loop-init fix in `StructureMineshaftPieces.Room` so i
 ## Project layout
 
 - `src/` – full decompiled and deobfuscated client sources.
-- `lib/` – only the runtime/compile-time JARs shipped with 1.8.9 (authlib 1.5.21, LWJGL 2.9.4-nightly, Netty 4.0.23, etc.).
+- `lib/` – only the runtime/compile-time JARs shipped with 1.8.9 (authlib 1.5.21, LWJGL 3.3.3 with compatibility shims, Netty 4.0.23, etc.).
 - `natives/` – Windows native DLLs from the vanilla distribution.
 
 ## Prerequisites
