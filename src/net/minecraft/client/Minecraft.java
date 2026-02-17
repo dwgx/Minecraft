@@ -13,9 +13,6 @@ import com.mojang.authlib.minecraft.MinecraftSessionService;
 import com.mojang.authlib.properties.Property;
 import com.mojang.authlib.properties.PropertyMap;
 import com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService;
-import dwgx.DwgxAdaptiveFpsController;
-import dwgx.DwgxNvidiaOptimizer;
-import dwgx.ui.DwgxNanoUiOverlay;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -321,7 +318,6 @@ public class Minecraft implements IThreadListener, IPlayerUsage
      */
     private long debugCrashKeyPressTime = -1L;
     private boolean disableYield;
-    private DwgxNanoUiOverlay dwgxUiOverlay;
     private IReloadableResourceManager mcResourceManager;
     private final IMetadataSerializer metadataSerializer_ = new IMetadataSerializer();
     private final List<IResourcePack> defaultResourcePacks = Lists.<IResourcePack>newArrayList();
@@ -493,8 +489,6 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         this.setInitialDisplayMode();
         this.createDisplay();
         OpenGlHelper.initializeTextures();
-        DwgxNvidiaOptimizer.applyOnce(this.gameSettings);
-        this.dwgxUiOverlay = DwgxNanoUiOverlay.create(this);
         this.framebufferMc = new Framebuffer(this.displayWidth, this.displayHeight, true);
         this.framebufferMc.setFramebufferColor(0.0F, 0.0F, 0.0F, 0.0F);
         this.registerMetadataSerializers();
@@ -1074,12 +1068,6 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         }
         finally
         {
-            if (this.dwgxUiOverlay != null)
-            {
-                this.dwgxUiOverlay.destroy();
-                this.dwgxUiOverlay = null;
-            }
-
             Display.destroy();
 
             if (!this.hasCrashed)
@@ -1186,12 +1174,6 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         this.framebufferMc.framebufferRender(this.displayWidth, this.displayHeight);
         GlStateManager.popMatrix();
         GlStateManager.pushMatrix();
-        if (this.dwgxUiOverlay != null)
-        {
-            this.dwgxUiOverlay.render(this.timer.renderPartialTicks);
-        }
-        GlStateManager.popMatrix();
-        GlStateManager.pushMatrix();
         this.entityRenderer.renderStreamIndicator(this.timer.renderPartialTicks);
         GlStateManager.popMatrix();
         this.mcProfiler.startSection("root");
@@ -1218,7 +1200,6 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         {
             debugFPS = this.fpsCounter;
             this.debug = String.format("%d fps (%d chunk update%s) T: %s%s%s%s%s", new Object[] {Integer.valueOf(debugFPS), Integer.valueOf(RenderChunk.renderChunksUpdated), RenderChunk.renderChunksUpdated != 1 ? "s" : "", (float)this.gameSettings.limitFramerate == GameSettings.Options.FRAMERATE_LIMIT.getValueMax() ? "inf" : Integer.valueOf(this.gameSettings.limitFramerate), this.gameSettings.enableVsync ? " vsync" : "", this.gameSettings.fancyGraphics ? "" : " fast", this.gameSettings.clouds == 0 ? "" : (this.gameSettings.clouds == 1 ? " fast-clouds" : " fancy-clouds"), OpenGlHelper.useVbo() ? " vbo" : ""});
-            DwgxAdaptiveFpsController.onFpsSample(this.gameSettings, debugFPS);
             RenderChunk.renderChunksUpdated = 0;
             this.debugUpdateTime += 1000L;
             this.fpsCounter = 0;
@@ -3345,3 +3326,5 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         this.connectedToRealms = isConnected;
     }
 }
+
+

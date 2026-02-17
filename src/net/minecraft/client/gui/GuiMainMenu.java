@@ -26,6 +26,7 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.demo.DemoWorldServer;
 import net.minecraft.world.storage.ISaveFormat;
 import net.minecraft.world.storage.WorldInfo;
+import dwgx.ui.MainMenuSession;
 import org.apache.commons.io.Charsets;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -86,6 +87,7 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
     private GuiButton realmsButton;
     private boolean field_183502_L;
     private GuiScreen field_183503_M;
+    private MainMenuSession dwgxSession;
 
     public GuiMainMenu()
     {
@@ -252,6 +254,13 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
             this.field_183503_M.setGuiSize(this.width, this.height);
             this.field_183503_M.initGui();
         }
+
+        if (this.dwgxSession == null)
+        {
+            this.dwgxSession = new MainMenuSession(this.mc);
+        }
+
+        this.dwgxSession.setScreenSize(this.width, this.height);
     }
 
     /**
@@ -585,6 +594,11 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
 
         super.drawScreen(mouseX, mouseY, partialTicks);
 
+        if (this.dwgxSession != null)
+        {
+            this.dwgxSession.render(this, mouseX, mouseY, partialTicks);
+        }
+
         if (this.func_183501_a())
         {
             this.field_183503_M.drawScreen(mouseX, mouseY, partialTicks);
@@ -597,6 +611,11 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException
     {
         super.mouseClicked(mouseX, mouseY, mouseButton);
+
+        if (this.dwgxSession != null)
+        {
+            this.dwgxSession.mouseClicked(mouseX, mouseY, mouseButton);
+        }
 
         synchronized (this.threadLock)
         {
@@ -614,6 +633,16 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
         }
     }
 
+    protected void mouseReleased(int mouseX, int mouseY, int state)
+    {
+        super.mouseReleased(mouseX, mouseY, state);
+
+        if (this.dwgxSession != null)
+        {
+            this.dwgxSession.mouseReleased(mouseX, mouseY, state);
+        }
+    }
+
     /**
      * Called when the screen is unloaded. Used to disable keyboard repeat events
      */
@@ -625,3 +654,5 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
         }
     }
 }
+
+
