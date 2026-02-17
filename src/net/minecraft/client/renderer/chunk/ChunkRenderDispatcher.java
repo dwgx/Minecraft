@@ -27,9 +27,14 @@ public class ChunkRenderDispatcher
 {
     private static final Logger logger = LogManager.getLogger();
     private static final ThreadFactory threadFactory = (new ThreadFactoryBuilder()).setNameFormat("Chunk Batcher %d").setDaemon(true).build();
+    private static final int MIN_CHUNK_WORKERS = 2;
+    private static final int MAX_CHUNK_WORKERS = 8;
+    private static final int MAX_RENDER_BUILDERS = 16;
+    private final int workerCount;
+    private final int renderBuilderCount;
     private final List<ChunkRenderWorker> listThreadedWorkers = Lists.<ChunkRenderWorker>newArrayList();
     private final BlockingQueue<ChunkCompileTaskGenerator> queueChunkUpdates = Queues.<ChunkCompileTaskGenerator>newArrayBlockingQueue(100);
-    private final BlockingQueue<RegionRenderCacheBuilder> queueFreeRenderBuilders = Queues.<RegionRenderCacheBuilder>newArrayBlockingQueue(5);
+    private final BlockingQueue<RegionRenderCacheBuilder> queueFreeRenderBuilders;
     private final WorldVertexBufferUploader worldVertexUploader = new WorldVertexBufferUploader();
     private final VertexBufferUploader vertexUploader = new VertexBufferUploader();
     private final Queue < ListenableFutureTask<? >> queueChunkUploads = Queues. < ListenableFutureTask<? >> newArrayDeque();
@@ -37,7 +42,11 @@ public class ChunkRenderDispatcher
 
     public ChunkRenderDispatcher()
     {
-        for (int i = 0; i < 2; ++i)
+        this.workerCount = getChunkWorkerCount();
+        this.renderBuilderCount = getRenderBuilderCount(this.workerCount);
+        this.queueFreeRenderBuilders = Queues.<RegionRenderCacheBuilder>newArrayBlockingQueue(this.renderBuilderCount);
+
+        for (int i = 0; i < this.workerCount; ++i)
         {
             ChunkRenderWorker chunkrenderworker = new ChunkRenderWorker(this);
             Thread thread = threadFactory.newThread(chunkrenderworker);
@@ -45,7 +54,7 @@ public class ChunkRenderDispatcher
             this.listThreadedWorkers.add(chunkrenderworker);
         }
 
-        for (int j = 0; j < 5; ++j)
+        for (int j = 0; j < this.renderBuilderCount; ++j)
         {
             this.queueFreeRenderBuilders.add(new RegionRenderCacheBuilder());
         }
@@ -55,7 +64,54 @@ public class ChunkRenderDispatcher
 
     public String getDebugInfo()
     {
-        return String.format("pC: %03d, pU: %1d, aB: %1d", new Object[] {Integer.valueOf(this.queueChunkUpdates.size()), Integer.valueOf(this.queueChunkUploads.size()), Integer.valueOf(this.queueFreeRenderBuilders.size())});
+        return String.format("pC: %03d, pU: %1d, aB: %1d, w: %1d", new Object[] {Integer.valueOf(this.queueChunkUpdates.size()), Integer.valueOf(this.queueChunkUploads.size()), Integer.valueOf(this.queueFreeRenderBuilders.size()), Integer.valueOf(this.workerCount)});
+    }
+
+    private static int getChunkWorkerCount()
+    {
+        Integer override = parsePositiveInt(System.getProperty("lwjgl3.chunkWorkers"));
+
+        if (override != null)
+        {
+            return clamp(override.intValue(), MIN_CHUNK_WORKERS, MAX_CHUNK_WORKERS);
+        }
+
+        if (Boolean.getBoolean("lwjgl3.aggressiveOptimize"))
+        {
+            int suggested = Runtime.getRuntime().availableProcessors() / 2;
+            return clamp(suggested, MIN_CHUNK_WORKERS, MAX_CHUNK_WORKERS);
+        }
+
+        return MIN_CHUNK_WORKERS;
+    }
+
+    private static int getRenderBuilderCount(int workerCount)
+    {
+        int builders = workerCount + 3;
+        return clamp(builders, 5, MAX_RENDER_BUILDERS);
+    }
+
+    private static Integer parsePositiveInt(String value)
+    {
+        if (value == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            int parsed = Integer.parseInt(value.trim());
+            return parsed > 0 ? Integer.valueOf(parsed) : null;
+        }
+        catch (NumberFormatException var2)
+        {
+            return null;
+        }
+    }
+
+    private static int clamp(int value, int min, int max)
+    {
+        return Math.max(min, Math.min(max, value));
     }
 
     public boolean runChunkUploads(long p_178516_1_)
@@ -163,7 +219,7 @@ public class ChunkRenderDispatcher
 
         List<RegionRenderCacheBuilder> list = Lists.<RegionRenderCacheBuilder>newArrayList();
 
-        while (((List)list).size() != 5)
+        while (((List)list).size() != this.renderBuilderCount)
         {
             try
             {

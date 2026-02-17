@@ -297,12 +297,15 @@ public final class Display {
         }
 
         GLFWImage.Buffer glfwIcons = GLFWImage.malloc(validCount);
+        // Keep strong references until glfwSetWindowIcon returns.
+        ByteBuffer[] nativeIconRefs = new ByteBuffer[validCount];
         int index = 0;
         for (int i = 0; i < icons.length; i++) {
             if (sizes[i] <= 0) {
                 continue;
             }
             ByteBuffer iconData = toNativeIconBuffer(icons[i]);
+            nativeIconRefs[index] = iconData;
             glfwIcons.position(index);
             glfwIcons.width(sizes[i]);
             glfwIcons.height(sizes[i]);

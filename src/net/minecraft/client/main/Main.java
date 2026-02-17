@@ -28,6 +28,9 @@ public class Main
         optionparser.accepts("demo");
         optionparser.accepts("fullscreen");
         optionparser.accepts("checkGlErrors");
+        optionparser.accepts("aggressiveOptimize");
+        optionparser.accepts("autoTuneFps");
+        optionparser.accepts("dwgxUi");
         OptionSpec<String> optionspec = optionparser.accepts("server").withRequiredArg();
         OptionSpec<Integer> optionspec1 = optionparser.accepts("port").withRequiredArg().ofType(Integer.class).defaultsTo(Integer.valueOf(25565), new Integer[0]);
         OptionSpec<File> optionspec2 = optionparser.accepts("gameDir").withRequiredArg().ofType(File.class).defaultsTo(new File("."), new File[0]);
@@ -47,6 +50,8 @@ public class Main
         OptionSpec<String> optionspec16 = optionparser.accepts("profileProperties").withRequiredArg().defaultsTo("{}", new String[0]);
         OptionSpec<String> optionspec17 = optionparser.accepts("assetIndex").withRequiredArg();
         OptionSpec<String> optionspec18 = optionparser.accepts("userType").withRequiredArg().defaultsTo("legacy", new String[0]);
+        OptionSpec<Integer> optionspec20 = optionparser.accepts("chunkWorkers").withRequiredArg().ofType(Integer.class);
+        OptionSpec<Integer> optionspec21 = optionparser.accepts("fpsTarget").withRequiredArg().ofType(Integer.class).defaultsTo(Integer.valueOf(120), new Integer[0]);
         OptionSpec<String> optionspec19 = optionparser.nonOptions();
         OptionSet optionset = optionparser.parse(p_main_0_);
         List<String> list = optionset.valuesOf(optionspec19);
@@ -90,7 +95,43 @@ public class Main
         boolean flag = optionset.has("fullscreen");
         boolean flag1 = optionset.has("checkGlErrors");
         boolean flag2 = optionset.has("demo");
+        boolean flag3 = optionset.has("aggressiveOptimize");
+        boolean flag4 = optionset.has("autoTuneFps");
+        boolean flag5 = optionset.has("dwgxUi");
         String s3 = (String)optionset.valueOf(optionspec12);
+
+        if (flag3)
+        {
+            System.setProperty("lwjgl3.aggressiveOptimize", "true");
+            System.setProperty("lwjgl3.disableYield", "true");
+            System.err.println("[LWJGL3-LAUNCH] Aggressive optimize profile enabled");
+        }
+
+        if (flag4)
+        {
+            int l = clamp(((Integer)optionset.valueOf(optionspec21)).intValue(), 45, 300);
+            System.setProperty("lwjgl3.autoTuneFps", "true");
+            System.setProperty("lwjgl3.autoTuneFpsTarget", Integer.toString(l));
+            System.err.println("[LWJGL3-LAUNCH] Adaptive FPS tuner enabled (target=" + l + ")");
+        }
+
+        if (flag5)
+        {
+            System.setProperty("dwgx.ui.enabled", "true");
+            System.err.println("[LWJGL3-LAUNCH] DWGX NanoVG UI overlay enabled");
+        }
+
+        if (optionset.has(optionspec20))
+        {
+            int k = ((Integer)optionset.valueOf(optionspec20)).intValue();
+
+            if (k > 0)
+            {
+                System.setProperty("lwjgl3.chunkWorkers", Integer.toString(k));
+                System.err.println("[LWJGL3-LAUNCH] Chunk worker override: " + k);
+            }
+        }
+
         Gson gson = (new GsonBuilder()).registerTypeAdapter(PropertyMap.class, new Serializer()).create();
         PropertyMap propertymap = (PropertyMap)gson.fromJson((String)optionset.valueOf(optionspec15), PropertyMap.class);
         PropertyMap propertymap1 = (PropertyMap)gson.fromJson((String)optionset.valueOf(optionspec16), PropertyMap.class);
@@ -117,6 +158,11 @@ public class Main
     private static boolean hasValue(String str)
     {
         return str != null && !str.isEmpty();
+    }
+
+    private static int clamp(int value, int min, int max)
+    {
+        return Math.max(min, Math.min(max, value));
     }
 
     private static File expandEnvInFile(File file)

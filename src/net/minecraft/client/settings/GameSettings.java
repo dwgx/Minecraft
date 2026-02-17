@@ -86,7 +86,7 @@ public class GameSettings
     public boolean snooperEnabled = true;
     public boolean fullScreen;
     public boolean enableVsync = true;
-    public boolean useVbo = false;
+    public boolean useVbo = true;
     public boolean allowBlockAlternatives = true;
     public boolean reducedDebugInfo = false;
     public boolean hideServerAddress;
@@ -203,6 +203,7 @@ public class GameSettings
 
         this.renderDistanceChunks = mcIn.isJava64bit() ? 12 : 8;
         this.loadOptions();
+        this.applyAggressiveRuntimeProfile();
     }
 
     public GameSettings()
@@ -213,6 +214,27 @@ public class GameSettings
         this.fovSetting = 70.0F;
         this.language = "en_US";
         this.forceUnicodeFont = false;
+    }
+
+    private void applyAggressiveRuntimeProfile()
+    {
+        if (!Boolean.getBoolean("lwjgl3.aggressiveOptimize"))
+        {
+            return;
+        }
+
+        this.enableVsync = false;
+        this.useVbo = true;
+        this.fboEnable = false;
+        this.fancyGraphics = false;
+        this.ambientOcclusion = 0;
+        this.clouds = 0;
+        this.mipmapLevels = 0;
+        this.viewBobbing = false;
+        this.entityShadows = false;
+        this.particleSetting = 2;
+        this.limitFramerate = 260;
+        this.renderDistanceChunks = Math.min(MathHelper.clamp_int(this.renderDistanceChunks, 2, (int)GameSettings.Options.RENDER_DISTANCE.getValueMax()), 10);
     }
 
     /**
