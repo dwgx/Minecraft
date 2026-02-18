@@ -448,7 +448,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
             this.resolveAnimationEnabled(clickGui)
         );
         NanoUi.drawLeftText(vg, stack, bold, track.x, track.y - scaled(11.0F, k), scaled(14.5F, k), theme.textArgb(), label);
-        this.drawSliderValueInput(vg, stack, regular, theme, valueRect, track, sliderKey, value, k);
+        this.drawSliderValueInput(vg, stack, regular, theme, valueRect, track, sliderKey, value, k, hovered);
         int trackFill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.44F + focus * 0.30F));
         float trackRadius = Math.min(track.h * 0.5F, theme.controlRadius());
         NanoUi.drawSurface(vg, stack, track.x, track.y, track.w, track.h, trackRadius, trackFill, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 112));
@@ -468,7 +468,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         }
     }
 
-    private void drawSliderValueInput(long vg, MemoryStack stack, int font, NanoTheme theme, Rect valueRect, Rect track, String sliderKey, float value, float scale)
+    private void drawSliderValueInput(long vg, MemoryStack stack, int font, NanoTheme theme, Rect valueRect, Rect track, String sliderKey, float value, float scale, boolean hoveredTrack)
     {
         if (valueRect == null)
         {
@@ -476,20 +476,22 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
             return;
         }
 
-        boolean hovered = valueRect.contains(this.mouseX, this.mouseY);
+        boolean fieldHovered = valueRect.contains(this.mouseX, this.mouseY);
         boolean active = sliderKey.equals(this.activeSliderInputKey) && this.numberInput.isFocused();
+        String animKey = "uiscale.slider.input." + sliderKey;
 
         if (active)
         {
-            this.numberInput.draw(vg, stack, font, theme, valueRect.x, valueRect.y, valueRect.w, valueRect.h, scale, scaled(10.2F, scale), this.numberInputBuffer.get(), this.tr("clickgui.input.number.placeholder", "Input..."), hovered, true, "uiscale.slider.input." + sliderKey);
+            this.numberInput.draw(vg, stack, font, theme, valueRect.x, valueRect.y, valueRect.w, valueRect.h, scale, scaled(10.2F, scale), this.numberInputBuffer.get(), this.tr("clickgui.input.number.placeholder", "Input..."), hoveredTrack || fieldHovered, true, animKey);
             return;
         }
 
-        int fill = hovered ? theme.controlHoverArgb() : theme.controlArgb();
-        int border = NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 92);
+        float focus = UiAnimationBus.animate(animKey + ".idle.focus", fieldHovered ? 1.0F : 0.0F, 0.58F, 0.62F, UiAnimation.Type.EASE_OUT, true);
+        int fill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.38F + focus * 0.32F));
+        int border = this.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 92), NanoRenderUtils.withAlpha(theme.accentArgb(), 142), UiMotion.clamp01(focus * 0.72F));
         float radius = Math.min(valueRect.h * 0.5F, Math.max(2.0F, theme.controlRadius()));
         NanoUi.drawSurface(vg, stack, valueRect.x, valueRect.y, valueRect.w, valueRect.h, radius, fill, border);
-        NanoUi.drawRightText(vg, stack, font, valueRect.x2() - scaled(4.0F, scale), valueRect.y + valueRect.h * 0.5F + scaled(0.35F, scale), scaled(10.2F, scale), theme.textMutedArgb(), this.formatSliderValue(sliderKey, value));
+        NanoUi.drawRightText(vg, stack, font, valueRect.x2() - scaled(5.0F, scale), valueRect.y + valueRect.h * 0.5F + scaled(0.40F, scale), scaled(10.3F, scale), theme.textMutedArgb(), this.formatSliderValue(sliderKey, value));
     }
 
     private void drawButton(long vg, MemoryStack stack, int regular, NanoTheme theme, Rect button, String label, boolean active)
@@ -1239,9 +1241,9 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         }
 
         float k = UiMotion.clamp(scale, 0.35F, 1.85F);
-        float w = scaled(82.0F, k);
-        float h = scaled(16.0F, k);
-        float y = track.y - h - scaled(3.0F, k);
+        float w = scaled(90.0F, k);
+        float h = scaled(18.0F, k);
+        float y = track.y - h - scaled(4.0F, k);
         return new Rect(track.x2() - w, y, w, h);
     }
 

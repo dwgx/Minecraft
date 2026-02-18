@@ -4,9 +4,12 @@ import client.core.ClientBootstrap;
 import client.module.Module;
 import client.module.impl.client.ClickGuiModule;
 import client.render.RenderContext2D;
+import client.setting.StringSetting;
 import client.ui.NanoRenderableScreen;
 import client.ui.template.NanoSliderController;
+import client.ui.template.NanoTextInput;
 import client.ui.template.UiAnimation;
+import client.ui.template.UiAnimationBus;
 import client.ui.template.UiMotion;
 import dwgx.nano.NanoFontBook;
 import dwgx.nano.NanoPalette;
@@ -49,6 +52,10 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
     private int mouseX;
     private int mouseY;
     private long lastSliderDragNanos;
+    private long lastNanoVg;
+    private String activeSliderInputKey;
+    private final StringSetting numberInputBuffer = new StringSetting("__hud_editor_number_input_buffer", "Number Input", "HUD editor inline number input buffer", "", 24);
+    private final NanoTextInput numberInput = new NanoTextInput();
 
     private boolean draggingElement;
     private int dragStartMouseX;
@@ -91,6 +98,9 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
     public void initGui()
     {
         this.selection.clear();
+        this.activeSliderInputKey = null;
+        this.numberInputBuffer.set("");
+        this.numberInput.blur();
 
         if (this.panelX <= 0.0F || this.panelY <= 0.0F)
         {
@@ -109,6 +119,19 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
 
     protected void keyTyped(char typedChar, int keyCode) throws IOException
     {
+        if (this.activeSliderInputKey != null && this.numberInput.isFocused())
+        {
+            if (this.numberInput.handleKeyTyped(typedChar, keyCode, this.numberInputBuffer))
+            {
+                if (!this.numberInput.isFocused())
+                {
+                    this.commitActiveNumberInput();
+                }
+
+                return;
+            }
+        }
+
         if (keyCode == 1)
         {
             this.mc.displayGuiScreen((GuiScreen)null);
@@ -171,6 +194,18 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
     {
         HudElement selected = this.selection.getSelected();
         PanelLayout p = this.panelLayout();
+        this.validateActiveSliderInput(selected, p);
+
+        if (mouseButton == 0 && this.activeSliderInputKey != null)
+        {
+            Rect activeRect = this.activeSliderInputRect(p, this.activeSliderInputKey);
+
+            if (activeRect == null || !activeRect.contains(mouseX, mouseY))
+            {
+                this.commitActiveNumberInput();
+                this.numberInput.blur();
+            }
+        }
 
         if (mouseButton == 1)
         {
@@ -232,6 +267,24 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
 
             if (selected != null)
             {
+                if (p.offsetXValue.contains(mouseX, mouseY))
+                {
+                    this.activateSliderInput(p.offsetXValue, p.scale, mouseX, mouseY, "offset_x", selected.getTransform().getOffsetX());
+                    return;
+                }
+
+                if (p.offsetYValue.contains(mouseX, mouseY))
+                {
+                    this.activateSliderInput(p.offsetYValue, p.scale, mouseX, mouseY, "offset_y", selected.getTransform().getOffsetY());
+                    return;
+                }
+
+                if (p.scaleValue.contains(mouseX, mouseY))
+                {
+                    this.activateSliderInput(p.scaleValue, p.scale, mouseX, mouseY, "scale", selected.getTransform().getScale());
+                    return;
+                }
+
                 if (p.enabledChip.contains(mouseX, mouseY))
                 {
                     selected.setEnabled(!selected.isEnabled());
@@ -240,6 +293,8 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
 
                 if (p.offsetXTrack.contains(mouseX, mouseY, 4.0F, 6.0F))
                 {
+                    this.commitActiveNumberInput();
+                    this.numberInput.blur();
                     this.draggingOffsetX = true;
                     this.applyOffsetXFromMouse(p, mouseX);
                     this.lastSliderDragNanos = System.nanoTime();
@@ -248,6 +303,8 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
 
                 if (p.offsetYTrack.contains(mouseX, mouseY, 4.0F, 6.0F))
                 {
+                    this.commitActiveNumberInput();
+                    this.numberInput.blur();
                     this.draggingOffsetY = true;
                     this.applyOffsetYFromMouse(p, mouseX);
                     this.lastSliderDragNanos = System.nanoTime();
@@ -256,6 +313,8 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
 
                 if (p.scaleTrack.contains(mouseX, mouseY, 4.0F, 6.0F))
                 {
+                    this.commitActiveNumberInput();
+                    this.numberInput.blur();
                     this.draggingScale = true;
                     this.applyScaleFromMouse(p, mouseX);
                     this.lastSliderDragNanos = System.nanoTime();
@@ -334,6 +393,16 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
             this.applyScaleFromMouse(p, mouseX);
             this.lastSliderDragNanos = System.nanoTime();
         }
+
+        if (this.activeSliderInputKey != null && this.numberInput.isFocused())
+        {
+            Rect inputRect = this.activeSliderInputRect(p, this.activeSliderInputKey);
+
+            if (inputRect != null)
+            {
+                this.numberInput.onMouseDrag(mouseX, inputRect.x, inputRect.w, this.lastNanoVg, NanoFontBook.uiRegular(), scaled(10.2F, p.scale), this.numberInputBuffer.get());
+            }
+        }
     }
 
     protected void mouseReleased(int mouseX, int mouseY, int state)
@@ -343,6 +412,7 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         this.draggingOffsetY = false;
         this.draggingScale = false;
         this.lastSliderDragNanos = 0L;
+        this.numberInput.onMouseUp();
         super.mouseReleased(mouseX, mouseY, state);
     }
 
@@ -403,6 +473,9 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
     public void onGuiClosed()
     {
         super.onGuiClosed();
+        this.commitActiveNumberInput();
+        this.activeSliderInputKey = null;
+        this.numberInput.blur();
         this.closeConfigPanel();
         this.draggingElement = false;
     }
@@ -421,6 +494,7 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
             return;
         }
 
+        this.lastNanoVg = vg;
         this.clampPanelToScreen();
 
         if (this.draggingElement)
@@ -433,6 +507,7 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         int regular = NanoFontBook.uiRegular();
         int bold = NanoFontBook.uiBold();
         HudElement selected = this.selection.getSelected();
+        this.validateActiveSliderInput(selected, this.panelLayout());
 
         try (MemoryStack stack = stackPush())
         {
@@ -477,9 +552,9 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         NanoUi.drawCenterText(vg, stack, regular, p.closeButton.x + p.closeButton.w * 0.5F, p.closeButton.y + p.closeButton.h * 0.5F, scaled(10.0F, scale), theme.textArgb(), this.tr("hud.editor.close", "Close"));
         this.drawChip(vg, stack, regular, theme, p.enabledChip, selected.isEnabled() ? this.tr("hud.editor.enabled", "Enabled") : this.tr("hud.editor.disabled", "Disabled"), selected.isEnabled());
 
-        this.drawSlider(vg, stack, regular, bold, theme, p.offsetXTrack, "offset_x", this.tr("hud.editor.offset_x", "Offset X"), t.getOffsetX(), OFFSET_MIN, OFFSET_MAX, this.draggingOffsetX, p.offsetXTrack.contains(this.mouseX, this.mouseY, 4.0F, 6.0F));
-        this.drawSlider(vg, stack, regular, bold, theme, p.offsetYTrack, "offset_y", this.tr("hud.editor.offset_y", "Offset Y"), t.getOffsetY(), OFFSET_MIN, OFFSET_MAX, this.draggingOffsetY, p.offsetYTrack.contains(this.mouseX, this.mouseY, 4.0F, 6.0F));
-        this.drawSlider(vg, stack, regular, bold, theme, p.scaleTrack, "scale", this.tr("hud.editor.scale", "Scale"), t.getScale(), SCALE_MIN, SCALE_MAX, this.draggingScale, p.scaleTrack.contains(this.mouseX, this.mouseY, 4.0F, 6.0F));
+        this.drawSlider(vg, stack, regular, bold, theme, p.offsetXTrack, p.offsetXValue, "offset_x", this.tr("hud.editor.offset_x", "Offset X"), t.getOffsetX(), OFFSET_MIN, OFFSET_MAX, this.draggingOffsetX, p.offsetXTrack.contains(this.mouseX, this.mouseY, 4.0F, 6.0F));
+        this.drawSlider(vg, stack, regular, bold, theme, p.offsetYTrack, p.offsetYValue, "offset_y", this.tr("hud.editor.offset_y", "Offset Y"), t.getOffsetY(), OFFSET_MIN, OFFSET_MAX, this.draggingOffsetY, p.offsetYTrack.contains(this.mouseX, this.mouseY, 4.0F, 6.0F));
+        this.drawSlider(vg, stack, regular, bold, theme, p.scaleTrack, p.scaleValue, "scale", this.tr("hud.editor.scale", "Scale"), t.getScale(), SCALE_MIN, SCALE_MAX, this.draggingScale, p.scaleTrack.contains(this.mouseX, this.mouseY, 4.0F, 6.0F));
 
         if (selected instanceof HudFpsElement)
         {
@@ -491,7 +566,7 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         this.drawChip(vg, stack, regular, theme, p.dockChip, this.tr("hud.editor.dock", "Dock: {0}", this.dockDisplayName(t.getDock())), p.dockChip.contains(this.mouseX, this.mouseY));
     }
 
-    private void drawSlider(long vg, MemoryStack stack, int regular, int bold, NanoTheme theme, Rect track, String sliderKey, String label, float value, float min, float max, boolean dragging, boolean hovered)
+    private void drawSlider(long vg, MemoryStack stack, int regular, int bold, NanoTheme theme, Rect track, Rect valueRect, String sliderKey, String label, float value, float min, float max, boolean dragging, boolean hovered)
     {
         float scale = UiMotion.clamp(track.h / 6.0F, 0.35F, 1.85F);
         ClickGuiModule clickGui = this.resolveClickGuiModule();
@@ -505,7 +580,7 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         float focus = NanoSliderController.resolveFocus("hud.editor.slider.focus." + key, hovered, dragging, clickGui == null ? 0.58F : clickGui.getControlAnimationSpeed(), smooth, animType, clickGui == null || clickGui.isGlobalAnimationEnabled());
 
         NanoUi.drawLeftText(vg, stack, bold, track.x, track.y - scaled(8.0F, scale), scaled(11.5F, scale), theme.textArgb(), label);
-        NanoUi.drawRightText(vg, stack, regular, track.x2(), track.y - scaled(8.0F, scale), scaled(10.0F, scale), theme.textMutedArgb(), formatSliderValue(sliderKey, value));
+        this.drawSliderValueInput(vg, stack, regular, theme, valueRect, track, sliderKey, value, scale, hovered);
 
         NanoUi.drawSurface(vg, stack, track.x, track.y, track.w, track.h, theme.controlRadius(), theme.controlArgb(), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 98));
         NanoUi.drawSurface(vg, stack, track.x + 1.0F, track.y + 1.0F, Math.max(0.0F, (track.w - 2.0F) * displayRatio), Math.max(0.0F, track.h - 2.0F), Math.max(2.0F, theme.controlRadius() - 1.0F), this.mixArgb(theme.controlActiveArgb(), theme.accentArgb(), 0.74F), 0);
@@ -515,6 +590,32 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         float knobX = handleX - knobSize * 0.5F;
         float knobY = track.y + (track.h - knobSize) * 0.5F;
         NanoUi.drawSurface(vg, stack, knobX, knobY, knobSize, knobSize, knobSize * 0.5F, this.mixArgb(theme.accentArgb(), 0xFFF8FBFF, 0.55F), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 110));
+    }
+
+    private void drawSliderValueInput(long vg, MemoryStack stack, int font, NanoTheme theme, Rect valueRect, Rect track, String sliderKey, float value, float scale, boolean hoveredTrack)
+    {
+        if (valueRect == null)
+        {
+            NanoUi.drawRightText(vg, stack, font, track.x2(), track.y - scaled(8.0F, scale), scaled(10.0F, scale), theme.textMutedArgb(), formatSliderValue(sliderKey, value));
+            return;
+        }
+
+        boolean fieldHovered = valueRect.contains(this.mouseX, this.mouseY);
+        boolean active = sliderKey.equals(this.activeSliderInputKey) && this.numberInput.isFocused();
+        String animKey = "hud.editor.slider.input." + sliderKey;
+
+        if (active)
+        {
+            this.numberInput.draw(vg, stack, font, theme, valueRect.x, valueRect.y, valueRect.w, valueRect.h, scale, scaled(10.2F, scale), this.numberInputBuffer.get(), this.tr("clickgui.input.number.placeholder", "Input..."), hoveredTrack || fieldHovered, true, animKey);
+            return;
+        }
+
+        float focus = UiAnimationBus.animate(animKey + ".idle.focus", fieldHovered ? 1.0F : 0.0F, 0.58F, 0.62F, UiAnimation.Type.EASE_OUT, true);
+        int fill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.38F + focus * 0.32F));
+        int border = this.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 92), NanoRenderUtils.withAlpha(theme.accentArgb(), 142), UiMotion.clamp01(focus * 0.72F));
+        float radius = Math.min(valueRect.h * 0.5F, Math.max(2.0F, theme.controlRadius()));
+        NanoUi.drawSurface(vg, stack, valueRect.x, valueRect.y, valueRect.w, valueRect.h, radius, fill, border);
+        NanoUi.drawRightText(vg, stack, font, valueRect.x2() - scaled(4.0F, scale), valueRect.y + valueRect.h * 0.5F + scaled(0.45F, scale), scaled(10.2F, scale), theme.textMutedArgb(), formatSliderValue(sliderKey, value));
     }
 
     private void drawChip(long vg, MemoryStack stack, int regular, NanoTheme theme, Rect chip, String text, boolean active)
@@ -527,6 +628,9 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
 
     private void closeConfigPanel()
     {
+        this.commitActiveNumberInput();
+        this.activeSliderInputKey = null;
+        this.numberInput.blur();
         this.panelOpen = false;
         this.draggingOffsetX = false;
         this.draggingOffsetY = false;
@@ -729,6 +833,7 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         float y = UiMotion.clamp(this.panelY, PANEL_MARGIN, Math.max(PANEL_MARGIN, (float)this.height - PANEL_HEIGHT - PANEL_MARGIN));
         float w = Math.min(PANEL_WIDTH, (float)this.width - PANEL_MARGIN * 2.0F);
         float h = Math.min(PANEL_HEIGHT, (float)this.height - PANEL_MARGIN * 2.0F);
+        float scale = UiMotion.clamp(w / PANEL_WIDTH, 0.35F, 1.85F);
         Rect panel = new Rect(x, y, w, h);
         float buttonY = panel.y + 8.0F;
         float buttonGap = 6.0F;
@@ -744,11 +849,14 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         Rect offsetXTrack = new Rect(panel.x + 10.0F, panel.y + 48.0F, panel.w - 20.0F, 5.0F);
         Rect offsetYTrack = new Rect(panel.x + 10.0F, panel.y + 82.0F, panel.w - 20.0F, 5.0F);
         Rect scaleTrack = new Rect(panel.x + 10.0F, panel.y + 116.0F, panel.w - 20.0F, 5.0F);
+        Rect offsetXValue = this.sliderValueRect(offsetXTrack, scale);
+        Rect offsetYValue = this.sliderValueRect(offsetYTrack, scale);
+        Rect scaleValue = this.sliderValueRect(scaleTrack, scale);
         Rect sourceChip = new Rect(panel.x + 10.0F, panel.y + 140.0F, panel.w - 20.0F, 20.0F);
         float chipW = (panel.w - 24.0F) * 0.5F;
         Rect anchorChip = new Rect(panel.x + 10.0F, panel.y + panel.h - 30.0F, chipW, 20.0F);
         Rect dockChip = new Rect(anchorChip.x2() + 4.0F, panel.y + panel.h - 30.0F, chipW, 20.0F);
-        return new PanelLayout(panel, enabledChip, resetButton, closeButton, offsetXTrack, offsetYTrack, scaleTrack, sourceChip, anchorChip, dockChip);
+        return new PanelLayout(panel, enabledChip, resetButton, closeButton, offsetXTrack, offsetYTrack, scaleTrack, offsetXValue, offsetYValue, scaleValue, sourceChip, anchorChip, dockChip, scale);
     }
 
     private void clampPanelToScreen()
@@ -829,6 +937,166 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         return formatOffset(value);
     }
 
+    private Rect sliderValueRect(Rect track, float scale)
+    {
+        if (track == null)
+        {
+            return null;
+        }
+
+        float k = UiMotion.clamp(scale, 0.35F, 1.85F);
+        float w = scaled(76.0F, k);
+        float h = scaled(18.0F, k);
+        float y = track.y - h - scaled(3.0F, k);
+        return new Rect(track.x2() - w, y, w, h);
+    }
+
+    private Rect activeSliderInputRect(PanelLayout p, String sliderKey)
+    {
+        if (p == null || sliderKey == null)
+        {
+            return null;
+        }
+
+        if ("offset_x".equals(sliderKey))
+        {
+            return p.offsetXValue;
+        }
+
+        if ("offset_y".equals(sliderKey))
+        {
+            return p.offsetYValue;
+        }
+
+        if ("scale".equals(sliderKey))
+        {
+            return p.scaleValue;
+        }
+
+        return null;
+    }
+
+    private void activateSliderInput(Rect inputRect, float scale, int mouseX, int mouseY, String sliderKey, float value)
+    {
+        if (inputRect == null || sliderKey == null)
+        {
+            return;
+        }
+
+        this.commitActiveNumberInput();
+        this.activeSliderInputKey = sliderKey;
+        this.numberInputBuffer.set(this.sliderRawInputValue(sliderKey, value));
+
+        if (this.lastNanoVg != 0L)
+        {
+            NanoFontBook.ensureLoaded(this.lastNanoVg);
+        }
+
+        this.numberInput.onMouseDown(mouseX, mouseY, inputRect.x, inputRect.y, inputRect.w, inputRect.h, this.lastNanoVg, NanoFontBook.uiRegular(), scaled(10.2F, UiMotion.clamp(scale, 0.35F, 1.85F)), this.numberInputBuffer.get());
+    }
+
+    private void validateActiveSliderInput(HudElement selected, PanelLayout p)
+    {
+        if (this.activeSliderInputKey == null)
+        {
+            return;
+        }
+
+        if (!this.numberInput.isFocused() || selected == null || !this.panelOpen || p == null || this.activeSliderInputRect(p, this.activeSliderInputKey) == null)
+        {
+            this.activeSliderInputKey = null;
+            this.numberInput.blur();
+        }
+    }
+
+    private void commitActiveNumberInput()
+    {
+        if (this.activeSliderInputKey == null)
+        {
+            return;
+        }
+
+        this.applySliderInput(this.activeSliderInputKey, this.numberInputBuffer.get());
+        this.activeSliderInputKey = null;
+    }
+
+    private boolean applySliderInput(String sliderKey, String text)
+    {
+        HudElement selected = this.selection.getSelected();
+
+        if (selected == null || sliderKey == null || text == null)
+        {
+            return false;
+        }
+
+        String raw = text.trim();
+
+        if (raw.isEmpty())
+        {
+            return false;
+        }
+
+        boolean percent = raw.endsWith("%");
+        String token = percent ? raw.substring(0, raw.length() - 1).trim() : raw;
+        token = token.replace(',', '.');
+
+        if (token.isEmpty())
+        {
+            return false;
+        }
+
+        double parsed;
+
+        try
+        {
+            parsed = Double.parseDouble(token);
+        }
+        catch (NumberFormatException ignored)
+        {
+            return false;
+        }
+
+        HudTransform t = selected.getTransform();
+
+        if ("scale".equals(sliderKey) && (percent || Math.abs(parsed) > (double)SCALE_MAX + 0.001D))
+        {
+            parsed *= 0.01D;
+        }
+
+        if ("offset_x".equals(sliderKey))
+        {
+            float value = UiMotion.roundToStep((float)parsed, OFFSET_STEP);
+            t.setOffsetX(UiMotion.clamp(value, OFFSET_MIN, OFFSET_MAX));
+            return true;
+        }
+
+        if ("offset_y".equals(sliderKey))
+        {
+            float value = UiMotion.roundToStep((float)parsed, OFFSET_STEP);
+            t.setOffsetY(UiMotion.clamp(value, OFFSET_MIN, OFFSET_MAX));
+            return true;
+        }
+
+        if ("scale".equals(sliderKey))
+        {
+            float value = UiMotion.roundToStep((float)parsed, SCALE_STEP);
+            t.setScale(UiMotion.clamp(value, SCALE_MIN, SCALE_MAX));
+            return true;
+        }
+
+        return false;
+    }
+
+    private String sliderRawInputValue(String sliderKey, float value)
+    {
+        if ("scale".equals(sliderKey))
+        {
+            return Integer.toString(Math.round(value * 100.0F));
+        }
+
+        return Integer.toString(Math.round(value));
+    }
+
     private String anchorDisplayName(Anchor anchor)
     {
         if (anchor == null)
@@ -901,11 +1169,15 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         private final Rect offsetXTrack;
         private final Rect offsetYTrack;
         private final Rect scaleTrack;
+        private final Rect offsetXValue;
+        private final Rect offsetYValue;
+        private final Rect scaleValue;
         private final Rect sourceChip;
         private final Rect anchorChip;
         private final Rect dockChip;
+        private final float scale;
 
-        private PanelLayout(Rect panel, Rect enabledChip, Rect resetButton, Rect closeButton, Rect offsetXTrack, Rect offsetYTrack, Rect scaleTrack, Rect sourceChip, Rect anchorChip, Rect dockChip)
+        private PanelLayout(Rect panel, Rect enabledChip, Rect resetButton, Rect closeButton, Rect offsetXTrack, Rect offsetYTrack, Rect scaleTrack, Rect offsetXValue, Rect offsetYValue, Rect scaleValue, Rect sourceChip, Rect anchorChip, Rect dockChip, float scale)
         {
             this.panel = panel;
             this.enabledChip = enabledChip;
@@ -914,9 +1186,13 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
             this.offsetXTrack = offsetXTrack;
             this.offsetYTrack = offsetYTrack;
             this.scaleTrack = scaleTrack;
+            this.offsetXValue = offsetXValue;
+            this.offsetYValue = offsetYValue;
+            this.scaleValue = scaleValue;
             this.sourceChip = sourceChip;
             this.anchorChip = anchorChip;
             this.dockChip = dockChip;
+            this.scale = UiMotion.clamp(scale, 0.35F, 1.85F);
         }
     }
 
