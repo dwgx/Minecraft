@@ -24,7 +24,8 @@ public final class IntSetting extends Setting<Integer>
 
         int v = value.intValue();
         v = Math.max(this.min, Math.min(this.max, v));
-        v = Math.round((float)v / (float)this.step) * this.step;
+        v = this.min + Math.round((float)(v - this.min) / (float)this.step) * this.step;
+        v = Math.max(this.min, Math.min(this.max, v));
         return Integer.valueOf(v);
     }
 

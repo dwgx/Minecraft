@@ -24,7 +24,8 @@ public final class FloatSetting extends Setting<Float>
 
         float v = value.floatValue();
         v = Math.max(this.min, Math.min(this.max, v));
-        v = Math.round(v / this.step) * this.step;
+        v = this.min + Math.round((v - this.min) / this.step) * this.step;
+        v = Math.max(this.min, Math.min(this.max, v));
         return Float.valueOf(v);
     }
 

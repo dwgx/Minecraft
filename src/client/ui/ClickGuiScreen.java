@@ -17,6 +17,7 @@ import client.setting.IntSetting;
 import client.setting.NumberSetting;
 import client.setting.Setting;
 import client.setting.StringSetting;
+import client.ui.template.NanoSliderController;
 import client.ui.template.NanoTextInput;
 import client.ui.template.UiAnimation;
 import client.ui.template.UiAnimationBus;
@@ -94,6 +95,9 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
     private boolean draggingHue;
     private boolean draggingAlpha;
     private Setting<?> draggingSettingSlider;
+    private boolean draggingSliderTrackLocked;
+    private float draggingSliderTrackX;
+    private float draggingSliderTrackW;
     private long lastSliderDragNanos;
     private float pickerHue;
     private float pickerSat;
@@ -137,6 +141,7 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         this.moduleScrollVisual = (float)this.moduleScroll;
         this.settingScrollVisual = (float)this.settingScroll;
         this.draggingSettingSlider = null;
+        this.clearSliderTrackLock();
         this.clearInlineEditors(false);
         this.lastSliderDragNanos = 0L;
         this.lastPickerCommitNanos = 0L;
@@ -149,6 +154,7 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         this.draggingHue = false;
         this.draggingAlpha = false;
         this.draggingSettingSlider = null;
+        this.clearSliderTrackLock();
         this.clearInlineEditors(true);
         this.window.endInteraction();
     }
@@ -437,6 +443,7 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
                             if (hit.contains(mouseX, mouseY))
                             {
                                 this.draggingSettingSlider = setting;
+                                this.lockSliderTrack(track);
                                 this.commitActiveNumberInput();
                                 this.applySettingSliderFromMouse(setting, track, mouseX);
                                 return;
@@ -528,6 +535,7 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         this.draggingHue = false;
         this.draggingAlpha = false;
         this.draggingSettingSlider = null;
+        this.clearSliderTrackLock();
         this.textInput.onMouseUp();
         super.mouseReleased(mouseX, mouseY, state);
     }
@@ -962,12 +970,27 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         float ratio = this.settingSliderRatio(setting);
         String key = "clickgui.setting.slider." + (this.selectedModule == null ? "none" : this.selectedModule.getId()) + "." + setting.getKey();
         boolean dragging = this.draggingSettingSlider == setting;
-        float dragRatio = UiMotion.clamp01(((float)this.mouseX - track.x) / Math.max(1.0F, track.w));
-        float visualTarget = dragging ? dragRatio : ratio;
-        boolean snap = dragging || (System.nanoTime() - this.lastSliderDragNanos < 150_000_000L);
-        float animatedRatio = snap ? visualTarget : UiAnimationBus.animate(key, visualTarget, this.resolveSliderAnimationSpeed(clickGui), this.resolveAnimationSmooth(clickGui), this.resolveAnimationType(clickGui), this.resolveAnimationEnabled(clickGui));
-        float displayRatio = animatedRatio;
-        float focus = UiAnimationBus.animate(key + ".focus", (hovered || dragging) ? 1.0F : 0.0F, this.resolveControlAnimationSpeed(clickGui), this.resolveAnimationSmooth(clickGui), this.resolveAnimationType(clickGui), this.resolveAnimationEnabled(clickGui));
+        Rect dragTrack = dragging ? this.resolveSliderDragTrack(track) : track;
+        float visualTarget = dragging ? NanoSliderController.mouseRatio((float)this.mouseX, dragTrack.x, dragTrack.w) : ratio;
+        boolean sliderAnimEnabled = this.resolveSliderAnimationEnabled(clickGui);
+        float displayRatio = NanoSliderController.resolveDisplayRatio(
+            key,
+            visualTarget,
+            dragging,
+            sliderAnimEnabled,
+            this.resolveSliderAnimationSpeed(clickGui),
+            this.resolveAnimationSmooth(clickGui),
+            this.resolveAnimationType(clickGui)
+        );
+        float focus = NanoSliderController.resolveFocus(
+            key + ".focus",
+            hovered,
+            dragging,
+            this.resolveControlAnimationSpeed(clickGui),
+            this.resolveAnimationSmooth(clickGui),
+            this.resolveAnimationType(clickGui),
+            this.resolveAnimationEnabled(clickGui)
+        );
         int trackFill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.44F + focus * 0.30F));
         float trackRadius = Math.min(track.h * 0.5F, this.stableControlRadius(k));
         NanoUi.drawSurface(vg, stack, track.x, track.y, track.w, track.h, trackRadius, trackFill, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 114));
@@ -1178,8 +1201,7 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
             return;
         }
 
-        float ratio = ((float)mouseX - track.x) / Math.max(1.0F, track.w);
-        ratio = UiMotion.clamp01(ratio);
+        float ratio = NanoSliderController.mouseRatio((float)mouseX, track.x, track.w);
         this.lastSliderDragNanos = System.nanoTime();
 
         if (setting instanceof IntSetting)
@@ -1187,7 +1209,8 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
             IntSetting s = (IntSetting)setting;
             float v = (float)s.getMin() + ratio * (float)(s.getMax() - s.getMin());
             int step = Math.max(1, s.getStep());
-            int snapped = Math.round(v / (float)step) * step;
+            int snapped = s.getMin() + Math.round((v - (float)s.getMin()) / (float)step) * step;
+            snapped = Math.max(s.getMin(), Math.min(s.getMax(), snapped));
             if (snapped != s.get().intValue())
             {
                 s.set(Integer.valueOf(snapped));
@@ -1201,7 +1224,8 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
             FloatSetting s = (FloatSetting)setting;
             float v = s.getMin() + ratio * (s.getMax() - s.getMin());
             float step = Math.max(0.0001F, s.getStep());
-            float snapped = Math.round(v / step) * step;
+            float snapped = s.getMin() + Math.round((v - s.getMin()) / step) * step;
+            snapped = Math.max(s.getMin(), Math.min(s.getMax(), snapped));
             if (Math.abs(snapped - s.get().floatValue()) > 0.0001F)
             {
                 s.set(Float.valueOf(snapped));
@@ -1215,7 +1239,8 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
             NumberSetting s = (NumberSetting)setting;
             double v = s.getMin() + (double)ratio * (s.getMax() - s.getMin());
             double step = Math.max(0.0001D, s.getStep());
-            double snapped = Math.round(v / step) * step;
+            double snapped = s.getMin() + Math.round((v - s.getMin()) / step) * step;
+            snapped = Math.max(s.getMin(), Math.min(s.getMax(), snapped));
             if (Math.abs(snapped - s.get().doubleValue()) > 0.0000001D)
             {
                 s.set(Double.valueOf(snapped));
@@ -1228,6 +1253,7 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         if (this.draggingSettingSlider == null || this.selectedModule == null)
         {
             this.draggingSettingSlider = null;
+            this.clearSliderTrackLock();
             return;
         }
 
@@ -1237,6 +1263,7 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         if (index < 0)
         {
             this.draggingSettingSlider = null;
+            this.clearSliderTrackLock();
             return;
         }
 
@@ -1251,6 +1278,7 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
 
         Rect row = this.settingRowRect(l, visibleIndex, scrollOffset);
         Rect track = this.settingSliderTrackRect(row, l.scale);
+        track = this.resolveSliderDragTrack(track);
         this.applySettingSliderFromMouse(this.draggingSettingSlider, track, mouseX);
     }
 
@@ -2230,6 +2258,11 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         return clickGui.getSliderAnimationSpeed();
     }
 
+    private boolean resolveSliderAnimationEnabled(ClickGuiModule clickGui)
+    {
+        return clickGui == null || clickGui.isGlobalAnimationEnabled() && clickGui.isSliderAnimationEnabled();
+    }
+
     private float resolveAnimationSmooth(ClickGuiModule clickGui)
     {
         return clickGui == null ? 0.62F : clickGui.getGlobalAnimationSmooth();
@@ -2539,7 +2572,37 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         UiAnimation.Type type = this.resolveAnimationType(clickGui);
         this.categoryScrollVisual = UiAnimationBus.animate("clickgui.scroll.category", (float)this.categoryScroll, speed, smooth, type, true);
         this.moduleScrollVisual = UiAnimationBus.animate("clickgui.scroll.module", (float)this.moduleScroll, speed, smooth, type, true);
-        this.settingScrollVisual = UiAnimationBus.animate("clickgui.scroll.setting", (float)this.settingScroll, speed, smooth, type, true);
+        this.settingScrollVisual = this.draggingSettingSlider == null ? UiAnimationBus.animate("clickgui.scroll.setting", (float)this.settingScroll, speed, smooth, type, true) : (float)this.settingScroll;
+    }
+
+    private void lockSliderTrack(Rect track)
+    {
+        if (track == null)
+        {
+            this.clearSliderTrackLock();
+            return;
+        }
+
+        this.draggingSliderTrackLocked = true;
+        this.draggingSliderTrackX = track.x;
+        this.draggingSliderTrackW = Math.max(1.0F, track.w);
+    }
+
+    private Rect resolveSliderDragTrack(Rect track)
+    {
+        if (track == null || !this.draggingSliderTrackLocked)
+        {
+            return track;
+        }
+
+        return new Rect(this.draggingSliderTrackX, track.y, this.draggingSliderTrackW, track.h);
+    }
+
+    private void clearSliderTrackLock()
+    {
+        this.draggingSliderTrackLocked = false;
+        this.draggingSliderTrackX = 0.0F;
+        this.draggingSliderTrackW = 0.0F;
     }
 
     private int clamp(int value, int max)
@@ -2711,22 +2774,39 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
 
     private float stableWindowRadius(float scale)
     {
-        return scaled(RADIUS_WINDOW, UiMotion.clamp(scale, 0.35F, 1.85F));
+        float cornerScale = this.cornerRadiusScale();
+        return scaled(RADIUS_WINDOW * cornerScale, UiMotion.clamp(scale, 0.35F, 1.85F));
     }
 
     private float stablePanelRadius(float scale)
     {
-        return scaled(RADIUS_PANEL, UiMotion.clamp(scale, 0.35F, 1.85F));
+        float cornerScale = this.cornerRadiusScale();
+        return scaled(RADIUS_PANEL * cornerScale, UiMotion.clamp(scale, 0.35F, 1.85F));
     }
 
     private float stableRowRadius(float scale)
     {
-        return scaled(RADIUS_ROW, UiMotion.clamp(scale, 0.35F, 1.85F));
+        float cornerScale = this.cornerRadiusScale();
+        return scaled(RADIUS_ROW * cornerScale, UiMotion.clamp(scale, 0.35F, 1.85F));
     }
 
     private float stableControlRadius(float scale)
     {
-        return scaled(RADIUS_CONTROL, UiMotion.clamp(scale, 0.35F, 1.85F));
+        float cornerScale = this.cornerRadiusScale();
+        return scaled(RADIUS_CONTROL * cornerScale, UiMotion.clamp(scale, 0.35F, 1.85F));
+    }
+
+    private float cornerRadiusScale()
+    {
+        ClickGuiModule clickGui = this.resolveClickGuiModule();
+
+        if (clickGui == null)
+        {
+            return 1.0F;
+        }
+
+        float corner = UiMotion.clamp(clickGui.getCornerRadius(), 6.0F, 26.0F);
+        return UiMotion.clamp(corner / 12.0F, 0.5F, 2.2F);
     }
 
     private int mixArgb(int from, int to, float t)

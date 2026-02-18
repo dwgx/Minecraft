@@ -25,6 +25,7 @@ import java.util.List;
  * Only methods used by Minecraft 1.8.9 are implemented.
  */
 public final class Display {
+    private static final boolean RESIZE_DEBUG = Boolean.getBoolean("dwgx.render.resizeDebug");
     private static long window = 0;
     private static GLFWErrorCallback errorCallback;
     private static boolean vsync = false;
@@ -47,8 +48,15 @@ public final class Display {
     private static final int[] windowHeightBuffer = new int[1];
     private static final int[] framebufferWidth = new int[1];
     private static final int[] framebufferHeight = new int[1];
+    private static final int[] windowPosXBuffer = new int[1];
+    private static final int[] windowPosYBuffer = new int[1];
     private static final double[] cursorXBuffer = new double[1];
     private static final double[] cursorYBuffer = new double[1];
+    private static int windowedPosX;
+    private static int windowedPosY;
+    private static int windowedWidth = 854;
+    private static int windowedHeight = 480;
+    private static boolean hasWindowedPlacement;
     private static long lastSyncNanos = System.nanoTime();
 
     private Display() {}
@@ -144,8 +152,12 @@ public final class Display {
             GLFW.glfwSetWindowFocusCallback(window, windowFocusCallback);
 
             refreshDimensions();
+            if (!fullscreen) {
+                captureWindowedPlacement();
+            }
             lastSyncNanos = System.nanoTime();
             GL11.glViewport(0, 0, width, height);
+            debugResize("create");
         } catch (Throwable t) {
             cleanupAfterCreateFailure();
             if (t instanceof LWJGLException) {
@@ -202,6 +214,7 @@ public final class Display {
         Keyboard.reset();
         Mouse.reset();
         wasResized = false;
+        hasWindowedPlacement = false;
         lastSyncNanos = System.nanoTime();
     }
 
@@ -210,31 +223,122 @@ public final class Display {
     }
 
     public static void setDisplayMode(DisplayMode mode) {
+        if (mode == null) {
+            return;
+        }
+
+        debugResize("setDisplayMode:before " + mode.toString());
         windowWidth = mode.getWidth();
         windowHeight = mode.getHeight();
         width = windowWidth;
         height = windowHeight;
         currentMode = mode;
+
+        if (!fullscreen) {
+            windowedWidth = Math.max(1, windowWidth);
+            windowedHeight = Math.max(1, windowHeight);
+        }
+
         if (!isCreated()) return;
 
-        GLFW.glfwSetWindowSize(window, windowWidth, windowHeight);
+        if (fullscreen) {
+            long monitor = GLFW.glfwGetPrimaryMonitor();
+            GLFWVidMode desktop = GLFW.glfwGetVideoMode(monitor);
+            GLFW.glfwSetWindowMonitor(
+                window,
+                monitor,
+                0,
+                0,
+                Math.max(1, mode.getWidth()),
+                Math.max(1, mode.getHeight()),
+                resolveRefreshRate(mode, desktop)
+            );
+        } else {
+            GLFW.glfwSetWindowSize(window, Math.max(1, windowWidth), Math.max(1, windowHeight));
+        }
+
         refreshDimensions();
+        if (!fullscreen) {
+            captureWindowedPlacement();
+        }
         wasResized = true;
+        debugResize("setDisplayMode:after " + mode.toString());
     }
 
     public static void setFullscreen(boolean enable) {
+        debugResize("setFullscreen:before enable=" + enable);
+
+        if (enable == fullscreen && isCreated()) {
+            debugResize("setFullscreen:no-op enable=" + enable);
+            return;
+        }
+
+        boolean wasFullscreen = fullscreen;
         fullscreen = enable;
         if (!isCreated()) return;
-        GLFWVidMode vid = GLFW.glfwGetVideoMode(GLFW.glfwGetPrimaryMonitor());
+
+        long monitor = GLFW.glfwGetPrimaryMonitor();
+        GLFWVidMode desktop = GLFW.glfwGetVideoMode(monitor);
+
         if (enable) {
-            GLFW.glfwSetWindowMonitor(window, GLFW.glfwGetPrimaryMonitor(), 0, 0, vid.width(), vid.height(), vid.refreshRate());
+            captureWindowedPlacement();
+            DisplayMode mode = currentMode;
+
+            if (!wasFullscreen) {
+                DisplayMode desktopModeNow = getDesktopDisplayMode();
+                if (mode == null || (mode.getWidth() == width && mode.getHeight() == height)) {
+                    mode = desktopModeNow;
+                }
+            }
+
+            if (mode == null) {
+                mode = getDesktopDisplayMode();
+            }
+
+            currentMode = mode;
+            GLFW.glfwSetWindowMonitor(
+                window,
+                monitor,
+                0,
+                0,
+                Math.max(1, mode.getWidth()),
+                Math.max(1, mode.getHeight()),
+                resolveRefreshRate(mode, desktop)
+            );
         } else {
-            int targetWidth = currentMode != null ? currentMode.getWidth() : windowWidth;
-            int targetHeight = currentMode != null ? currentMode.getHeight() : windowHeight;
-            GLFW.glfwSetWindowMonitor(window, 0, 0, 0, targetWidth, targetHeight, vid.refreshRate());
+            int targetWidth = hasWindowedPlacement ? windowedWidth : (currentMode != null ? currentMode.getWidth() : windowWidth);
+            int targetHeight = hasWindowedPlacement ? windowedHeight : (currentMode != null ? currentMode.getHeight() : windowHeight);
+            int targetPosX;
+            int targetPosY;
+
+            if (hasWindowedPlacement) {
+                targetPosX = windowedPosX;
+                targetPosY = windowedPosY;
+            } else if (desktop != null) {
+                targetPosX = (desktop.width() - targetWidth) / 2;
+                targetPosY = (desktop.height() - targetHeight) / 2;
+            } else {
+                targetPosX = 0;
+                targetPosY = 0;
+            }
+
+            GLFW.glfwSetWindowMonitor(
+                window,
+                0,
+                targetPosX,
+                targetPosY,
+                Math.max(1, targetWidth),
+                Math.max(1, targetHeight),
+                GLFW.GLFW_DONT_CARE
+            );
         }
+
         refreshDimensions();
+        if (!fullscreen) {
+            captureWindowedPlacement();
+        }
         wasResized = true;
+        debugResize("setFullscreen:after enable=" + enable);
     }
 
     public static DisplayMode getDisplayMode() {
@@ -320,7 +424,25 @@ public final class Display {
     public static void update() {
         if (!isCreated()) return;
         GLFW.glfwPollEvents();
+        int prevWindowWidth = windowWidth;
+        int prevWindowHeight = windowHeight;
+        int prevWidth = width;
+        int prevHeight = height;
         refreshDimensions();
+
+        boolean resizedThisUpdate =
+            prevWindowWidth != windowWidth
+                || prevWindowHeight != windowHeight
+                || prevWidth != width
+                || prevHeight != height;
+
+        if (resizedThisUpdate) {
+            if (RESIZE_DEBUG) {
+                debugResize("update:skip-swap-on-resize");
+            }
+            return;
+        }
+
         GLFW.glfwSwapBuffers(window);
     }
 
@@ -372,18 +494,40 @@ public final class Display {
         return isCreated() && GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_FOCUSED) == GLFW.GLFW_TRUE;
     }
 
+    public static void syncDimensions() {
+        refreshDimensions();
+    }
+
     private static void refreshDimensions() {
         if (!isCreated()) {
             return;
         }
 
+        boolean iconified = GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_ICONIFIED) == GLFW.GLFW_TRUE;
         GLFW.glfwGetWindowSize(window, windowWidthBuffer, windowHeightBuffer);
         GLFW.glfwGetFramebufferSize(window, framebufferWidth, framebufferHeight);
 
-        int newWindowWidth = Math.max(1, windowWidthBuffer[0]);
-        int newWindowHeight = Math.max(1, windowHeightBuffer[0]);
-        int newWidth = Math.max(1, framebufferWidth[0]);
-        int newHeight = Math.max(1, framebufferHeight[0]);
+        int rawWindowWidth = windowWidthBuffer[0];
+        int rawWindowHeight = windowHeightBuffer[0];
+        int rawFramebufferWidth = framebufferWidth[0];
+        int rawFramebufferHeight = framebufferHeight[0];
+
+        if (iconified || rawWindowWidth <= 0 || rawWindowHeight <= 0 || rawFramebufferWidth <= 0 || rawFramebufferHeight <= 0) {
+            if (RESIZE_DEBUG) {
+                System.out.println(
+                    "[resize-debug][Display] refreshDimensions:skip-invalid"
+                        + " iconified=" + iconified
+                        + " rawWindow=" + rawWindowWidth + "x" + rawWindowHeight
+                        + " rawFramebuffer=" + rawFramebufferWidth + "x" + rawFramebufferHeight
+                );
+            }
+            return;
+        }
+
+        int newWindowWidth = rawWindowWidth;
+        int newWindowHeight = rawWindowHeight;
+        int newWidth = rawFramebufferWidth;
+        int newHeight = rawFramebufferHeight;
 
         if (newWindowWidth != windowWidth || newWindowHeight != windowHeight || newWidth != width || newHeight != height) {
             windowWidth = newWindowWidth;
@@ -392,6 +536,42 @@ public final class Display {
             height = newHeight;
             wasResized = true;
         }
+    }
+
+    private static int resolveRefreshRate(DisplayMode mode, GLFWVidMode desktop) {
+        if (mode != null && mode.getFrequency() > 0) {
+            return mode.getFrequency();
+        }
+
+        return desktop == null ? GLFW.GLFW_DONT_CARE : desktop.refreshRate();
+    }
+
+    private static void captureWindowedPlacement() {
+        if (!isCreated() || fullscreen) {
+            return;
+        }
+
+        GLFW.glfwGetWindowPos(window, windowPosXBuffer, windowPosYBuffer);
+        windowedPosX = windowPosXBuffer[0];
+        windowedPosY = windowPosYBuffer[0];
+        windowedWidth = Math.max(1, windowWidth);
+        windowedHeight = Math.max(1, windowHeight);
+        hasWindowedPlacement = true;
+    }
+
+    private static void debugResize(String stage) {
+        if (!RESIZE_DEBUG) {
+            return;
+        }
+
+        String mode = currentMode == null ? "null" : currentMode.toString();
+        System.out.println(
+            "[resize-debug][Display] " + stage
+                + " | fullscreen=" + fullscreen
+                + " display=" + width + "x" + height
+                + " window=" + windowWidth + "x" + windowHeight
+                + " mode=" + mode
+        );
     }
 
     private static void readCursorPos(long win) {
@@ -437,6 +617,7 @@ public final class Display {
         }
         Keyboard.reset();
         Mouse.reset();
+        hasWindowedPlacement = false;
     }
 
     private static ByteBuffer toNativeIconBuffer(ByteBuffer icon) {

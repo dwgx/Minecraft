@@ -276,6 +276,8 @@
   "setting.click_gui.setting_center_anchor_y.name": "Setting Center Anchor Y",
   "module.click_gui.name": "ClickGUI",
   "setting.click_gui.palette.option.ruby": "Ruby",
+  "setting.click_gui.ui_slider_anim_enabled.name": "Slider Anim Enable",
+  "setting.click_gui.ui_slider_anim_enabled.description": "Enable slider interpolation animation",
   "setting.click_gui.ui_slider_anim_speed.name": "Slider Anim Speed",
   "clickgui.category.none": "无",
   "command.client.setting.color": "rgba({0},{1},{2},{3}), rainbow={4}",

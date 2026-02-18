@@ -5,8 +5,8 @@ import client.module.Module;
 import client.module.impl.client.ClickGuiModule;
 import client.render.RenderContext2D;
 import client.ui.NanoRenderableScreen;
+import client.ui.template.NanoSliderController;
 import client.ui.template.UiAnimation;
-import client.ui.template.UiAnimationBus;
 import client.ui.template.UiMotion;
 import dwgx.nano.NanoFontBook;
 import dwgx.nano.NanoPalette;
@@ -496,12 +496,13 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         float scale = UiMotion.clamp(track.h / 6.0F, 0.35F, 1.85F);
         ClickGuiModule clickGui = this.resolveClickGuiModule();
         float ratio = UiMotion.clamp01((value - min) / Math.max(0.0001F, max - min));
-        float dragRatio = UiMotion.clamp01(((float)this.mouseX - track.x) / Math.max(1.0F, track.w));
-        float targetRatio = dragging ? dragRatio : ratio;
+        float targetRatio = dragging ? NanoSliderController.mouseRatio((float)this.mouseX, track.x, track.w) : ratio;
         String key = this.sliderAnimKey(sliderKey);
-        boolean snap = dragging || System.nanoTime() - this.lastSliderDragNanos < 140_000_000L;
-        float displayRatio = snap ? targetRatio : UiAnimationBus.animate("hud.editor.slider." + key, targetRatio, clickGui == null ? 0.64F : clickGui.getSliderAnimationSpeed(), clickGui == null ? 0.64F : clickGui.getGlobalAnimationSmooth(), UiAnimation.Type.EASE_OUT, true);
-        float focus = UiAnimationBus.animate("hud.editor.slider.focus." + key, (hovered || dragging) ? 1.0F : 0.0F, clickGui == null ? 0.58F : clickGui.getControlAnimationSpeed(), clickGui == null ? 0.64F : clickGui.getGlobalAnimationSmooth(), UiAnimation.Type.EASE_OUT, true);
+        boolean sliderAnimEnabled = clickGui == null || clickGui.isGlobalAnimationEnabled() && clickGui.isSliderAnimationEnabled();
+        UiAnimation.Type animType = clickGui == null ? UiAnimation.Type.EASE_OUT : clickGui.getControlAnimationType();
+        float smooth = clickGui == null ? 0.64F : clickGui.getGlobalAnimationSmooth();
+        float displayRatio = NanoSliderController.resolveDisplayRatio("hud.editor.slider." + key, targetRatio, dragging, sliderAnimEnabled, clickGui == null ? 0.64F : clickGui.getSliderAnimationSpeed(), smooth, animType);
+        float focus = NanoSliderController.resolveFocus("hud.editor.slider.focus." + key, hovered, dragging, clickGui == null ? 0.58F : clickGui.getControlAnimationSpeed(), smooth, animType, clickGui == null || clickGui.isGlobalAnimationEnabled());
 
         NanoUi.drawLeftText(vg, stack, bold, track.x, track.y - scaled(8.0F, scale), scaled(11.5F, scale), theme.textArgb(), label);
         NanoUi.drawRightText(vg, stack, regular, track.x2(), track.y - scaled(8.0F, scale), scaled(10.0F, scale), theme.textMutedArgb(), formatSliderValue(sliderKey, value));

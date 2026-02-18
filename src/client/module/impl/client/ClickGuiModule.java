@@ -29,6 +29,7 @@ public final class ClickGuiModule extends Module
     private final FloatSetting globalAnimationSpeed;
     private final FloatSetting globalAnimationSmooth;
     private final FloatSetting controlAnimationSpeed;
+    private final BoolSetting sliderAnimationEnabled;
     private final FloatSetting sliderAnimationSpeed;
     private final EnumSetting<UiAnimation.Type> controlAnimationType;
     private final EnumSetting<UiAnimation.Type> guiOpenAnimationType;
@@ -61,6 +62,7 @@ public final class ClickGuiModule extends Module
         this.globalAnimationSpeed = this.addSetting(new FloatSetting("ui_anim_speed", "Animation Speed", "Global motion speed", 0.56F, 0.05F, 1.0F, 0.01F));
         this.globalAnimationSmooth = this.addSetting(new FloatSetting("ui_anim_smooth", "Animation Smooth", "Global animation smoothness", 0.62F, 0.0F, 1.0F, 0.01F));
         this.controlAnimationSpeed = this.addSetting(new FloatSetting("ui_control_anim_speed", "Control Anim Speed", "Toggle/button transition speed", 0.58F, 0.05F, 1.0F, 0.01F));
+        this.sliderAnimationEnabled = this.addSetting(new BoolSetting("ui_slider_anim_enabled", "Slider Anim Enable", "Enable slider interpolation animation", true));
         this.sliderAnimationSpeed = this.addSetting(new FloatSetting("ui_slider_anim_speed", "Slider Anim Speed", "Slider follow transition speed", 0.62F, 0.05F, 1.0F, 0.01F));
         this.controlAnimationType = this.addSetting(new EnumSetting<UiAnimation.Type>("ui_anim_type", "Control Anim Type", "Toggle/slider animation type", UiAnimation.Type.class, UiAnimation.Type.EASE_OUT));
         this.guiOpenAnimationType = this.addSetting(new EnumSetting<UiAnimation.Type>("ui_open_anim_type", "GUI Open Anim", "Animation used when GUI opens", UiAnimation.Type.class, UiAnimation.Type.EASE_OUT));
@@ -119,6 +121,7 @@ public final class ClickGuiModule extends Module
         animation.add(this.globalAnimationSpeed);
         animation.add(this.globalAnimationSmooth);
         animation.add(this.controlAnimationSpeed);
+        animation.add(this.sliderAnimationEnabled);
         animation.add(this.sliderAnimationSpeed);
         animation.add(this.controlAnimationType);
         animation.add(this.guiOpenAnimationType);
@@ -228,6 +231,16 @@ public final class ClickGuiModule extends Module
     public float getSliderAnimationSpeed()
     {
         return this.sliderAnimationSpeed.get().floatValue();
+    }
+
+    public boolean isSliderAnimationEnabled()
+    {
+        return this.sliderAnimationEnabled.isEnabled();
+    }
+
+    public void setSliderAnimationEnabled(boolean enabled)
+    {
+        this.sliderAnimationEnabled.setEnabled(enabled);
     }
 
     public UiAnimation.Type getControlAnimationType()

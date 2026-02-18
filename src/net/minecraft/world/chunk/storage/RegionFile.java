@@ -99,6 +99,12 @@ public class RegionFile
         }
         catch (IOException ioexception)
         {
+            String message = ioexception.getMessage();
+            if (message != null && "Stream Closed".equalsIgnoreCase(message.trim()))
+            {
+                return;
+            }
+
             ioexception.printStackTrace();
         }
     }

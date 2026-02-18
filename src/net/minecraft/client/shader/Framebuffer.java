@@ -47,12 +47,15 @@ public class Framebuffer
         {
             GlStateManager.enableDepth();
 
-            if (this.framebufferObject >= 0)
+            if (this.framebufferObject < 0)
             {
-                this.deleteFramebuffer();
+                this.createFramebuffer(width, height);
+            }
+            else if (this.framebufferWidth != width || this.framebufferHeight != height)
+            {
+                this.resizeFramebuffer(width, height);
             }
 
-            this.createFramebuffer(width, height);
             this.checkFramebufferComplete();
             OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, 0);
         }
@@ -123,6 +126,42 @@ public class Framebuffer
             this.framebufferClear();
             this.unbindFramebufferTexture();
         }
+    }
+
+    private void resizeFramebuffer(int width, int height)
+    {
+        this.framebufferWidth = width;
+        this.framebufferHeight = height;
+        this.framebufferTextureWidth = width;
+        this.framebufferTextureHeight = height;
+
+        OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, this.framebufferObject);
+        GlStateManager.bindTexture(this.framebufferTexture);
+        GL11.glTexImage2D(
+            GL11.GL_TEXTURE_2D,
+            0,
+            GL11.GL_RGBA8,
+            this.framebufferTextureWidth,
+            this.framebufferTextureHeight,
+            0,
+            GL11.GL_RGBA,
+            GL11.GL_UNSIGNED_BYTE,
+            (ByteBuffer)null
+        );
+
+        if (this.useDepth && this.depthBuffer > -1)
+        {
+            OpenGlHelper.glBindRenderbuffer(OpenGlHelper.GL_RENDERBUFFER, this.depthBuffer);
+            OpenGlHelper.glRenderbufferStorage(
+                OpenGlHelper.GL_RENDERBUFFER,
+                33190,
+                this.framebufferTextureWidth,
+                this.framebufferTextureHeight
+            );
+        }
+
+        this.framebufferClear();
+        this.unbindFramebufferTexture();
     }
 
     public void setFramebufferFilter(int p_147607_1_)

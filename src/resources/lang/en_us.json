@@ -200,6 +200,8 @@
   "setting.click_gui.ui_anim_smooth.description": "Global animation smoothness",
   "setting.click_gui.ui_control_anim_speed.name": "Control Anim Speed",
   "setting.click_gui.ui_control_anim_speed.description": "Toggle/button transition speed",
+  "setting.click_gui.ui_slider_anim_enabled.name": "Slider Anim Enable",
+  "setting.click_gui.ui_slider_anim_enabled.description": "Enable slider interpolation animation",
   "setting.click_gui.ui_slider_anim_speed.name": "Slider Anim Speed",
   "setting.click_gui.ui_slider_anim_speed.description": "Slider follow transition speed",
   "setting.click_gui.ui_anim_type.name": "Control Anim Type",

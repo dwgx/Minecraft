@@ -6,6 +6,7 @@ import client.module.Module;
 import client.module.impl.client.ClickGuiModule;
 import client.module.impl.client.UiScaleEditModule;
 import client.render.RenderContext2D;
+import client.ui.template.NanoSliderController;
 import client.ui.template.UiMotion;
 import client.ui.template.UiAnimation;
 import client.ui.template.UiAnimationBus;
@@ -48,6 +49,9 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
     private boolean draggingMotion;
     private boolean draggingAnchorX;
     private boolean draggingAnchorY;
+    private boolean draggingSliderTrackLocked;
+    private float draggingSliderTrackX;
+    private float draggingSliderTrackW;
     private long lastSliderDragNanos;
     private boolean draggingAnimSpeed;
     private boolean draggingAnimSmooth;
@@ -83,6 +87,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         this.transitionExecuted = false;
         this.transitionProgress = 0.0F;
         this.transitionLastNanos = System.nanoTime();
+        this.clearSliderTrackLock();
     }
 
     public void drawScreen(int mouseX, int mouseY, float partialTicks)
@@ -143,6 +148,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
             if (l.scaleTrack.contains(mouseX, mouseY))
             {
                 this.draggingScale = true;
+                this.lockSliderTrack(l.scaleTrack);
                 this.applyScaleFromMouse(l, mouseX);
                 return;
             }
@@ -150,6 +156,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
             if (l.motionTrack.contains(mouseX, mouseY))
             {
                 this.draggingMotion = true;
+                this.lockSliderTrack(l.motionTrack);
                 this.applyMotionFromMouse(l, mouseX);
                 return;
             }
@@ -157,6 +164,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
             if (l.anchorXTrack.contains(mouseX, mouseY))
             {
                 this.draggingAnchorX = true;
+                this.lockSliderTrack(l.anchorXTrack);
                 this.applyAnchorXFromMouse(l, mouseX);
                 return;
             }
@@ -164,6 +172,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
             if (l.anchorYTrack.contains(mouseX, mouseY))
             {
                 this.draggingAnchorY = true;
+                this.lockSliderTrack(l.anchorYTrack);
                 this.applyAnchorYFromMouse(l, mouseX);
                 return;
             }
@@ -231,6 +240,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         this.draggingMotion = false;
         this.draggingAnchorX = false;
         this.draggingAnchorY = false;
+        this.clearSliderTrackLock();
         this.lastSliderDragNanos = 0L;
         this.draggingAnimSpeed = false;
         this.draggingAnimSmooth = false;
@@ -325,12 +335,26 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         float k = UiMotion.clamp(track.h / 8.0F, 0.35F, 1.85F);
         float ratio = (value - min) / Math.max(0.0001F, max - min);
         ratio = UiMotion.clamp01(ratio);
-        float dragRatio = UiMotion.clamp01(((float)this.mouseX - track.x) / Math.max(1.0F, track.w));
-        float visualTarget = dragging ? dragRatio : ratio;
-        boolean snap = dragging || (System.nanoTime() - this.lastSliderDragNanos < 150_000_000L);
-        float animatedRatio = snap ? visualTarget : UiAnimationBus.animate("uiscale.slider." + sliderKey, visualTarget, clickGui == null ? 0.62F : clickGui.getSliderAnimationSpeed(), this.resolveAnimationSmooth(clickGui), this.resolveAnimationType(clickGui), this.resolveAnimationEnabled(clickGui));
-        float displayRatio = animatedRatio;
-        float focus = UiAnimationBus.animate("uiscale.slider.focus." + sliderKey, (hovered || dragging) ? 1.0F : 0.0F, clickGui == null ? 0.58F : clickGui.getControlAnimationSpeed(), this.resolveAnimationSmooth(clickGui), this.resolveAnimationType(clickGui), this.resolveAnimationEnabled(clickGui));
+        float visualTarget = dragging ? this.sliderRatioFromMouse(this.mouseX, track) : ratio;
+        boolean sliderAnimEnabled = this.resolveSliderAnimationEnabled(clickGui);
+        float displayRatio = NanoSliderController.resolveDisplayRatio(
+            "uiscale.slider." + sliderKey,
+            visualTarget,
+            dragging,
+            sliderAnimEnabled,
+            clickGui == null ? 0.62F : clickGui.getSliderAnimationSpeed(),
+            this.resolveAnimationSmooth(clickGui),
+            this.resolveAnimationType(clickGui)
+        );
+        float focus = NanoSliderController.resolveFocus(
+            "uiscale.slider.focus." + sliderKey,
+            hovered,
+            dragging,
+            clickGui == null ? 0.58F : clickGui.getControlAnimationSpeed(),
+            this.resolveAnimationSmooth(clickGui),
+            this.resolveAnimationType(clickGui),
+            this.resolveAnimationEnabled(clickGui)
+        );
         NanoUi.drawLeftText(vg, stack, bold, track.x, track.y - scaled(11.0F, k), scaled(14.5F, k), theme.textArgb(), label);
         NanoUi.drawRightText(vg, stack, regular, track.x2(), track.y - scaled(11.0F, k), scaled(12.5F, k), theme.textMutedArgb(), this.formatSliderValue(sliderKey, value));
         int trackFill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.44F + focus * 0.30F));
@@ -413,7 +437,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
     private void applyScaleFromMouse(Layout layout, int mouseX)
     {
         UiScaleEditModule.UiTarget target = this.module.getEditTarget();
-        float ratio = (mouseX - layout.scaleTrack.x) / Math.max(1.0F, layout.scaleTrack.w);
+        float ratio = this.sliderRatioFromMouse(mouseX, layout.scaleTrack);
         ratio = UiMotion.clamp01(ratio);
         float value = this.module.getUiScaleMin() + (this.module.getUiScaleMax() - this.module.getUiScaleMin()) * ratio;
         if (Math.abs(this.module.getUiScale(target) - value) > 0.0001F)
@@ -425,7 +449,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
     private void applyMotionFromMouse(Layout layout, int mouseX)
     {
         UiScaleEditModule.UiTarget target = this.module.getEditTarget();
-        float ratio = (mouseX - layout.motionTrack.x) / Math.max(1.0F, layout.motionTrack.w);
+        float ratio = this.sliderRatioFromMouse(mouseX, layout.motionTrack);
         ratio = UiMotion.clamp01(ratio);
         float value = this.module.getMotionSpeedMin() + (this.module.getMotionSpeedMax() - this.module.getMotionSpeedMin()) * ratio;
         if (Math.abs(this.module.getMotionSpeed(target) - value) > 0.0001F)
@@ -437,7 +461,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
     private void applyAnchorXFromMouse(Layout layout, int mouseX)
     {
         UiScaleEditModule.UiTarget target = this.module.getEditTarget();
-        float ratio = (mouseX - layout.anchorXTrack.x) / Math.max(1.0F, layout.anchorXTrack.w);
+        float ratio = this.sliderRatioFromMouse(mouseX, layout.anchorXTrack);
         float value = UiMotion.clamp01(ratio);
         if (Math.abs(this.module.getWindowAnchorX(target) - value) > 0.0001F)
         {
@@ -448,7 +472,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
     private void applyAnchorYFromMouse(Layout layout, int mouseX)
     {
         UiScaleEditModule.UiTarget target = this.module.getEditTarget();
-        float ratio = (mouseX - layout.anchorYTrack.x) / Math.max(1.0F, layout.anchorYTrack.w);
+        float ratio = this.sliderRatioFromMouse(mouseX, layout.anchorYTrack);
         float value = UiMotion.clamp01(ratio);
         if (Math.abs(this.module.getWindowAnchorY(target) - value) > 0.0001F)
         {
@@ -511,6 +535,38 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         {
             this.window.setTarget(targetX, targetY, targetWidth, targetHeight, (float)this.width, (float)this.height, SCREEN_MARGIN);
         }
+    }
+
+    private void lockSliderTrack(Rect track)
+    {
+        if (track == null)
+        {
+            this.clearSliderTrackLock();
+            return;
+        }
+
+        this.draggingSliderTrackLocked = true;
+        this.draggingSliderTrackX = track.x;
+        this.draggingSliderTrackW = Math.max(1.0F, track.w);
+    }
+
+    private void clearSliderTrackLock()
+    {
+        this.draggingSliderTrackLocked = false;
+        this.draggingSliderTrackX = 0.0F;
+        this.draggingSliderTrackW = 0.0F;
+    }
+
+    private float sliderRatioFromMouse(int mouseX, Rect track)
+    {
+        if (track == null)
+        {
+            return 0.0F;
+        }
+
+        float x = this.draggingSliderTrackLocked ? this.draggingSliderTrackX : track.x;
+        float w = this.draggingSliderTrackLocked ? this.draggingSliderTrackW : track.w;
+        return NanoSliderController.mouseRatio((float)mouseX, x, w);
     }
 
     private void syncProfileFromWindow()
@@ -783,6 +839,11 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
     private boolean resolveAnimationEnabled(ClickGuiModule clickGui)
     {
         return clickGui == null || clickGui.isGlobalAnimationEnabled();
+    }
+
+    private boolean resolveSliderAnimationEnabled(ClickGuiModule clickGui)
+    {
+        return clickGui == null || clickGui.isGlobalAnimationEnabled() && clickGui.isSliderAnimationEnabled();
     }
 
     private float resolveAnimationSmooth(ClickGuiModule clickGui)
