@@ -1,11 +1,23 @@
 package client.render;
 
+import dwgx.nano.NanoRenderUtils;
 import org.lwjgl.nanovg.NVGColor;
-import org.lwjgl.nanovg.NVGPaint;
 import org.lwjgl.system.MemoryStack;
 
-import static org.lwjgl.nanovg.NanoVG.*;
+import static org.lwjgl.nanovg.NanoVG.nvgBeginPath;
+import static org.lwjgl.nanovg.NanoVG.nvgCircle;
+import static org.lwjgl.nanovg.NanoVG.nvgFill;
+import static org.lwjgl.nanovg.NanoVG.nvgFillColor;
+import static org.lwjgl.nanovg.NanoVG.nvgLineTo;
+import static org.lwjgl.nanovg.NanoVG.nvgMoveTo;
+import static org.lwjgl.nanovg.NanoVG.nvgStroke;
+import static org.lwjgl.nanovg.NanoVG.nvgStrokeColor;
+import static org.lwjgl.nanovg.NanoVG.nvgStrokeWidth;
 
+/**
+ * Compatibility wrapper; prefer {@link NanoRenderUtils} for new code.
+ */
+@Deprecated
 public final class NanoUtils
 {
     private NanoUtils()
@@ -14,47 +26,36 @@ public final class NanoUtils
 
     public static NVGColor rgba(MemoryStack stack, int r, int g, int b, int a)
     {
-        NVGColor color = NVGColor.mallocStack(stack);
-        nvgRGBA((byte)clamp255(r), (byte)clamp255(g), (byte)clamp255(b), (byte)clamp255(a), color);
-        return color;
+        return NanoRenderUtils.rgba(stack, r, g, b, a);
     }
 
     public static NVGColor argb(MemoryStack stack, int argb)
     {
-        int a = argb >>> 24 & 255;
-        int r = argb >>> 16 & 255;
-        int g = argb >>> 8 & 255;
-        int b = argb & 255;
-        return rgba(stack, r, g, b, a);
+        return NanoRenderUtils.argb(stack, argb);
     }
 
     public static void fillRect(long vg, float x, float y, float width, float height, NVGColor color)
     {
-        nvgBeginPath(vg);
-        nvgRect(vg, x, y, width, height);
-        nvgFillColor(vg, color);
-        nvgFill(vg);
+        NanoRenderUtils.fillRect(vg, x, y, width, height, color);
     }
 
     public static void fillRoundedRect(long vg, float x, float y, float width, float height, float radius, NVGColor color)
     {
-        nvgBeginPath(vg);
-        nvgRoundedRect(vg, x, y, width, height, radius);
-        nvgFillColor(vg, color);
-        nvgFill(vg);
+        NanoRenderUtils.fillRoundedRect(vg, x, y, width, height, radius, color);
     }
 
     public static void strokeRoundedRect(long vg, float x, float y, float width, float height, float radius, float strokeWidth, NVGColor color)
     {
-        nvgBeginPath(vg);
-        nvgRoundedRect(vg, x, y, width, height, radius);
-        nvgStrokeWidth(vg, strokeWidth);
-        nvgStrokeColor(vg, color);
-        nvgStroke(vg);
+        NanoRenderUtils.strokeRoundedRect(vg, x, y, width, height, radius, strokeWidth, color);
     }
 
     public static void drawLine(long vg, float x1, float y1, float x2, float y2, float width, NVGColor color)
     {
+        if (color == null || width <= 0.0F)
+        {
+            return;
+        }
+
         nvgBeginPath(vg);
         nvgMoveTo(vg, x1, y1);
         nvgLineTo(vg, x2, y2);
@@ -65,6 +66,11 @@ public final class NanoUtils
 
     public static void drawCircle(long vg, float cx, float cy, float radius, NVGColor color)
     {
+        if (color == null || radius <= 0.0F)
+        {
+            return;
+        }
+
         nvgBeginPath(vg);
         nvgCircle(vg, cx, cy, radius);
         nvgFillColor(vg, color);
@@ -73,69 +79,31 @@ public final class NanoUtils
 
     public static void drawPanel(long vg, MemoryStack stack, float x, float y, float width, float height, float radius, int fillArgb, int borderArgb, float borderWidth, int shadowInnerAlpha)
     {
-        NVGColor shadowInner = rgba(stack, 0, 0, 0, shadowInnerAlpha);
-        NVGColor shadowOuter = rgba(stack, 0, 0, 0, 0);
-        NVGPaint shadowPaint = NVGPaint.mallocStack(stack);
-        nvgBoxGradient(vg, x - 4.0F, y - 4.0F, width + 8.0F, height + 8.0F, radius + 1.0F, 12.0F, shadowInner, shadowOuter, shadowPaint);
-        nvgBeginPath(vg);
-        nvgRoundedRect(vg, x - 8.0F, y - 8.0F, width + 16.0F, height + 16.0F, radius + 5.0F);
-        nvgFillPaint(vg, shadowPaint);
-        nvgFill(vg);
-        fillRoundedRect(vg, x, y, width, height, radius, argb(stack, fillArgb));
-        strokeRoundedRect(vg, x, y, width, height, radius, borderWidth, argb(stack, borderArgb));
+        NanoRenderUtils.drawPanel(vg, stack, x, y, width, height, radius, fillArgb, borderArgb, borderWidth, shadowInnerAlpha);
     }
 
     public static void drawText(long vg, MemoryStack stack, int fontId, float x, float y, float size, int align, int argb, String text)
     {
-        if (fontId < 0 || text == null)
-        {
-            return;
-        }
-
-        nvgFontFaceId(vg, fontId);
-        nvgFontSize(vg, size);
-        nvgTextAlign(vg, align);
-        nvgFillColor(vg, argb(stack, argb));
-        nvgText(vg, x, y, text);
+        NanoRenderUtils.drawLabel(vg, stack, fontId, x, y, size, text, (argb >>> 16) & 255, (argb >>> 8) & 255, argb & 255, (argb >>> 24) & 255, align);
     }
 
     public static float measureTextWidth(long vg, int fontId, float size, String text)
     {
-        if (fontId < 0 || text == null)
-        {
-            return 0.0F;
-        }
-
-        nvgFontFaceId(vg, fontId);
-        nvgFontSize(vg, size);
-        float[] bounds = new float[4];
-        nvgTextBounds(vg, 0.0F, 0.0F, text, bounds);
-        return bounds[2] - bounds[0];
+        return NanoRenderUtils.textWidth(vg, fontId, size, text);
     }
 
     public static void beginClip(long vg, float x, float y, float width, float height)
     {
-        nvgSave(vg);
-        nvgScissor(vg, x, y, width, height);
+        dwgx.nano.NanoUi.beginClip(vg, x, y, width, height);
     }
 
     public static void endClip(long vg)
     {
-        nvgRestore(vg);
+        dwgx.nano.NanoUi.endClip(vg);
     }
 
     public static float pixelRatio(int framebufferWidth, int windowWidth)
     {
-        if (framebufferWidth <= 0 || windowWidth <= 0)
-        {
-            return 1.0F;
-        }
-
-        return (float)framebufferWidth / (float)windowWidth;
-    }
-
-    private static int clamp255(int value)
-    {
-        return Math.max(0, Math.min(255, value));
+        return NanoRenderUtils.pixelRatio(framebufferWidth, windowWidth);
     }
 }

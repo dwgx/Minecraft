@@ -2,11 +2,18 @@ package client.render;
 
 import static org.lwjgl.nanovg.NanoVG.nvgBeginFrame;
 import static org.lwjgl.nanovg.NanoVG.nvgEndFrame;
+import static org.lwjgl.nanovg.NanoVG.nvgGlobalAlpha;
 import static org.lwjgl.nanovg.NanoVG.nvgIntersectScissor;
 import static org.lwjgl.nanovg.NanoVG.nvgResetScissor;
+import static org.lwjgl.nanovg.NanoVG.nvgResetTransform;
 import static org.lwjgl.nanovg.NanoVG.nvgRestore;
 import static org.lwjgl.nanovg.NanoVG.nvgSave;
 import static org.lwjgl.nanovg.NanoVG.nvgScissor;
+import static org.lwjgl.nanovg.NanoVG.nvgScale;
+import static org.lwjgl.nanovg.NanoVG.nvgTranslate;
+import static org.lwjgl.opengl.GL11.GL_SCISSOR_TEST;
+import static org.lwjgl.opengl.GL11.GL_STENCIL_TEST;
+import static org.lwjgl.opengl.GL11.glDisable;
 
 /**
  * NanoVG 帧生命周期封装。
@@ -38,13 +45,44 @@ public final class NanoVGContext
 
     public void beginFrame(int windowWidth, int windowHeight, float pixelRatio)
     {
-        nvgBeginFrame(this.vg, windowWidth, windowHeight, pixelRatio);
+        if (this.vg == 0L)
+        {
+            this.frameActive = false;
+            return;
+        }
+
+        if (this.frameActive)
+        {
+            this.endFrame();
+        }
+
+        int safeWidth = Math.max(1, windowWidth);
+        int safeHeight = Math.max(1, windowHeight);
+        float safePixelRatio = Float.isNaN(pixelRatio) || Float.isInfinite(pixelRatio) || pixelRatio <= 0.0F ? 1.0F : pixelRatio;
+
+        glDisable(GL_SCISSOR_TEST);
+        glDisable(GL_STENCIL_TEST);
+        nvgBeginFrame(this.vg, safeWidth, safeHeight, safePixelRatio);
+        nvgResetTransform(this.vg);
+        nvgResetScissor(this.vg);
+        nvgGlobalAlpha(this.vg, 1.0F);
         this.frameActive = true;
     }
 
     public void endFrame()
     {
+        if (!this.frameActive || this.vg == 0L)
+        {
+            this.frameActive = false;
+            return;
+        }
+
+        nvgResetTransform(this.vg);
+        nvgResetScissor(this.vg);
+        nvgGlobalAlpha(this.vg, 1.0F);
         nvgEndFrame(this.vg);
+        glDisable(GL_SCISSOR_TEST);
+        glDisable(GL_STENCIL_TEST);
         this.frameActive = false;
     }
 
@@ -71,5 +109,20 @@ public final class NanoVGContext
     public void resetScissor()
     {
         nvgResetScissor(this.vg);
+    }
+
+    public void resetTransform()
+    {
+        nvgResetTransform(this.vg);
+    }
+
+    public void translate(float x, float y)
+    {
+        nvgTranslate(this.vg, x, y);
+    }
+
+    public void scale(float sx, float sy)
+    {
+        nvgScale(this.vg, sx, sy);
     }
 }
