@@ -13,6 +13,7 @@ public final class NanoFontBook
     private static int uiRegularId = -1;
     private static int uiBoldId = -1;
     private static int monoId = -1;
+    private static int cjkId = -1;
 
     private NanoFontBook()
     {
@@ -35,6 +36,7 @@ public final class NanoFontBook
         uiRegularId = -1;
         uiBoldId = -1;
         monoId = -1;
+        cjkId = -1;
 
         File gameDir = new File(".").getAbsoluteFile();
         File parentDir = gameDir.getParentFile();
@@ -44,6 +46,7 @@ public final class NanoFontBook
         uiRegularId = loadFirst(vg, "dwgx-ui-regular", fontCandidates(base, parent, "SF-Regular.ttf"));
         uiBoldId = loadFirst(vg, "dwgx-ui-bold", fontCandidates(base, parent, "SF-Bold.ttf", "SF-Regular.ttf"));
         monoId = loadFirst(vg, "dwgx-ui-mono", fontCandidates(base, parent, "SF-Regular.ttf"));
+        cjkId = loadFirst(vg, "dwgx-ui-cjk", cjkCandidates(base, parent));
 
         if (uiRegularId < 0)
         {
@@ -58,6 +61,13 @@ public final class NanoFontBook
         if (monoId < 0)
         {
             monoId = uiRegularId;
+        }
+
+        if (cjkId >= 0)
+        {
+            addFallback(vg, uiRegularId, cjkId);
+            addFallback(vg, uiBoldId, cjkId);
+            addFallback(vg, monoId, cjkId);
         }
 
         loadedForVg = vg;
@@ -100,6 +110,30 @@ public final class NanoFontBook
         return out.toArray(new String[out.size()]);
     }
 
+    private static String[] cjkCandidates(String base, String parent)
+    {
+        String family = "UDDigiKyokashoN-B" + File.separator;
+        List<String> out = new ArrayList<String>();
+        addFontCandidates(out, base, new String[] {
+            family + "UDDigiKyokashoN-R.ttc",
+            family + "UDDigiKyokashoN-B.ttc",
+            "UDDigiKyokashoN-R.ttc",
+            "UDDigiKyokashoN-B.ttc"
+        });
+
+        if (parent != null && !parent.equals(base))
+        {
+            addFontCandidates(out, parent, new String[] {
+                family + "UDDigiKyokashoN-R.ttc",
+                family + "UDDigiKyokashoN-B.ttc",
+                "UDDigiKyokashoN-R.ttc",
+                "UDDigiKyokashoN-B.ttc"
+            });
+        }
+
+        return out.toArray(new String[out.size()]);
+    }
+
     private static void addFontCandidates(List<String> out, String root, String[] fileNames)
     {
         if (root == null || root.isEmpty())
@@ -127,6 +161,22 @@ public final class NanoFontBook
             {
                 out.add(new File(dirs[i], fileNames[j]).getPath());
             }
+        }
+    }
+
+    private static void addFallback(long vg, int baseFontId, int fallbackFontId)
+    {
+        if (vg == 0L || baseFontId < 0 || fallbackFontId < 0 || baseFontId == fallbackFontId)
+        {
+            return;
+        }
+
+        try
+        {
+            org.lwjgl.nanovg.NanoVG.nvgAddFallbackFontId(vg, baseFontId, fallbackFontId);
+        }
+        catch (Throwable ignored)
+        {
         }
     }
 
