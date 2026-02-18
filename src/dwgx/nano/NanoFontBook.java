@@ -48,11 +48,6 @@ public final class NanoFontBook
         monoId = loadFirst(vg, "dwgx-ui-mono", fontCandidates(base, parent, "SF-Regular.ttf"));
         cjkId = loadFirst(vg, "dwgx-ui-cjk", cjkCandidates(base, parent));
 
-        if (uiRegularId < 0)
-        {
-            System.out.println("[NanoFontBook] Failed to load San-Francisco TTF. cwd=" + base);
-        }
-
         if (uiBoldId < 0)
         {
             uiBoldId = uiRegularId;
@@ -89,7 +84,6 @@ public final class NanoFontBook
 
             if (id >= 0)
             {
-                System.out.println("[NanoFontBook] Loaded " + alias + " from " + file.getAbsolutePath());
                 return id;
             }
         }
