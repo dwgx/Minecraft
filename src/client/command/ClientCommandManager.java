@@ -1,5 +1,8 @@
 package client.command;
 
+import client.config.ConfigManager;
+import client.core.ClientBootstrap;
+import client.i18n.I18nManager;
 import client.module.Module;
 import client.module.ModuleManager;
 import client.setting.ColorSetting;
@@ -7,6 +10,7 @@ import client.setting.ColorValue;
 import client.setting.KeybindSetting;
 import client.setting.NumberSetting;
 import client.setting.Setting;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -19,12 +23,16 @@ import net.minecraft.util.ChatComponentText;
 import org.lwjgl.input.Keyboard;
 
 /**
- * 本地客户端命令：
- * .client <module> [enable|disable|toggle|status|bind]
+ * Local client command:
+ * .client <module> [enable|disable|toggle|status|bind|locale]
  */
 public final class ClientCommandManager
 {
     private static final String ROOT = ".client";
+    private static final String SUB_LOCALE = "locale";
+    private static final String SUB_STATUS = "status";
+    private static final String SUB_LIST = "list";
+    private static final String SUB_RELOAD = "reload";
     private static final List<String> ACTION_TOKENS = Arrays.asList(new String[] {"enable", "disable", "toggle", "status", "bind"});
     private static final List<String> BIND_TOKENS = buildBindTokens();
     private final ModuleManager modules;
@@ -35,7 +43,7 @@ public final class ClientCommandManager
     }
 
     /**
-     * 执行本地命令；返回 false 表示并非本地命令，调用方可继续走原版流程。
+     * Execute local command; return false if command should fall back to vanilla handling.
      */
     public boolean execute(String rawInput)
     {
@@ -52,11 +60,17 @@ public final class ClientCommandManager
             return true;
         }
 
-        String firstArg = input.args.get(0);
+        String firstArg = normalize(input.args.get(0));
 
-        if (equalsIgnoreCase(firstArg, "status"))
+        if (equalsIgnoreCase(firstArg, SUB_STATUS))
         {
             this.printAllModuleStatus();
+            return true;
+        }
+
+        if (equalsIgnoreCase(firstArg, SUB_LOCALE))
+        {
+            this.handleLocaleCommand(input.args);
             return true;
         }
 
@@ -64,8 +78,8 @@ public final class ClientCommandManager
 
         if (module == null)
         {
-            this.chat("§c找不到模块: §f" + firstArg);
-            this.chat("§7可用模块: §f" + join(this.collectModuleTokens(), ", "));
+            this.chat(this.tr("command.client.module_not_found", "\u00a7cModule not found: \u00a7f{0}", firstArg));
+            this.chat(this.tr("command.client.available_modules", "\u00a77Available modules: \u00a7f{0}", join(this.collectModuleTokens(), ", ")));
             return true;
         }
 
@@ -73,8 +87,8 @@ public final class ClientCommandManager
 
         if (action == null)
         {
-            this.chat("§c无效动作: §f" + input.args.get(1));
-            this.chat("§7可选动作: §fenable, disable, toggle, status, bind");
+            this.chat(this.tr("command.client.invalid_action", "\u00a7cInvalid action: \u00a7f{0}", input.args.get(1)));
+            this.chat(this.tr("command.client.valid_actions", "\u00a77Valid actions: \u00a7fenable, disable, toggle, status, bind, locale"));
             return true;
         }
 
@@ -89,7 +103,7 @@ public final class ClientCommandManager
     }
 
     /**
-     * 返回 null 表示不是本地命令，不拦截原版补全流程。
+     * Return null when input is not a local command and should use vanilla completion.
      */
     public List<String> complete(String input, int cursor)
     {
@@ -137,18 +151,35 @@ public final class ClientCommandManager
             return filterPrefix(this.collectSecondArgCandidates(), tokens.get(1));
         }
 
+        String second = normalize(tokens.get(1));
+
         if (tokens.size() == 2)
         {
-            if (equalsIgnoreCase(tokens.get(1), "status"))
+            if (SUB_STATUS.equals(second))
             {
                 return Collections.emptyList();
+            }
+
+            if (SUB_LOCALE.equals(second))
+            {
+                return this.collectLocaleCandidates();
             }
 
             return new ArrayList<String>(ACTION_TOKENS);
         }
 
-        if (equalsIgnoreCase(tokens.get(1), "status"))
+        if (SUB_STATUS.equals(second))
         {
+            return Collections.emptyList();
+        }
+
+        if (SUB_LOCALE.equals(second))
+        {
+            if (tokens.size() == 3 && !endsWithSpace)
+            {
+                return filterPrefix(this.collectLocaleCandidates(), tokens.get(2));
+            }
+
             return Collections.emptyList();
         }
 
@@ -177,23 +208,104 @@ public final class ClientCommandManager
         return Collections.emptyList();
     }
 
+    private void handleLocaleCommand(List<String> args)
+    {
+        I18nManager i18n = ClientBootstrap.instance().getI18n();
+
+        if (i18n == null)
+        {
+            return;
+        }
+
+        if (args.size() < 2)
+        {
+            this.chat(this.tr("i18n.locale.current", "\u00a77Current locale: \u00a7f{0}", i18n.getCurrentLocale()));
+            this.chat(this.tr("i18n.locale.usage", "\u00a77Usage: \u00a7f.client locale <list|reload|code>"));
+            this.printLocaleList(i18n);
+            return;
+        }
+
+        String token = normalize(args.get(1));
+
+        if (SUB_LIST.equals(token))
+        {
+            this.printLocaleList(i18n);
+            return;
+        }
+
+        if (SUB_RELOAD.equals(token))
+        {
+            i18n.reload();
+            this.chat(this.tr("i18n.locale.current", "\u00a77Current locale: \u00a7f{0}", i18n.getCurrentLocale()));
+            this.printLocaleList(i18n);
+            this.persistLocale();
+            return;
+        }
+
+        Set<String> available = i18n.getAvailableLocales();
+
+        if (!available.contains(token))
+        {
+            this.chat(this.tr("i18n.locale.not_found", "\u00a7cUnknown locale: \u00a7f{0}", token));
+            this.printLocaleList(i18n);
+            return;
+        }
+
+        i18n.setCurrentLocale(token);
+        String current = i18n.getCurrentLocale();
+        this.chat(this.tr("i18n.locale.changed", "\u00a7aLocale switched to \u00a7f{0} \u00a78({1})", current, i18n.getLocaleDisplayName(current)));
+        this.persistLocale();
+    }
+
+    private void printLocaleList(I18nManager i18n)
+    {
+        this.chat(this.tr("i18n.locale.available_title", "\u00a76[Client] Available locales:"));
+        List<String> locales = new ArrayList<String>(i18n.getAvailableLocales());
+        Collections.sort(locales);
+
+        for (int i = 0; i < locales.size(); ++i)
+        {
+            String code = locales.get(i);
+            this.chat(this.tr("i18n.locale.available_item", " \u00a77- \u00a7f{0} \u00a78({1})", i18n.getLocaleDisplayName(code), code));
+        }
+    }
+
+    private void persistLocale()
+    {
+        ConfigManager config = ClientBootstrap.instance().getConfigManager();
+
+        if (config == null)
+        {
+            return;
+        }
+
+        try
+        {
+            config.markClientDirty();
+            config.saveClient();
+        }
+        catch (IOException ignored)
+        {
+        }
+    }
+
     private void applyAction(Module module, Action action)
     {
         switch (action)
         {
             case ENABLE:
                 module.setEnabled(true);
-                this.chat("§a已启用 §f" + module.getName());
+                this.chat(this.tr("command.client.enabled", "\u00a7aEnabled \u00a7f{0}", this.moduleDisplayName(module)));
                 return;
 
             case DISABLE:
                 module.setEnabled(false);
-                this.chat("§e已禁用 §f" + module.getName());
+                this.chat(this.tr("command.client.disabled", "\u00a7eDisabled \u00a7f{0}", this.moduleDisplayName(module)));
                 return;
 
             case TOGGLE:
                 module.toggle();
-                this.chat("§b" + module.getName() + " §7=> §f" + (module.isEnabled() ? "开启" : "关闭"));
+                this.chat(this.tr("command.client.toggled", "\u00a7b{0} \u00a77=> \u00a7f{1}", this.moduleDisplayName(module), this.moduleStateLabel(module.isEnabled())));
                 return;
 
             case STATUS:
@@ -209,8 +321,8 @@ public final class ClientCommandManager
     {
         if (args.size() < 3)
         {
-            this.chat("§7当前绑定: §f" + module.getBind().getDisplayName());
-            this.chat("§7用法: §f.client " + normalize(module.getId()) + " bind <key|none>");
+            this.chat(this.tr("command.client.current_bind", "\u00a77Current bind: \u00a7f{0}", module.getBind().getDisplayName()));
+            this.chat(this.tr("command.client.bind_usage", "\u00a77Usage: \u00a7f.client {0} bind <key|none>", normalize(module.getId())));
             return;
         }
 
@@ -218,14 +330,14 @@ public final class ClientCommandManager
 
         if (keyCode == null)
         {
-            this.chat("§c无法识别按键: §f" + args.get(2));
-            this.chat("§7示例: §f.client " + normalize(module.getId()) + " bind rshift");
-            this.chat("§7解除绑定: §f.client " + normalize(module.getId()) + " bind none");
+            this.chat(this.tr("command.client.unrecognized_key", "\u00a7cUnrecognized key: \u00a7f{0}", args.get(2)));
+            this.chat(this.tr("command.client.bind_example", "\u00a77Example: \u00a7f.client {0} bind rshift", normalize(module.getId())));
+            this.chat(this.tr("command.client.bind_unbind", "\u00a77Unbind: \u00a7f.client {0} bind none", normalize(module.getId())));
             return;
         }
 
         module.getBind().setKeyCode(keyCode.intValue());
-        this.chat("§a" + module.getName() + " §7绑定为 §f" + module.getBind().getDisplayName());
+        this.chat(this.tr("command.client.bind_set", "\u00a7a{0} \u00a77bound to \u00a7f{1}", this.moduleDisplayName(module), module.getBind().getDisplayName()));
     }
 
     private Module resolveModule(String token)
@@ -249,14 +361,45 @@ public final class ClientCommandManager
         {
             return byName;
         }
+
+        List<Module> all = this.modules.getAll();
+
+        for (int i = 0; i < all.size(); ++i)
+        {
+            Module module = all.get(i);
+
+            if (normalize(module.getDisplayName()).equals(normalized))
+            {
+                return module;
+            }
+        }
+
         return null;
     }
 
     private List<String> collectSecondArgCandidates()
     {
         List<String> candidates = new ArrayList<String>(this.collectModuleTokens());
-        candidates.add("status");
+        candidates.add(SUB_STATUS);
+        candidates.add(SUB_LOCALE);
         return candidates;
+    }
+
+    private List<String> collectLocaleCandidates()
+    {
+        I18nManager i18n = ClientBootstrap.instance().getI18n();
+        List<String> out = new ArrayList<String>();
+        out.add(SUB_LIST);
+        out.add(SUB_RELOAD);
+
+        if (i18n != null)
+        {
+            List<String> locales = new ArrayList<String>(i18n.getAvailableLocales());
+            Collections.sort(locales);
+            out.addAll(locales);
+        }
+
+        return out;
     }
 
     private Set<String> collectModuleTokens()
@@ -269,6 +412,7 @@ public final class ClientCommandManager
             Module module = all.get(i);
             out.add(normalize(module.getId()));
             out.add(normalize(module.getName()));
+            out.add(normalize(module.getDisplayName()));
         }
 
         return out;
@@ -276,52 +420,59 @@ public final class ClientCommandManager
 
     private void printUsage()
     {
-        this.chat("§7用法: §f.client <module> [enable|disable|toggle|status|bind]");
-        this.chat("§7示例: §f.client eagle");
-        this.chat("§7示例: §f.client eagle bind rshift");
-        this.chat("§7示例: §f.client eagle bind none");
+        this.chat(this.tr("command.client.usage", "\u00a77Usage: \u00a7f.client <module> [enable|disable|toggle|status|bind|locale]"));
+        this.chat(this.tr("command.client.usage_example_1", "\u00a77Example: \u00a7f.client eagle"));
+        this.chat(this.tr("command.client.usage_example_2", "\u00a77Example: \u00a7f.client eagle bind rshift"));
+        this.chat(this.tr("command.client.usage_example_3", "\u00a77Example: \u00a7f.client locale en_us"));
     }
 
     private void printAllModuleStatus()
     {
         List<Module> all = this.modules.getAll();
-        this.chat("§6[Client] 模块总览:");
+        this.chat(this.tr("command.client.module_overview_title", "\u00a76[Client] Module Overview:"));
 
         for (int i = 0; i < all.size(); ++i)
         {
             Module module = all.get(i);
-            this.chat(" §7- §f" + module.getName() + " §8(" + module.getId() + ") §7[" + (module.isEnabled() ? "§aON§7" : "§cOFF§7") + "] §8[§f" + module.getBind().getDisplayName() + "§8]");
+            this.chat(this.tr(
+                "command.client.module_overview_item",
+                " \u00a77- \u00a7f{0} \u00a78({1}) \u00a77[{2}\u00a77] \u00a78[\u00a7f{3}\u00a78]",
+                this.moduleDisplayName(module),
+                module.getId(),
+                module.isEnabled() ? "\u00a7a" + this.moduleStateLabel(true) : "\u00a7c" + this.moduleStateLabel(false),
+                module.getBind().getDisplayName()
+            ));
         }
     }
 
     private void printModuleStatus(Module module)
     {
-        this.chat("§6[Client] §f" + module.getName() + " §7[" + (module.isEnabled() ? "§aON§7" : "§cOFF§7") + "]");
-        this.chat(" §7id: §f" + module.getId());
-        this.chat(" §7category: §f" + module.getCategory().name());
-        this.chat(" §7bind: §f" + module.getBind().getDisplayName());
+        this.chat(this.tr("command.client.module_status_title", "\u00a76[Client] \u00a7f{0} \u00a77[{1}\u00a77]", this.moduleDisplayName(module), module.isEnabled() ? "\u00a7a" + this.moduleStateLabel(true) : "\u00a7c" + this.moduleStateLabel(false)));
+        this.chat(this.tr("command.client.module_status_id", " \u00a77id: \u00a7f{0}", module.getId()));
+        this.chat(this.tr("command.client.module_status_category", " \u00a77category: \u00a7f{0}", module.getCategory().getDisplayName()));
+        this.chat(this.tr("command.client.module_status_bind", " \u00a77bind: \u00a7f{0}", module.getBind().getDisplayName()));
 
         List<Setting<?>> settings = module.getSettings();
 
         if (settings.isEmpty())
         {
-            this.chat(" §8(无设置项)");
+            this.chat(this.tr("command.client.module_status_no_settings", " \u00a78(no settings)"));
             return;
         }
 
         for (int i = 0; i < settings.size(); ++i)
         {
             Setting<?> setting = settings.get(i);
-            this.chat(" §7" + setting.getName() + " §8(" + setting.getKey() + ") §7= §f" + this.settingValue(setting));
+            this.chat(this.tr("command.client.module_status_setting", " \u00a77{0} \u00a78({1}) \u00a77= \u00a7f{2}", setting.getDisplayName(module.getId()), setting.getKey(), this.settingValue(module.getId(), setting)));
         }
     }
 
-    private String settingValue(Setting<?> setting)
+    private String settingValue(String moduleId, Setting<?> setting)
     {
         if (setting instanceof ColorSetting)
         {
             ColorValue c = ((ColorSetting)setting).get();
-            return "rgba(" + c.getR() + "," + c.getG() + "," + c.getB() + "," + c.getA() + "), rainbow=" + c.isRainbow();
+            return this.tr("command.client.setting.color", "rgba({0},{1},{2},{3}), rainbow={4}", Integer.valueOf(c.getR()), Integer.valueOf(c.getG()), Integer.valueOf(c.getB()), Integer.valueOf(c.getA()), c.isRainbow() ? this.tr("command.client.value.true", "true") : this.tr("command.client.value.false", "false"));
         }
 
         if (setting instanceof KeybindSetting)
@@ -336,8 +487,45 @@ public final class ClientCommandManager
             return numberSetting.format();
         }
 
+        if (setting instanceof client.setting.BoolSetting)
+        {
+            return ((client.setting.BoolSetting)setting).isEnabled() ? this.moduleStateLabel(true) : this.moduleStateLabel(false);
+        }
+
+        if (setting instanceof client.setting.EnumSetting)
+        {
+            Object value = setting.get();
+            return value == null ? this.tr("clickgui.value.null", "null") : setting.getDisplayOption(moduleId, value);
+        }
+
         Object value = setting.get();
-        return value == null ? "null" : String.valueOf(value);
+        if (value == null)
+        {
+            return this.tr("clickgui.value.null", "null");
+        }
+
+        if (value instanceof Boolean)
+        {
+            return ((Boolean)value).booleanValue() ? this.tr("command.client.value.true", "true") : this.tr("command.client.value.false", "false");
+        }
+
+        return String.valueOf(value);
+    }
+
+    private String moduleDisplayName(Module module)
+    {
+        return module == null ? "" : module.getDisplayName();
+    }
+
+    private String moduleStateLabel(boolean enabled)
+    {
+        return enabled ? this.tr("command.client.state.on", "ON") : this.tr("command.client.state.off", "OFF");
+    }
+
+    private String tr(String key, String fallback, Object... args)
+    {
+        I18nManager i18n = ClientBootstrap.instance().getI18n();
+        return i18n == null ? fallback : i18n.translateOrDefault(key, fallback, args);
     }
 
     private void chat(String message)

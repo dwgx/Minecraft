@@ -292,19 +292,19 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
             }
 
             NanoUi.drawWindow(vg, stack, l.window.x, l.window.y, l.window.w, l.window.h, theme);
-            NanoUi.drawLeftText(vg, stack, bold, l.header.x + scaled(12.0F, k), l.header.y + l.header.h * 0.5F, scaled(16.0F, k), theme.textArgb(), "UIScaleEdit");
-            NanoUi.drawRightText(vg, stack, regular, l.header.x2() - scaled(12.0F, k), l.header.y + l.header.h * 0.5F, scaled(10.5F, k), theme.textWeakArgb(), "Target based scale profile editor");
+            NanoUi.drawLeftText(vg, stack, bold, l.header.x + scaled(12.0F, k), l.header.y + l.header.h * 0.5F, scaled(16.0F, k), theme.textArgb(), this.tr("uiscale.title", "UIScaleEdit"));
+            NanoUi.drawRightText(vg, stack, regular, l.header.x2() - scaled(12.0F, k), l.header.y + l.header.h * 0.5F, scaled(10.5F, k), theme.textWeakArgb(), this.tr("uiscale.subtitle", "Target based scale profile editor"));
 
             NanoUi.drawSurface(vg, stack, l.body.x, l.body.y, l.body.w, l.body.h, theme.surfaceRadius(), theme.mainArgb(), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 55));
-            this.drawTargetChip(vg, stack, regular, theme, l.targetClickGui, "ClickGUI", target == UiScaleEditModule.UiTarget.CLICK_GUI);
-            this.drawTargetChip(vg, stack, regular, theme, l.targetHudEdit, "HudEdit", target == UiScaleEditModule.UiTarget.HUD_EDIT);
-            this.drawSlider(vg, stack, regular, bold, theme, l.scaleTrack, "UI Scale", uiScale, this.module.getUiScaleMin(), this.module.getUiScaleMax(), "Global interface scale", l.showSliderHints, this.draggingScale, l.scaleTrack.contains(this.mouseX, this.mouseY));
-            this.drawSlider(vg, stack, regular, bold, theme, l.motionTrack, "Motion Speed", motion, this.module.getMotionSpeedMin(), this.module.getMotionSpeedMax(), "Drag/resize response", l.showSliderHints, this.draggingMotion, l.motionTrack.contains(this.mouseX, this.mouseY));
-            this.drawSlider(vg, stack, regular, bold, theme, l.anchorXTrack, "Horizontal", anchorX, 0.0F, 1.0F, "Left <-> Right balance", l.showSliderHints, this.draggingAnchorX, l.anchorXTrack.contains(this.mouseX, this.mouseY));
-            this.drawSlider(vg, stack, regular, bold, theme, l.anchorYTrack, "Vertical", anchorY, 0.0F, 1.0F, "Top <-> Bottom balance", l.showSliderHints, this.draggingAnchorY, l.anchorYTrack.contains(this.mouseX, this.mouseY));
-            NanoUi.drawLeftText(vg, stack, regular, l.scaleTrack.x, l.animSpeedTrack.y + scaled(4.0F, k), scaled(10.0F, k), theme.textWeakArgb(), "Animation controls moved to Setting page");
-            this.drawButton(vg, stack, regular, theme, l.openButton, "Open Target", false);
-            this.drawButton(vg, stack, regular, theme, l.backButton, "Back", false);
+            this.drawTargetChip(vg, stack, regular, theme, l.targetClickGui, this.tr("uiscale.target.clickgui", "ClickGUI"), target == UiScaleEditModule.UiTarget.CLICK_GUI);
+            this.drawTargetChip(vg, stack, regular, theme, l.targetHudEdit, this.tr("uiscale.target.hudedit", "HudEdit"), target == UiScaleEditModule.UiTarget.HUD_EDIT);
+            this.drawSlider(vg, stack, regular, bold, theme, l.scaleTrack, "ui_scale", this.tr("uiscale.slider.ui_scale", "UI Scale"), uiScale, this.module.getUiScaleMin(), this.module.getUiScaleMax(), this.tr("uiscale.hint.ui_scale", "Global interface scale"), l.showSliderHints, this.draggingScale, l.scaleTrack.contains(this.mouseX, this.mouseY));
+            this.drawSlider(vg, stack, regular, bold, theme, l.motionTrack, "motion_speed", this.tr("uiscale.slider.motion_speed", "Motion Speed"), motion, this.module.getMotionSpeedMin(), this.module.getMotionSpeedMax(), this.tr("uiscale.hint.motion_speed", "Drag/resize response"), l.showSliderHints, this.draggingMotion, l.motionTrack.contains(this.mouseX, this.mouseY));
+            this.drawSlider(vg, stack, regular, bold, theme, l.anchorXTrack, "anchor_x", this.tr("uiscale.slider.horizontal", "Horizontal"), anchorX, 0.0F, 1.0F, this.tr("uiscale.hint.horizontal", "Left <-> Right balance"), l.showSliderHints, this.draggingAnchorX, l.anchorXTrack.contains(this.mouseX, this.mouseY));
+            this.drawSlider(vg, stack, regular, bold, theme, l.anchorYTrack, "anchor_y", this.tr("uiscale.slider.vertical", "Vertical"), anchorY, 0.0F, 1.0F, this.tr("uiscale.hint.vertical", "Top <-> Bottom balance"), l.showSliderHints, this.draggingAnchorY, l.anchorYTrack.contains(this.mouseX, this.mouseY));
+            NanoUi.drawLeftText(vg, stack, regular, l.scaleTrack.x, l.animSpeedTrack.y + scaled(4.0F, k), scaled(10.0F, k), theme.textWeakArgb(), this.tr("uiscale.animation_moved", "Animation controls moved to Setting page"));
+            this.drawButton(vg, stack, regular, theme, l.openButton, this.tr("uiscale.open_target", "Open Target"), false);
+            this.drawButton(vg, stack, regular, theme, l.backButton, this.tr("ui.back", "Back"), false);
             this.drawResizeHandle(vg, stack, theme, l.resizeHandle);
             context.getNanoVG().resetScissor();
         }
@@ -319,7 +319,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         NanoUi.drawCenterText(vg, stack, regular, rect.x + rect.w * 0.5F, rect.y + rect.h * 0.5F, scaled(11.0F, k), theme.textArgb(), label);
     }
 
-    private void drawSlider(long vg, MemoryStack stack, int regular, int bold, NanoTheme theme, Rect track, String label, float value, float min, float max, String hint, boolean showHint, boolean dragging, boolean hovered)
+    private void drawSlider(long vg, MemoryStack stack, int regular, int bold, NanoTheme theme, Rect track, String sliderKey, String label, float value, float min, float max, String hint, boolean showHint, boolean dragging, boolean hovered)
     {
         ClickGuiModule clickGui = this.resolveClickGuiModule();
         float k = UiMotion.clamp(track.h / 8.0F, 0.35F, 1.85F);
@@ -328,11 +328,11 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         float dragRatio = UiMotion.clamp01(((float)this.mouseX - track.x) / Math.max(1.0F, track.w));
         float visualTarget = dragging ? dragRatio : ratio;
         boolean snap = dragging || (System.nanoTime() - this.lastSliderDragNanos < 150_000_000L);
-        float animatedRatio = snap ? visualTarget : UiAnimationBus.animate("uiscale.slider." + label, visualTarget, clickGui == null ? 0.62F : clickGui.getSliderAnimationSpeed(), this.resolveAnimationSmooth(clickGui), this.resolveAnimationType(clickGui), this.resolveAnimationEnabled(clickGui));
+        float animatedRatio = snap ? visualTarget : UiAnimationBus.animate("uiscale.slider." + sliderKey, visualTarget, clickGui == null ? 0.62F : clickGui.getSliderAnimationSpeed(), this.resolveAnimationSmooth(clickGui), this.resolveAnimationType(clickGui), this.resolveAnimationEnabled(clickGui));
         float displayRatio = animatedRatio;
-        float focus = UiAnimationBus.animate("uiscale.slider.focus." + label, (hovered || dragging) ? 1.0F : 0.0F, clickGui == null ? 0.58F : clickGui.getControlAnimationSpeed(), this.resolveAnimationSmooth(clickGui), this.resolveAnimationType(clickGui), this.resolveAnimationEnabled(clickGui));
+        float focus = UiAnimationBus.animate("uiscale.slider.focus." + sliderKey, (hovered || dragging) ? 1.0F : 0.0F, clickGui == null ? 0.58F : clickGui.getControlAnimationSpeed(), this.resolveAnimationSmooth(clickGui), this.resolveAnimationType(clickGui), this.resolveAnimationEnabled(clickGui));
         NanoUi.drawLeftText(vg, stack, bold, track.x, track.y - scaled(11.0F, k), scaled(14.5F, k), theme.textArgb(), label);
-        NanoUi.drawRightText(vg, stack, regular, track.x2(), track.y - scaled(11.0F, k), scaled(12.5F, k), theme.textMutedArgb(), this.formatSliderValue(label, value));
+        NanoUi.drawRightText(vg, stack, regular, track.x2(), track.y - scaled(11.0F, k), scaled(12.5F, k), theme.textMutedArgb(), this.formatSliderValue(sliderKey, value));
         int trackFill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.44F + focus * 0.30F));
         float trackRadius = Math.min(track.h * 0.5F, theme.controlRadius());
         NanoUi.drawSurface(vg, stack, track.x, track.y, track.w, track.h, trackRadius, trackFill, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 112));
@@ -361,14 +361,9 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         NanoUi.drawCenterText(vg, stack, regular, button.x + button.w * 0.5F, button.y + button.h * 0.5F, scaled(11.0F, k), theme.textArgb(), label);
     }
 
-    private String formatSliderValue(String label, float value)
+    private String formatSliderValue(String sliderKey, float value)
     {
-        if ("UI Scale".equals(label))
-        {
-            return String.format(Locale.ROOT, "%d%%", Integer.valueOf(Math.round(value * 100.0F)));
-        }
-
-        if ("Horizontal".equals(label) || "Vertical".equals(label))
+        if ("ui_scale".equals(sliderKey) || "anchor_x".equals(sliderKey) || "anchor_y".equals(sliderKey))
         {
             return String.format(Locale.ROOT, "%d%%", Integer.valueOf(Math.round(value * 100.0F)));
         }
@@ -777,6 +772,12 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
     {
         Module module = ClientBootstrap.instance().getModules().getById("click_gui");
         return module instanceof ClickGuiModule ? (ClickGuiModule)module : null;
+    }
+
+    private String tr(String key, String fallback, Object... args)
+    {
+        client.i18n.I18nManager i18n = ClientBootstrap.instance().getI18n();
+        return i18n == null ? fallback : i18n.translateOrDefault(key, fallback, args);
     }
 
     private boolean resolveAnimationEnabled(ClickGuiModule clickGui)

@@ -1,5 +1,6 @@
 package client.ui;
 
+import client.core.ClientBootstrap;
 import client.module.Module;
 import client.module.ModuleManager;
 import client.module.impl.client.ClickGuiModule;
@@ -12,6 +13,8 @@ import client.setting.FloatSetting;
 import client.setting.IntSetting;
 import client.setting.NumberSetting;
 import client.setting.Setting;
+import client.setting.StringSetting;
+import client.ui.template.NanoTextInput;
 import client.ui.template.UiAnimation;
 import client.ui.template.UiAnimationBus;
 import client.ui.template.UiMotion;
@@ -45,20 +48,8 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
     private enum SettingsSection
     {
-        THEME("Theme"),
-        ANIMATION("Animation");
-
-        private final String label;
-
-        private SettingsSection(String label)
-        {
-            this.label = label;
-        }
-
-        private String label()
-        {
-            return this.label;
-        }
+        THEME,
+        ANIMATION
     }
 
     private static final float BASE_WIDTH = 760.0F;
@@ -88,6 +79,9 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
     private float settingScrollVisual;
     private Setting<?> draggingSettingSlider;
     private long lastSliderDragNanos;
+    private Setting<?> activeNumberSetting;
+    private final StringSetting numberInputBuffer = new StringSetting("__client_number_input_buffer", "Number Input", "Inline numeric input buffer", "", 40);
+    private final NanoTextInput numberInput = new NanoTextInput();
 
     private ColorSetting activeColor;
     private boolean draggingSv;
@@ -105,6 +99,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
     private boolean pickerFloating;
     private long lastPickerCommitNanos;
     private long lastNanoAt;
+    private long lastNanoVg;
     private SettingsSection section = SettingsSection.THEME;
 
     private TransitionMode transitionMode = TransitionMode.NONE;
@@ -137,6 +132,8 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         this.settingScrollVisual = 0.0F;
         this.draggingSettingSlider = null;
         this.lastSliderDragNanos = 0L;
+        this.activeNumberSetting = null;
+        this.numberInput.blur();
         this.lastPickerCommitNanos = 0L;
         this.pickerFloating = false;
         this.draggingPicker = false;
@@ -150,6 +147,9 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
     {
         this.window.endInteraction();
         this.draggingSettingSlider = null;
+        this.commitActiveNumberInput();
+        this.activeNumberSetting = null;
+        this.numberInput.blur();
         this.draggingSv = false;
         this.draggingHue = false;
         this.draggingAlpha = false;
@@ -164,6 +164,19 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
     protected void keyTyped(char typedChar, int keyCode) throws IOException
     {
+        if (this.activeNumberSetting != null && this.numberInput.isFocused())
+        {
+            if (this.numberInput.handleKeyTyped(typedChar, keyCode, this.numberInputBuffer))
+            {
+                if (!this.numberInput.isFocused())
+                {
+                    this.commitActiveNumberInput();
+                }
+
+                return;
+            }
+        }
+
         if (keyCode == 1)
         {
             this.requestTransition(TransitionMode.BACK, this.parentScreen);
@@ -176,6 +189,19 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException
     {
         Layout l = this.layout();
+        ClickGuiModule clickGui = this.resolveClickGuiModule();
+        this.validateActiveNumberSetting(clickGui);
+
+        if (mouseButton == 0 && this.activeNumberSetting != null)
+        {
+            Rect activeRect = this.activeNumberInputRect(l, clickGui, this.activeNumberSetting);
+
+            if (activeRect == null || !activeRect.contains(mouseX, mouseY))
+            {
+                this.commitActiveNumberInput();
+                this.numberInput.blur();
+            }
+        }
 
         if (mouseButton == 0)
         {
@@ -207,8 +233,6 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
                 this.updatePickerManual(l, mouseX, mouseY);
                 return;
             }
-
-            ClickGuiModule clickGui = this.resolveClickGuiModule();
 
             if (clickGui != null)
             {
@@ -297,8 +321,6 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
             }
         }
 
-        ClickGuiModule clickGui = this.resolveClickGuiModule();
-
         if (clickGui != null && l.settingsRows.contains(mouseX, mouseY))
         {
             List<Setting<?>> settings = this.visibleSettings(clickGui);
@@ -342,12 +364,22 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
                     if (visibleIndex >= 0)
                     {
                         Rect row = this.settingRowRect(l, visibleIndex, scrollOffset);
+                        Rect valueRect = this.settingValueRect(row, l.scale);
+
+                        if (valueRect.contains(mouseX, mouseY))
+                        {
+                            this.activateNumberInput(valueRect, l.scale, mouseX, mouseY, setting);
+                            return;
+                        }
+
                         Rect track = this.settingSliderTrackRect(row, l.scale);
                         Rect hit = this.sliderHitRect(track, l.scale);
 
                         if (hit.contains(mouseX, mouseY))
                         {
                             this.draggingSettingSlider = setting;
+                            this.commitActiveNumberInput();
+                            this.numberInput.blur();
                             this.applySettingSliderFromMouse(setting, track, mouseX);
                             return;
                         }
@@ -439,6 +471,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         this.draggingHue = false;
         this.draggingAlpha = false;
         this.draggingPicker = false;
+        this.numberInput.onMouseUp();
         super.mouseReleased(mouseX, mouseY, state);
     }
 
@@ -478,8 +511,10 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         }
 
         this.lastNanoAt = System.currentTimeMillis();
+        this.lastNanoVg = vg;
         ClickGuiModule clickGui = this.resolveClickGuiModule();
         this.validateActiveColor(clickGui);
+        this.validateActiveNumberSetting(clickGui);
         this.updateTransition(clickGui);
 
         if (this.transitioningOut && this.transitionExecuted)
@@ -512,14 +547,14 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
             }
 
             NanoUi.drawSurface(vg, stack, l.window.x, l.window.y, l.window.w, l.window.h, this.stableWindowRadius(l.scale), theme.windowTopArgb(), theme.windowBorderArgb());
-            NanoUi.drawLeftText(vg, stack, bold, l.header.x + scaled(12.0F, l.scale), l.header.y + l.header.h * 0.5F, scaled(16.0F, l.scale), theme.textArgb(), "Setting Center");
-            this.drawButton(vg, stack, l.backButton, "Back", false, regular, theme);
+            NanoUi.drawLeftText(vg, stack, bold, l.header.x + scaled(12.0F, l.scale), l.header.y + l.header.h * 0.5F, scaled(16.0F, l.scale), theme.textArgb(), this.tr("client.settings.title", "Setting Center"));
+            this.drawButton(vg, stack, l.backButton, this.tr("ui.back", "Back"), false, regular, theme);
 
             NanoUi.drawSurface(vg, stack, l.settingsCard.x, l.settingsCard.y, l.settingsCard.w, l.settingsCard.h, this.stablePanelRadius(l.scale), theme.cardAltArgb(), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 52));
 
             if (clickGui == null)
             {
-                NanoUi.drawCenterText(vg, stack, regular, l.settingsCard.x + l.settingsCard.w * 0.5F, l.settingsCard.y + l.settingsCard.h * 0.5F, scaled(12.0F, l.scale), theme.textWeakArgb(), "ClickGUI module unavailable");
+                NanoUi.drawCenterText(vg, stack, regular, l.settingsCard.x + l.settingsCard.w * 0.5F, l.settingsCard.y + l.settingsCard.h * 0.5F, scaled(12.0F, l.scale), theme.textWeakArgb(), this.tr("client.settings.clickgui_unavailable", "ClickGUI module unavailable"));
             }
             else
             {
@@ -541,14 +576,14 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
     private void drawSettingRows(long vg, MemoryStack stack, Layout l, NanoTheme theme, ClickGuiModule clickGui, int regular, int bold)
     {
         this.drawSectionTabs(vg, stack, l, theme, regular);
-        NanoUi.drawLeftText(vg, stack, bold, l.settingsCard.x + scaled(12.0F, l.scale), l.themeTab.y - scaled(9.0F, l.scale), scaled(12.5F, l.scale), theme.textArgb(), this.section.label() + " Settings");
+        NanoUi.drawLeftText(vg, stack, bold, l.settingsCard.x + scaled(12.0F, l.scale), l.themeTab.y - scaled(9.0F, l.scale), scaled(12.5F, l.scale), theme.textArgb(), this.tr("client.settings.section_title", "{0} Settings", this.sectionLabel(this.section)));
         List<Setting<?>> settings = this.visibleSettings(clickGui);
         boolean hasModified = this.hasModifiedSettings(settings);
-        this.drawButton(vg, stack, l.resetSectionButton, hasModified ? "Reset Group" : "Clean", hasModified, regular, theme);
+        this.drawButton(vg, stack, l.resetSectionButton, hasModified ? this.tr("client.settings.reset_group", "Reset Group") : this.tr("client.settings.clean", "Clean"), hasModified, regular, theme);
 
         if (settings.isEmpty())
         {
-            NanoUi.drawCenterText(vg, stack, regular, l.settingsRows.x + l.settingsRows.w * 0.5F, l.settingsRows.y + l.settingsRows.h * 0.5F, scaled(11.0F, l.scale), theme.textWeakArgb(), this.section == SettingsSection.ANIMATION ? "No animation settings" : "No theme settings");
+            NanoUi.drawCenterText(vg, stack, regular, l.settingsRows.x + l.settingsRows.w * 0.5F, l.settingsRows.y + l.settingsRows.h * 0.5F, scaled(11.0F, l.scale), theme.textWeakArgb(), this.section == SettingsSection.ANIMATION ? this.tr("client.settings.empty.animation", "No animation settings") : this.tr("client.settings.empty.theme", "No theme settings"));
             return;
         }
 
@@ -576,7 +611,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
             Rect valueRect = this.settingValueRect(row, l.scale);
             Rect resetRect = this.settingResetRect(row, l.scale);
 
-            // group labels暂时移除，避免与行内容重叠
+            // Group labels are hidden to avoid overlapping with row content.
 
             int base = i % 2 == 0 ? theme.rowArgb() : theme.cardAltArgb();
             NanoUi.drawSurface(vg, stack, row.x, row.y, row.w, row.h, rowRadius, base, 0);
@@ -596,7 +631,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
                 nameX += scaled(8.0F, l.scale);
             }
 
-            NanoUi.drawLeftText(vg, stack, regular, nameX, row.y + row.h * 0.5F, scaled(11.4F, l.scale), theme.textArgb(), setting.getName());
+            NanoUi.drawLeftText(vg, stack, regular, nameX, row.y + row.h * 0.5F, scaled(11.4F, l.scale), theme.textArgb(), this.settingDisplayName(setting));
             this.drawResetButton(vg, stack, resetRect, modified, regular, theme);
 
             if (setting instanceof ColorSetting)
@@ -639,8 +674,8 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
     private void drawInfoPanel(long vg, MemoryStack stack, Layout l, NanoTheme theme, int regular, int bold)
     {
         NanoUi.drawSurface(vg, stack, l.infoCard.x, l.infoCard.y, l.infoCard.w, l.infoCard.h, this.stableControlRadius(l.scale), theme.cardArgb(), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 68));
-        NanoUi.drawLeftText(vg, stack, bold, l.infoCard.x + scaled(10.0F, l.scale), l.infoCard.y + scaled(14.0F, l.scale), scaled(12.0F, l.scale), theme.textArgb(), "Client Profile");
-        NanoUi.drawLeftText(vg, stack, regular, l.infoCard.x + scaled(10.0F, l.scale), l.infoCard.y + scaled(28.0F, l.scale), scaled(10.0F, l.scale), theme.textWeakArgb(), "DWGX Client / Setting Center");
+        NanoUi.drawLeftText(vg, stack, bold, l.infoCard.x + scaled(10.0F, l.scale), l.infoCard.y + scaled(14.0F, l.scale), scaled(12.0F, l.scale), theme.textArgb(), this.tr("client.settings.profile.title", "Client Profile"));
+        NanoUi.drawLeftText(vg, stack, regular, l.infoCard.x + scaled(10.0F, l.scale), l.infoCard.y + scaled(28.0F, l.scale), scaled(10.0F, l.scale), theme.textWeakArgb(), this.tr("client.settings.profile.subtitle", "DWGX Client / Setting Center"));
         int total = 0;
         int enabled = 0;
 
@@ -658,17 +693,17 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
             }
         }
 
-        NanoUi.drawRightText(vg, stack, regular, l.infoCard.x2() - scaled(10.0F, l.scale), l.infoCard.y + scaled(16.0F, l.scale), scaled(10.0F, l.scale), theme.textMutedArgb(), "Enabled " + enabled + "/" + total);
-        NanoUi.drawRightText(vg, stack, regular, l.infoCard.x2() - scaled(10.0F, l.scale), l.infoCard.y + scaled(30.0F, l.scale), scaled(10.0F, l.scale), theme.textWeakArgb(), "Section: " + this.section.label());
+        NanoUi.drawRightText(vg, stack, regular, l.infoCard.x2() - scaled(10.0F, l.scale), l.infoCard.y + scaled(16.0F, l.scale), scaled(10.0F, l.scale), theme.textMutedArgb(), this.tr("client.settings.profile.enabled", "Enabled {0}/{1}", Integer.valueOf(enabled), Integer.valueOf(total)));
+        NanoUi.drawRightText(vg, stack, regular, l.infoCard.x2() - scaled(10.0F, l.scale), l.infoCard.y + scaled(30.0F, l.scale), scaled(10.0F, l.scale), theme.textWeakArgb(), this.tr("client.settings.profile.section", "Section: {0}", this.sectionLabel(this.section)));
     }
 
     private void drawDebugPanel(long vg, MemoryStack stack, Layout l, NanoTheme theme, int regular)
     {
         NanoUi.drawSurface(vg, stack, l.debugCard.x, l.debugCard.y, l.debugCard.w, l.debugCard.h, this.stableControlRadius(l.scale), theme.cardAltArgb(), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 58));
-        NanoUi.drawLeftText(vg, stack, regular, l.debugCard.x + scaled(8.0F, l.scale), l.debugCard.y - scaled(6.0F, l.scale), scaled(9.6F, l.scale), theme.textWeakArgb(), "Debug Tools");
-        this.drawButton(vg, stack, l.debugResetTheme, "Reset Theme", false, regular, theme);
-        this.drawButton(vg, stack, l.debugResetAnimation, "Reset Animation", false, regular, theme);
-        this.drawButton(vg, stack, l.debugFlushAnimation, "Flush Motion", false, regular, theme);
+        NanoUi.drawLeftText(vg, stack, regular, l.debugCard.x + scaled(8.0F, l.scale), l.debugCard.y - scaled(6.0F, l.scale), scaled(9.6F, l.scale), theme.textWeakArgb(), this.tr("client.settings.debug_tools", "Debug Tools"));
+        this.drawButton(vg, stack, l.debugResetTheme, this.tr("client.settings.debug.reset_theme", "Reset Theme"), false, regular, theme);
+        this.drawButton(vg, stack, l.debugResetAnimation, this.tr("client.settings.debug.reset_animation", "Reset Animation"), false, regular, theme);
+        this.drawButton(vg, stack, l.debugFlushAnimation, this.tr("client.settings.debug.flush_motion", "Flush Motion"), false, regular, theme);
     }
 
     private void drawRowsScrollbar(long vg, MemoryStack stack, Layout l, NanoTheme theme, int totalRows, int visibleRows)
@@ -717,7 +752,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         NanoUi.drawSurface(vg, stack, rect.x, rect.y, rect.w, rect.h, this.stableControlRadius(rect.h / 18.0F), fill, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 80));
         float k = UiMotion.clamp(rect.h / 18.0F, 0.35F, 1.85F);
         int textColor = active ? theme.textArgb() : this.mixArgb(theme.textWeakArgb(), theme.textArgb(), UiMotion.clamp01(ratio * 0.75F));
-        NanoUi.drawCenterText(vg, stack, font, rect.x + rect.w * 0.5F, rect.y + rect.h * 0.5F, scaled(10.8F, k), textColor, tab.label());
+        NanoUi.drawCenterText(vg, stack, font, rect.x + rect.w * 0.5F, rect.y + rect.h * 0.5F, scaled(10.8F, k), textColor, this.sectionLabel(tab));
     }
 
     private void drawResetButton(long vg, MemoryStack stack, Rect rect, boolean visible, int font, NanoTheme theme)
@@ -731,7 +766,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         int fill = hovered ? theme.controlHoverArgb() : theme.controlArgb();
         NanoUi.drawSurface(vg, stack, rect.x, rect.y, rect.w, rect.h, this.stableControlRadius(rect.h / 16.0F), fill, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 88));
         float k = UiMotion.clamp(rect.h / 16.0F, 0.35F, 1.85F);
-        NanoUi.drawCenterText(vg, stack, font, rect.x + rect.w * 0.5F, rect.y + rect.h * 0.5F, scaled(8.6F, k), theme.textWeakArgb(), "RST");
+        NanoUi.drawCenterText(vg, stack, font, rect.x + rect.w * 0.5F, rect.y + rect.h * 0.5F, scaled(8.6F, k), theme.textWeakArgb(), this.tr("clickgui.reset.short", "RST"));
     }
 
     private void drawStateLabel(long vg, MemoryStack stack, Rect valueRect, boolean enabled, boolean hovered, NanoTheme theme, float scale, String animKey, int font)
@@ -758,8 +793,8 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         int disableText = this.mixArgb(theme.textArgb(), theme.textMutedArgb(), UiMotion.clamp01(ratio * 0.95F));
         int enableText = this.mixArgb(theme.textMutedArgb(), theme.textArgb(), UiMotion.clamp01(ratio * 0.95F));
         float textCenterY = py + pillH * 0.5F;
-        NanoUi.drawCenterText(vg, stack, font, px + pillW * 0.25F, textCenterY, scaled(8.2F, k), disableText, "DISABLE");
-        NanoUi.drawCenterText(vg, stack, font, px + pillW * 0.75F, textCenterY, scaled(8.2F, k), enableText, "ENABLE");
+        NanoUi.drawCenterText(vg, stack, font, px + pillW * 0.25F, textCenterY, scaled(8.2F, k), disableText, this.tr("clickgui.state.disable", "DISABLE"));
+        NanoUi.drawCenterText(vg, stack, font, px + pillW * 0.75F, textCenterY, scaled(8.2F, k), enableText, this.tr("clickgui.state.enable", "ENABLE"));
     }
 
     private void drawSettingSlider(long vg, MemoryStack stack, Rect row, Setting<?> setting, boolean hovered, NanoTheme theme, float scale, int font, ClickGuiModule clickGui)
@@ -783,14 +818,38 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         int activeFill = this.mixArgb(theme.controlActiveArgb(), theme.accentArgb(), 0.74F);
         NanoUi.drawSurface(vg, stack, track.x + scaled(1.0F, k), track.y + scaled(1.0F, k), fillW, track.h - scaled(2.0F, k), Math.max(scaled(1.6F, k), trackRadius - scaled(1.6F, k)), activeFill, 0);
         float handleX = track.x + displayRatio * track.w;
-        float knobSize = scaled(2.2F, k) + scaled(3.0F, k) * focus + (dragging ? scaled(0.7F, k) : 0.0F);
+        float knobSize = scaled(5.8F, k) + scaled(1.6F, k) * focus + (dragging ? scaled(0.9F, k) : 0.0F);
         float knobX = handleX - knobSize * 0.5F;
         float knobY = track.y + (track.h - knobSize) * 0.5F;
         int knobColor = this.mixArgb(theme.accentArgb(), 0xFFF8FBFF, UiMotion.clamp01(0.40F + focus * 0.52F));
         NanoUi.drawSurface(vg, stack, knobX, knobY, knobSize, knobSize, knobSize * 0.5F, knobColor, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 110));
         float glow = knobSize + scaled(1.0F, k) * focus;
-        NanoUi.drawSurface(vg, stack, handleX - glow * 0.5F, track.y + (track.h - glow) * 0.5F, glow, glow, glow * 0.5F, NanoRenderUtils.withAlpha(0xFFF5F9FF, 46 + Math.round(focus * 78.0F)), 0);
-        NanoUi.drawRightText(vg, stack, font, valueRect.x2() - scaled(3.0F, k), row.y + row.h * 0.5F, scaled(10.2F, k), theme.textMutedArgb(), this.settingValue(setting));
+        NanoUi.drawSurface(vg, stack, handleX - glow * 0.5F, track.y + (track.h - glow) * 0.5F, glow, glow, glow * 0.5F, NanoRenderUtils.withAlpha(0xFFF5F9FF, 62 + Math.round(focus * 92.0F)), 0);
+        this.drawNumberValueInput(vg, stack, valueRect, row, setting, hovered, theme, k, font, "client.settings.number." + setting.getKey());
+    }
+
+    private void drawNumberValueInput(long vg, MemoryStack stack, Rect valueRect, Rect row, Setting<?> setting, boolean hoveredRow, NanoTheme theme, float scale, int font, String animKey)
+    {
+        if (valueRect == null || setting == null)
+        {
+            return;
+        }
+
+        boolean fieldHovered = valueRect.contains(this.mouseX, this.mouseY);
+        boolean active = this.activeNumberSetting == setting && this.numberInput.isFocused();
+
+        if (active)
+        {
+            this.numberInput.draw(vg, stack, font, theme, valueRect.x, valueRect.y, valueRect.w, valueRect.h, scale, scaled(10.2F, scale), this.numberInputBuffer.get(), this.tr("clickgui.input.number.placeholder", "Input..."), hoveredRow || fieldHovered, true, animKey);
+            return;
+        }
+
+        float focus = UiAnimationBus.animate(animKey + ".idle.focus", fieldHovered ? 1.0F : 0.0F, 0.58F, 0.62F, UiAnimation.Type.EASE_OUT, true);
+        int fill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.38F + focus * 0.32F));
+        int border = this.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 92), NanoRenderUtils.withAlpha(theme.accentArgb(), 142), UiMotion.clamp01(focus * 0.72F));
+        float radius = Math.min(valueRect.h * 0.5F, this.stableControlRadius(scale));
+        NanoUi.drawSurface(vg, stack, valueRect.x, valueRect.y, valueRect.w, valueRect.h, radius, fill, border);
+        NanoUi.drawRightText(vg, stack, font, valueRect.x2() - scaled(4.0F, scale), row.y + row.h * 0.5F + scaled(0.45F, scale), scaled(10.2F, scale), theme.textMutedArgb(), this.settingValue(setting));
     }
 
     private void drawPaletteRow(long vg, MemoryStack stack, Rect row, float scale, int font, NanoTheme theme, ClickGuiModule clickGui)
@@ -829,7 +888,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
     {
         float k = l.scale;
         NanoUi.drawSurface(vg, stack, l.pickerCard.x, l.pickerCard.y, l.pickerCard.w, l.pickerCard.h, this.stableControlRadius(k), theme.cardArgb(), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 72));
-        NanoUi.drawLeftText(vg, stack, regular, l.pickerCard.x + scaled(8.0F, k), l.pickerCard.y + scaled(11.0F, k), scaled(10.5F, k), theme.textWeakArgb(), "HSV Color Picker");
+        NanoUi.drawLeftText(vg, stack, regular, l.pickerCard.x + scaled(8.0F, k), l.pickerCard.y + scaled(11.0F, k), scaled(10.5F, k), theme.textWeakArgb(), this.tr("clickgui.picker.title", "HSV Color Picker"));
 
         int hueBase = hsvToArgb(this.pickerHue, 1.0F, 1.0F, 255);
         NanoRenderUtils.fillRoundedRect(vg, l.pickerSv.x, l.pickerSv.y, l.pickerSv.w, l.pickerSv.h, scaled(4.0F, k), NanoRenderUtils.argb(stack, hueBase));
@@ -855,7 +914,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         int previewArgb = hsvToArgb(this.pickerHue, this.pickerSat, this.pickerVal, Math.round(this.pickerAlpha * 255.0F));
         NanoUi.drawSurface(vg, stack, l.pickerPreview.x, l.pickerPreview.y, l.pickerPreview.w, l.pickerPreview.h, scaled(4.0F, k), previewArgb, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 98));
         NanoUi.drawLeftText(vg, stack, regular, l.pickerPreview.x2() + scaled(8.0F, k), l.pickerPreview.y + scaled(7.0F, k), scaled(10.0F, k), theme.textMutedArgb(), String.format(Locale.ROOT, "#%08X", Integer.valueOf(previewArgb)));
-        NanoUi.drawLeftText(vg, stack, regular, l.pickerPreview.x2() + scaled(8.0F, k), l.pickerPreview.y + scaled(20.0F, k), scaled(10.0F, k), theme.textWeakArgb(), String.format(Locale.ROOT, "H %.2f S %.2f V %.2f A %.2f", Float.valueOf(this.pickerHue), Float.valueOf(this.pickerSat), Float.valueOf(this.pickerVal), Float.valueOf(this.pickerAlpha)));
+        NanoUi.drawLeftText(vg, stack, regular, l.pickerPreview.x2() + scaled(8.0F, k), l.pickerPreview.y + scaled(20.0F, k), scaled(10.0F, k), theme.textWeakArgb(), this.tr("clickgui.picker.hsva", "H {0} S {1} V {2} A {3}", this.trimDecimal((double)this.pickerHue, 2), this.trimDecimal((double)this.pickerSat, 2), this.trimDecimal((double)this.pickerVal, 2), this.trimDecimal((double)this.pickerAlpha, 2)));
     }
 
     private void drawHueBar(long vg, MemoryStack stack, Rect rect, NanoTheme theme)
@@ -1106,7 +1165,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
     {
         if (setting instanceof BoolSetting)
         {
-            return ((BoolSetting)setting).isEnabled() ? "ENABLE" : "DISABLE";
+            return ((BoolSetting)setting).isEnabled() ? this.tr("clickgui.state.enable", "ENABLE") : this.tr("clickgui.state.disable", "DISABLE");
         }
 
         if (setting instanceof IntSetting)
@@ -1151,7 +1210,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         if (setting instanceof EnumSetting)
         {
             Object value = setting.get();
-            return value == null ? "null" : String.valueOf(value).toLowerCase(Locale.ROOT);
+            return value == null ? this.tr("clickgui.value.null", "null") : setting.getDisplayOption(this.settingOwnerId(), value);
         }
 
         if (setting instanceof ColorSetting)
@@ -1160,7 +1219,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         }
 
         Object value = setting.get();
-        return value == null ? "null" : String.valueOf(value);
+        return value == null ? this.tr("clickgui.value.null", "null") : String.valueOf(value);
     }
 
     private boolean isPaletteSetting(Setting<?> setting)
@@ -1243,43 +1302,43 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         {
             if ("ui_anim_type".equals(key))
             {
-                return "Controls";
+                return this.tr("client.settings.group.controls", "Controls");
             }
 
             if (key.startsWith("ui_anim_"))
             {
-                return "Global";
+                return this.tr("client.settings.group.global", "Global");
             }
 
             if (key.startsWith("ui_control_") || key.startsWith("ui_slider_"))
             {
-                return "Controls";
+                return this.tr("client.settings.group.controls", "Controls");
             }
 
             if (key.startsWith("ui_open_") || key.startsWith("ui_close_") || key.startsWith("ui_switch_") || key.startsWith("ui_back_"))
             {
-                return "Page Transition";
+                return this.tr("client.settings.group.page_transition", "Page Transition");
             }
 
-            return "Animation";
+            return this.tr("client.settings.group.animation", "Animation");
         }
 
         if ("palette".equals(key))
         {
-            return "Palette";
+            return this.tr("client.settings.group.palette", "Palette");
         }
 
         if ("accent_override_enabled".equals(key) || "accent_override".equals(key))
         {
-            return "Accent";
+            return this.tr("client.settings.group.accent", "Accent");
         }
 
         if ("corner_radius".equals(key) || "panel_alpha".equals(key) || "backdrop".equals(key) || "backdrop_alpha".equals(key))
         {
-            return "Surface";
+            return this.tr("client.settings.group.surface", "Surface");
         }
 
-        return "Theme";
+        return this.tr("client.settings.group.theme", "Theme");
     }
 
     private boolean hasModifiedSettings(List<Setting<?>> settings)
@@ -1477,7 +1536,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         float rightGap = scaled(8.0F, k);
         float trackX = row.x + scaled(118.0F, k);
         float trackRight = resetRect.x - rightGap;
-        float trackW = Math.max(scaled(96.0F, k), trackRight - trackX);
+        float trackW = Math.max(scaled(78.0F, k), trackRight - trackX);
         float trackH = Math.max(scaled(2.6F, k), row.h - scaled(19.0F, k));
         float trackY = row.y + (row.h - trackH) * 0.5F;
         return new Rect(trackX, trackY, trackW, trackH);
@@ -1511,6 +1570,53 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         float x = row.x2() - rightPad - w - scaled(VALUE_COL_WIDTH, k) - scaled(6.0F, k);
         float y = row.y + (row.h - h) * 0.5F;
         return new Rect(x, y, w, h);
+    }
+
+    private Rect activeNumberInputRect(Layout l, ClickGuiModule clickGui, Setting<?> setting)
+    {
+        if (l == null || clickGui == null || setting == null || !this.isSliderSetting(setting))
+        {
+            return null;
+        }
+
+        List<Setting<?>> settings = this.visibleSettings(clickGui);
+        int index = settings.indexOf(setting);
+
+        if (index < 0)
+        {
+            return null;
+        }
+
+        int scrollBase = (int)Math.floor((double)this.settingScrollVisual);
+        float scrollOffset = (this.settingScrollVisual - (float)scrollBase) * l.rowSetting;
+        int visibleIndex = index - scrollBase;
+
+        if (visibleIndex < 0)
+        {
+            return null;
+        }
+
+        Rect row = this.settingRowRect(l, visibleIndex, scrollOffset);
+        return this.settingValueRect(row, l.scale);
+    }
+
+    private void activateNumberInput(Rect inputRect, float scale, int mouseX, int mouseY, Setting<?> setting)
+    {
+        if (setting == null || inputRect == null || !this.isSliderSetting(setting))
+        {
+            return;
+        }
+
+        this.commitActiveNumberInput();
+        this.activeNumberSetting = setting;
+        this.numberInputBuffer.set(this.settingRawInputValue(setting));
+
+        if (this.lastNanoVg != 0L)
+        {
+            NanoFontBook.ensureLoaded(this.lastNanoVg);
+        }
+
+        this.numberInput.onMouseDown(mouseX, mouseY, inputRect.x, inputRect.y, inputRect.w, inputRect.h, this.lastNanoVg, NanoFontBook.uiRegular(), scaled(10.2F, UiMotion.clamp(scale, 0.35F, 1.85F)), this.numberInputBuffer.get());
     }
 
     private boolean isSliderSetting(Setting<?> setting)
@@ -1638,6 +1744,17 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
             this.updateDraggedSettingSlider(l, this.mouseX);
         }
 
+        if (this.activeNumberSetting != null && this.numberInput.isFocused())
+        {
+            ClickGuiModule clickGui = this.resolveClickGuiModule();
+            Rect inputRect = this.activeNumberInputRect(l, clickGui, this.activeNumberSetting);
+
+            if (inputRect != null)
+            {
+                this.numberInput.onMouseDrag(this.mouseX, inputRect.x, inputRect.w, this.lastNanoVg, NanoFontBook.uiRegular(), scaled(10.2F, l.scale), this.numberInputBuffer.get());
+            }
+        }
+
         if (this.draggingSv)
         {
             this.updatePickerSv(l, this.mouseX, this.mouseY);
@@ -1673,6 +1790,164 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         {
             this.activeColor = null;
         }
+    }
+
+    private void validateActiveNumberSetting(ClickGuiModule clickGui)
+    {
+        if (this.activeNumberSetting == null)
+        {
+            return;
+        }
+
+        if (!this.numberInput.isFocused() || clickGui == null || !this.isSliderSetting(this.activeNumberSetting))
+        {
+            this.activeNumberSetting = null;
+            this.numberInput.blur();
+            return;
+        }
+
+        List<Setting<?>> visible = this.visibleSettings(clickGui);
+
+        if (!visible.contains(this.activeNumberSetting) || !this.activeNumberSetting.isVisible())
+        {
+            this.activeNumberSetting = null;
+            this.numberInput.blur();
+        }
+    }
+
+    private void commitActiveNumberInput()
+    {
+        if (this.activeNumberSetting == null)
+        {
+            return;
+        }
+
+        this.applyNumericInput(this.activeNumberSetting, this.numberInputBuffer.get());
+        this.activeNumberSetting = null;
+    }
+
+    private boolean applyNumericInput(Setting<?> setting, String text)
+    {
+        if (setting == null || text == null)
+        {
+            return false;
+        }
+
+        String raw = text.trim();
+
+        if (raw.isEmpty())
+        {
+            return false;
+        }
+
+        boolean percent = raw.endsWith("%");
+        String token = percent ? raw.substring(0, raw.length() - 1).trim() : raw;
+        token = token.replace(',', '.');
+
+        if (token.isEmpty())
+        {
+            return false;
+        }
+
+        double parsed;
+
+        try
+        {
+            parsed = Double.parseDouble(token);
+        }
+        catch (NumberFormatException ignored)
+        {
+            return false;
+        }
+
+        if (this.isUnitRangeSetting(setting) && (percent || Math.abs(parsed) > 1.0001D))
+        {
+            parsed *= 0.01D;
+        }
+
+        if (setting instanceof IntSetting)
+        {
+            ((IntSetting)setting).set(Integer.valueOf((int)Math.round(parsed)));
+            return true;
+        }
+
+        if (setting instanceof FloatSetting)
+        {
+            ((FloatSetting)setting).set(Float.valueOf((float)parsed));
+            return true;
+        }
+
+        if (setting instanceof NumberSetting)
+        {
+            ((NumberSetting)setting).set(Double.valueOf(parsed));
+            return true;
+        }
+
+        return false;
+    }
+
+    private String settingRawInputValue(Setting<?> setting)
+    {
+        if (setting instanceof IntSetting)
+        {
+            return Integer.toString(((IntSetting)setting).get().intValue());
+        }
+
+        if (setting instanceof FloatSetting)
+        {
+            return this.trimDecimal(((FloatSetting)setting).get().floatValue(), 4);
+        }
+
+        if (setting instanceof NumberSetting)
+        {
+            return this.trimDecimal(((NumberSetting)setting).get().doubleValue(), 6);
+        }
+
+        return this.settingValue(setting);
+    }
+
+    private boolean isUnitRangeSetting(Setting<?> setting)
+    {
+        if (setting instanceof FloatSetting)
+        {
+            FloatSetting s = (FloatSetting)setting;
+            return s.getMin() >= 0.0F && s.getMax() <= 1.0001F;
+        }
+
+        if (setting instanceof NumberSetting)
+        {
+            NumberSetting s = (NumberSetting)setting;
+            return s.getMin() >= 0.0D && s.getMax() <= 1.0001D;
+        }
+
+        return false;
+    }
+
+    private String trimDecimal(double value, int precision)
+    {
+        int safePrecision = Math.max(0, Math.min(10, precision));
+        String pattern = "%." + safePrecision + "f";
+        String out = String.format(Locale.ROOT, pattern, Double.valueOf(value));
+        int dot = out.indexOf('.');
+
+        if (dot < 0)
+        {
+            return out;
+        }
+
+        int end = out.length();
+
+        while (end > dot + 1 && out.charAt(end - 1) == '0')
+        {
+            --end;
+        }
+
+        if (end > dot && out.charAt(end - 1) == '.')
+        {
+            --end;
+        }
+
+        return out.substring(0, end);
     }
 
     private void clampScroll(Layout l, ClickGuiModule clickGui)
@@ -1881,6 +2156,37 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
         Module module = this.modules.getById("click_gui");
         return module instanceof ClickGuiModule ? (ClickGuiModule)module : null;
+    }
+
+    private String sectionLabel(SettingsSection section)
+    {
+        if (section == SettingsSection.ANIMATION)
+        {
+            return this.tr("client.settings.section.animation", "Animation");
+        }
+
+        return this.tr("client.settings.section.theme", "Theme");
+    }
+
+    private String settingDisplayName(Setting<?> setting)
+    {
+        if (setting == null)
+        {
+            return "";
+        }
+
+        return setting.getDisplayName(this.settingOwnerId());
+    }
+
+    private String settingOwnerId()
+    {
+        return "click_gui";
+    }
+
+    private String tr(String key, String fallback, Object... args)
+    {
+        client.i18n.I18nManager i18n = ClientBootstrap.instance().getI18n();
+        return i18n == null ? fallback : i18n.translateOrDefault(key, fallback, args);
     }
 
     private boolean resolveAnimationEnabled(ClickGuiModule clickGui)

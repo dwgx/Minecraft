@@ -36,6 +36,10 @@ public final class ConfigIO
             JsonElement element = (new JsonParser()).parse(reader);
             return element != null && element.isJsonObject() ? element.getAsJsonObject() : new JsonObject();
         }
+        catch (RuntimeException ignored)
+        {
+            return new JsonObject();
+        }
         finally
         {
             reader.close();
@@ -44,9 +48,27 @@ public final class ConfigIO
 
     public void writeAtomic(Path target, JsonObject data) throws IOException
     {
+        this.writeAtomicIfChanged(target, data);
+    }
+
+    public boolean writeAtomicIfChanged(Path target, JsonObject data) throws IOException
+    {
         if (target == null)
         {
-            return;
+            return false;
+        }
+
+        JsonObject safeData = data == null ? new JsonObject() : data;
+        String serialized = GSON.toJson(safeData);
+
+        if (Files.isRegularFile(target))
+        {
+            String existing = new String(Files.readAllBytes(target), UTF8);
+
+            if (serialized.equals(existing))
+            {
+                return false;
+            }
         }
 
         Path parent = target.getParent();
@@ -63,7 +85,7 @@ public final class ConfigIO
 
         try
         {
-            GSON.toJson(data == null ? new JsonObject() : data, writer);
+            writer.write(serialized);
             writer.flush();
         }
         finally
@@ -79,5 +101,7 @@ public final class ConfigIO
         {
             Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
         }
+
+        return true;
     }
 }

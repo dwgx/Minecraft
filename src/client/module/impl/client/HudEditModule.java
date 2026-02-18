@@ -18,8 +18,7 @@ public final class HudEditModule extends Module
         Minecraft mc = Minecraft.getMinecraft();
         if (!ClientBootstrap.instance().isNanoAvailable())
         {
-            ClientBootstrap.instance().notifyUser("§cNanoVG unavailable; HudEdit disabled.");
-            this.setEnabled(false);
+            ClientBootstrap.instance().notifyUser(ClientBootstrap.instance().getI18n().translateOrDefault("error.nanovg_unavailable.hudedit", "\u00a7cNanoVG unavailable; HudEdit disabled."));
             return;
         }
         Module uiScale = ClientBootstrap.instance().getModules().getById("ui_scale_edit");
@@ -40,7 +39,10 @@ public final class HudEditModule extends Module
                 mc.displayGuiScreen(new HudEditorScreen(ClientBootstrap.instance().getHud()));
             }
         }
+    }
 
-        this.setEnabled(false);
+    public boolean isActionModule()
+    {
+        return true;
     }
 }

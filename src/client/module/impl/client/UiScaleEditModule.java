@@ -84,8 +84,7 @@ public final class UiScaleEditModule extends Module
 
         if (!ClientBootstrap.instance().isNanoAvailable())
         {
-            ClientBootstrap.instance().notifyUser("§cNanoVG unavailable; UIScaleEdit disabled.");
-            this.setEnabled(false);
+            ClientBootstrap.instance().notifyUser(ClientBootstrap.instance().getI18n().translateOrDefault("error.nanovg_unavailable.uiscaleedit", "\u00a7cNanoVG unavailable; UIScaleEdit disabled."));
             return;
         }
 
@@ -101,8 +100,11 @@ public final class UiScaleEditModule extends Module
                 mc.displayGuiScreen(new UIScaleEditScreen(this, parent));
             }
         }
+    }
 
-        this.setEnabled(false);
+    public boolean isActionModule()
+    {
+        return true;
     }
 
     public UiTarget getEditTarget()

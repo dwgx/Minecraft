@@ -133,8 +133,7 @@ public final class ClickGuiModule extends Module
 
         if (!ClientBootstrap.instance().isNanoAvailable())
         {
-            ClientBootstrap.instance().notifyUser("§cNanoVG unavailable; ClickGUI disabled.");
-            this.setEnabled(false);
+            ClientBootstrap.instance().notifyUser(ClientBootstrap.instance().getI18n().translateOrDefault("error.nanovg_unavailable.clickgui", "\u00a7cNanoVG unavailable; ClickGUI disabled."));
             return;
         }
 
@@ -149,8 +148,11 @@ public final class ClickGuiModule extends Module
                 mc.displayGuiScreen(new ClickGuiScreen(ClientBootstrap.instance().getModules()));
             }
         }
+    }
 
-        this.setEnabled(false);
+    public boolean isActionModule()
+    {
+        return true;
     }
 
     public NanoPalette getPalette()

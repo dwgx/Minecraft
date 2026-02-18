@@ -15,9 +15,9 @@ public final class KeepSprintModule extends Module
     public KeepSprintModule()
     {
         super("keep_sprint", "KeepSprint", Category.MOVEMENT);
-        SettingGroup group = this.addGroup("general", "通用");
-        this.airSprint = this.addSetting(new BoolSetting("air_sprint", "空中疾跑", "允许在离地状态维持疾跑", true));
-        this.useItemSprint = this.addSetting(new BoolSetting("use_item_sprint", "使用物品时疾跑", "手持食物/物品时保持疾跑", false));
+        SettingGroup group = this.addGroup("general", "General");
+        this.airSprint = this.addSetting(new BoolSetting("air_sprint", "Air Sprint", "Allow sprinting while off ground", true));
+        this.useItemSprint = this.addSetting(new BoolSetting("use_item_sprint", "Use Item Sprint", "Keep sprinting while using food/items", false));
         group.add(this.airSprint);
         group.add(this.useItemSprint);
     }

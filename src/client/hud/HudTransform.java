@@ -26,7 +26,15 @@ public final class HudTransform
 
     public void setAnchor(Anchor anchor)
     {
-        this.anchor = anchor == null ? Anchor.TOP_LEFT : anchor;
+        Anchor value = anchor == null ? Anchor.TOP_LEFT : anchor;
+
+        if (this.anchor == value)
+        {
+            return;
+        }
+
+        this.anchor = value;
+        this.markHudDirty();
     }
 
     public Dock getDock()
@@ -36,7 +44,15 @@ public final class HudTransform
 
     public void setDock(Dock dock)
     {
-        this.dock = dock == null ? Dock.NONE : dock;
+        Dock value = dock == null ? Dock.NONE : dock;
+
+        if (this.dock == value)
+        {
+            return;
+        }
+
+        this.dock = value;
+        this.markHudDirty();
     }
 
     public float getOffsetX()
@@ -46,7 +62,13 @@ public final class HudTransform
 
     public void setOffsetX(float offsetX)
     {
+        if (Float.compare(this.offsetX, offsetX) == 0)
+        {
+            return;
+        }
+
         this.offsetX = offsetX;
+        this.markHudDirty();
     }
 
     public float getOffsetY()
@@ -56,7 +78,13 @@ public final class HudTransform
 
     public void setOffsetY(float offsetY)
     {
+        if (Float.compare(this.offsetY, offsetY) == 0)
+        {
+            return;
+        }
+
         this.offsetY = offsetY;
+        this.markHudDirty();
     }
 
     public float getScale()
@@ -66,7 +94,15 @@ public final class HudTransform
 
     public void setScale(float scale)
     {
-        this.scale = Math.max(0.1F, Math.min(4.0F, scale));
+        float value = Math.max(0.1F, Math.min(4.0F, scale));
+
+        if (Float.compare(this.scale, value) == 0)
+        {
+            return;
+        }
+
+        this.scale = value;
+        this.markHudDirty();
     }
 
     public boolean isSnapToGrid()
@@ -76,6 +112,22 @@ public final class HudTransform
 
     public void setSnapToGrid(boolean snapToGrid)
     {
+        if (this.snapToGrid == snapToGrid)
+        {
+            return;
+        }
+
         this.snapToGrid = snapToGrid;
+        this.markHudDirty();
+    }
+
+    private void markHudDirty()
+    {
+        client.config.ConfigManager config = client.core.ClientBootstrap.instance().getConfigManager();
+
+        if (config != null)
+        {
+            config.markHudDirty();
+        }
     }
 }

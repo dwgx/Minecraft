@@ -13,7 +13,9 @@ public final class NanoFontBook
     private static int uiRegularId = -1;
     private static int uiBoldId = -1;
     private static int monoId = -1;
-    private static int cjkId = -1;
+    private static int cyrillicId = -1;
+    private static int cjkJpId = -1;
+    private static int cjkCnId = -1;
 
     private NanoFontBook()
     {
@@ -36,17 +38,21 @@ public final class NanoFontBook
         uiRegularId = -1;
         uiBoldId = -1;
         monoId = -1;
-        cjkId = -1;
+        cyrillicId = -1;
+        cjkJpId = -1;
+        cjkCnId = -1;
 
         File gameDir = new File(".").getAbsoluteFile();
         File parentDir = gameDir.getParentFile();
         String base = gameDir.getPath();
         String parent = parentDir == null ? base : parentDir.getPath();
 
-        uiRegularId = loadFirst(vg, "dwgx-ui-regular", fontCandidates(base, parent, "SF-Regular.ttf"));
-        uiBoldId = loadFirst(vg, "dwgx-ui-bold", fontCandidates(base, parent, "SF-Bold.ttf", "SF-Regular.ttf"));
-        monoId = loadFirst(vg, "dwgx-ui-mono", fontCandidates(base, parent, "SF-Regular.ttf"));
-        cjkId = loadFirst(vg, "dwgx-ui-cjk", cjkCandidates(base, parent));
+        uiRegularId = loadFirst(vg, "dwgx-ui-regular", fontCandidates(base, parent, "SF-Regular.ttf", "SF-Regular.otf", "SF-Bold.ttf", "SF-Bold.otf"));
+        uiBoldId = loadFirst(vg, "dwgx-ui-bold", fontCandidates(base, parent, "SF-Bold.ttf", "SF-Bold.otf", "SF-Regular.ttf", "SF-Regular.otf"));
+        monoId = loadFirst(vg, "dwgx-ui-mono", fontCandidates(base, parent, "SF-Regular.ttf", "SF-Regular.otf"));
+        cyrillicId = loadFirst(vg, "dwgx-ui-cyrillic", cyrillicCandidates(base, parent));
+        cjkJpId = loadFirst(vg, "dwgx-ui-cjk-jp", cjkJpCandidates(base, parent));
+        cjkCnId = loadFirst(vg, "dwgx-ui-cjk-cn", cjkCnCandidates(base, parent));
 
         if (uiBoldId < 0)
         {
@@ -58,12 +64,10 @@ public final class NanoFontBook
             monoId = uiRegularId;
         }
 
-        if (cjkId >= 0)
-        {
-            addFallback(vg, uiRegularId, cjkId);
-            addFallback(vg, uiBoldId, cjkId);
-            addFallback(vg, monoId, cjkId);
-        }
+        // Prefer Cyrillic fallback first, then CN for Han glyphs, then JP for kana coverage.
+        addFallbackChain(vg, uiRegularId, cyrillicId, cjkCnId, cjkJpId);
+        addFallbackChain(vg, uiBoldId, cyrillicId, cjkCnId, cjkJpId);
+        addFallbackChain(vg, monoId, cyrillicId, cjkCnId, cjkJpId);
 
         loadedForVg = vg;
         initialized = true;
@@ -93,36 +97,50 @@ public final class NanoFontBook
 
     private static String[] fontCandidates(String base, String parent, String... fileNames)
     {
+        return fontCandidatesFromRoots(base, parent, fileNames);
+    }
+
+    private static String[] cjkJpCandidates(String base, String parent)
+    {
+        String family = "UDDigiKyokashoN-B" + File.separator;
+        return fontCandidatesFromRoots(base, parent, new String[] {
+            family + "UDDigiKyokashoN-R.ttc",
+            family + "UDDigiKyokashoN-B.ttc",
+            "UDDigiKyokashoN-R.ttc",
+            "UDDigiKyokashoN-B.ttc"
+        });
+    }
+
+    private static String[] cyrillicCandidates(String base, String parent)
+    {
+        String family = "PT_Sans" + File.separator;
+        return fontCandidatesFromRoots(base, parent, new String[] {
+            family + "PTSans-Regular.ttf",
+            family + "PTSans-Bold.ttf",
+            "PTSans-Regular.ttf",
+            "PTSans-Bold.ttf"
+        });
+    }
+
+    private static String[] cjkCnCandidates(String base, String parent)
+    {
+        String family = "FangZhengKaiJianTi" + File.separator;
+        return fontCandidatesFromRoots(base, parent, new String[] {
+            family + "FangZhengKaiJianTi.ttf",
+            family + "FangZhengKaiTiFanTi.ttf",
+            "FangZhengKaiJianTi.ttf",
+            "FangZhengKaiTiFanTi.ttf"
+        });
+    }
+
+    private static String[] fontCandidatesFromRoots(String base, String parent, String... fileNames)
+    {
         List<String> out = new ArrayList<String>();
         addFontCandidates(out, base, fileNames);
 
         if (parent != null && !parent.equals(base))
         {
             addFontCandidates(out, parent, fileNames);
-        }
-
-        return out.toArray(new String[out.size()]);
-    }
-
-    private static String[] cjkCandidates(String base, String parent)
-    {
-        String family = "UDDigiKyokashoN-B" + File.separator;
-        List<String> out = new ArrayList<String>();
-        addFontCandidates(out, base, new String[] {
-            family + "UDDigiKyokashoN-R.ttc",
-            family + "UDDigiKyokashoN-B.ttc",
-            "UDDigiKyokashoN-R.ttc",
-            "UDDigiKyokashoN-B.ttc"
-        });
-
-        if (parent != null && !parent.equals(base))
-        {
-            addFontCandidates(out, parent, new String[] {
-                family + "UDDigiKyokashoN-R.ttc",
-                family + "UDDigiKyokashoN-B.ttc",
-                "UDDigiKyokashoN-R.ttc",
-                "UDDigiKyokashoN-B.ttc"
-            });
         }
 
         return out.toArray(new String[out.size()]);
@@ -171,6 +189,19 @@ public final class NanoFontBook
         }
         catch (Throwable ignored)
         {
+        }
+    }
+
+    private static void addFallbackChain(long vg, int baseFontId, int... fallbackFontIds)
+    {
+        if (fallbackFontIds == null || fallbackFontIds.length == 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < fallbackFontIds.length; ++i)
+        {
+            addFallback(vg, baseFontId, fallbackFontIds[i]);
         }
     }
 

@@ -16,7 +16,6 @@ import dwgx.nano.NanoThemes;
 import dwgx.nano.NanoUi;
 import java.io.IOException;
 import java.util.List;
-import java.util.Locale;
 import net.minecraft.client.gui.GuiScreen;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.Display;
@@ -444,15 +443,15 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
 
             this.drawElementOverlays(vg, stack, theme);
 
-            String title = selected == null ? "HUD Layout - no element" : ("HUD Layout - " + selected.getName());
+            String title = selected == null ? this.tr("hud.editor.title.none", "HUD Layout - no element") : this.tr("hud.editor.title.selected", "HUD Layout - {0}", this.hudElementName(selected));
             NanoUi.drawLeftText(vg, stack, bold, 14.0F, 18.0F, 17.0F, theme.textArgb(), title);
-            NanoUi.drawLeftText(vg, stack, regular, 14.0F, 35.0F, 12.0F, theme.textWeakArgb(), "Developer DWGX");
+            NanoUi.drawLeftText(vg, stack, regular, 14.0F, 35.0F, 12.0F, theme.textWeakArgb(), this.tr("hud.editor.developer", "Developer DWGX"));
 
             if (selected != null)
             {
                 HudTransform t = selected.getTransform();
-                String status = selected.isEnabled() ? "ON" : "OFF";
-                String text = "x:" + formatOffset(t.getOffsetX()) + " y:" + formatOffset(t.getOffsetY()) + " s:" + formatScale(t.getScale()) + " " + status;
+                String status = selected.isEnabled() ? this.tr("hud.state.on", "ON") : this.tr("hud.state.off", "OFF");
+                String text = this.tr("hud.editor.status_line", "x:{0} y:{1} s:{2} {3}", formatOffset(t.getOffsetX()), formatOffset(t.getOffsetY()), formatScale(t.getScale()), status);
                 NanoUi.drawLeftText(vg, stack, regular, 14.0F, 52.0F, 11.5F, theme.textMutedArgb(), text);
             }
 
@@ -470,42 +469,42 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         HudTransform t = selected.getTransform();
 
         NanoUi.drawSurface(vg, stack, p.panel.x, p.panel.y, p.panel.w, p.panel.h, theme.cardRadius(), theme.cardAltArgb(), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 100));
-        NanoUi.drawLeftText(vg, stack, bold, p.panel.x + scaled(10.0F, scale), p.panel.y + scaled(15.0F, scale), scaled(13.5F, scale), theme.textArgb(), "Element Config");
+        NanoUi.drawLeftText(vg, stack, bold, p.panel.x + scaled(10.0F, scale), p.panel.y + scaled(15.0F, scale), scaled(13.5F, scale), theme.textArgb(), this.tr("hud.editor.panel.title", "Element Config"));
         NanoUi.drawLeftText(vg, stack, regular, p.panel.x + scaled(10.0F, scale), p.panel.y + scaled(31.0F, scale), scaled(10.5F, scale), theme.textWeakArgb(), selected.getId());
         NanoUi.drawSurface(vg, stack, p.resetButton.x, p.resetButton.y, p.resetButton.w, p.resetButton.h, theme.controlRadius(), theme.controlArgb(), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 90));
-        NanoUi.drawCenterText(vg, stack, regular, p.resetButton.x + p.resetButton.w * 0.5F, p.resetButton.y + p.resetButton.h * 0.5F, scaled(10.0F, scale), theme.textArgb(), "Reset");
+        NanoUi.drawCenterText(vg, stack, regular, p.resetButton.x + p.resetButton.w * 0.5F, p.resetButton.y + p.resetButton.h * 0.5F, scaled(10.0F, scale), theme.textArgb(), this.tr("hud.editor.reset", "Reset"));
         NanoUi.drawSurface(vg, stack, p.closeButton.x, p.closeButton.y, p.closeButton.w, p.closeButton.h, theme.controlRadius(), theme.controlArgb(), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 90));
-        NanoUi.drawCenterText(vg, stack, regular, p.closeButton.x + p.closeButton.w * 0.5F, p.closeButton.y + p.closeButton.h * 0.5F, scaled(10.0F, scale), theme.textArgb(), "Close");
-        this.drawChip(vg, stack, regular, theme, p.enabledChip, selected.isEnabled() ? "Enabled" : "Disabled", selected.isEnabled());
+        NanoUi.drawCenterText(vg, stack, regular, p.closeButton.x + p.closeButton.w * 0.5F, p.closeButton.y + p.closeButton.h * 0.5F, scaled(10.0F, scale), theme.textArgb(), this.tr("hud.editor.close", "Close"));
+        this.drawChip(vg, stack, regular, theme, p.enabledChip, selected.isEnabled() ? this.tr("hud.editor.enabled", "Enabled") : this.tr("hud.editor.disabled", "Disabled"), selected.isEnabled());
 
-        this.drawSlider(vg, stack, regular, bold, theme, p.offsetXTrack, "Offset X", t.getOffsetX(), OFFSET_MIN, OFFSET_MAX, this.draggingOffsetX, p.offsetXTrack.contains(this.mouseX, this.mouseY, 4.0F, 6.0F));
-        this.drawSlider(vg, stack, regular, bold, theme, p.offsetYTrack, "Offset Y", t.getOffsetY(), OFFSET_MIN, OFFSET_MAX, this.draggingOffsetY, p.offsetYTrack.contains(this.mouseX, this.mouseY, 4.0F, 6.0F));
-        this.drawSlider(vg, stack, regular, bold, theme, p.scaleTrack, "Scale", t.getScale(), SCALE_MIN, SCALE_MAX, this.draggingScale, p.scaleTrack.contains(this.mouseX, this.mouseY, 4.0F, 6.0F));
+        this.drawSlider(vg, stack, regular, bold, theme, p.offsetXTrack, "offset_x", this.tr("hud.editor.offset_x", "Offset X"), t.getOffsetX(), OFFSET_MIN, OFFSET_MAX, this.draggingOffsetX, p.offsetXTrack.contains(this.mouseX, this.mouseY, 4.0F, 6.0F));
+        this.drawSlider(vg, stack, regular, bold, theme, p.offsetYTrack, "offset_y", this.tr("hud.editor.offset_y", "Offset Y"), t.getOffsetY(), OFFSET_MIN, OFFSET_MAX, this.draggingOffsetY, p.offsetYTrack.contains(this.mouseX, this.mouseY, 4.0F, 6.0F));
+        this.drawSlider(vg, stack, regular, bold, theme, p.scaleTrack, "scale", this.tr("hud.editor.scale", "Scale"), t.getScale(), SCALE_MIN, SCALE_MAX, this.draggingScale, p.scaleTrack.contains(this.mouseX, this.mouseY, 4.0F, 6.0F));
 
         if (selected instanceof HudFpsElement)
         {
             HudFpsElement fps = (HudFpsElement)selected;
-            this.drawChip(vg, stack, regular, theme, p.sourceChip, "FPS Source: " + fps.sourceText(), p.sourceChip.contains(this.mouseX, this.mouseY));
+            this.drawChip(vg, stack, regular, theme, p.sourceChip, this.tr("hud.editor.fps_source", "FPS Source: {0}", fps.sourceText()), p.sourceChip.contains(this.mouseX, this.mouseY));
         }
 
-        this.drawChip(vg, stack, regular, theme, p.anchorChip, "Anchor: " + t.getAnchor().name().toLowerCase(Locale.ROOT), p.anchorChip.contains(this.mouseX, this.mouseY));
-        this.drawChip(vg, stack, regular, theme, p.dockChip, "Dock: " + t.getDock().name().toLowerCase(Locale.ROOT), p.dockChip.contains(this.mouseX, this.mouseY));
+        this.drawChip(vg, stack, regular, theme, p.anchorChip, this.tr("hud.editor.anchor", "Anchor: {0}", this.anchorDisplayName(t.getAnchor())), p.anchorChip.contains(this.mouseX, this.mouseY));
+        this.drawChip(vg, stack, regular, theme, p.dockChip, this.tr("hud.editor.dock", "Dock: {0}", this.dockDisplayName(t.getDock())), p.dockChip.contains(this.mouseX, this.mouseY));
     }
 
-    private void drawSlider(long vg, MemoryStack stack, int regular, int bold, NanoTheme theme, Rect track, String label, float value, float min, float max, boolean dragging, boolean hovered)
+    private void drawSlider(long vg, MemoryStack stack, int regular, int bold, NanoTheme theme, Rect track, String sliderKey, String label, float value, float min, float max, boolean dragging, boolean hovered)
     {
         float scale = UiMotion.clamp(track.h / 6.0F, 0.35F, 1.85F);
         ClickGuiModule clickGui = this.resolveClickGuiModule();
         float ratio = UiMotion.clamp01((value - min) / Math.max(0.0001F, max - min));
         float dragRatio = UiMotion.clamp01(((float)this.mouseX - track.x) / Math.max(1.0F, track.w));
         float targetRatio = dragging ? dragRatio : ratio;
-        String key = this.sliderAnimKey(label);
+        String key = this.sliderAnimKey(sliderKey);
         boolean snap = dragging || System.nanoTime() - this.lastSliderDragNanos < 140_000_000L;
         float displayRatio = snap ? targetRatio : UiAnimationBus.animate("hud.editor.slider." + key, targetRatio, clickGui == null ? 0.64F : clickGui.getSliderAnimationSpeed(), clickGui == null ? 0.64F : clickGui.getGlobalAnimationSmooth(), UiAnimation.Type.EASE_OUT, true);
         float focus = UiAnimationBus.animate("hud.editor.slider.focus." + key, (hovered || dragging) ? 1.0F : 0.0F, clickGui == null ? 0.58F : clickGui.getControlAnimationSpeed(), clickGui == null ? 0.64F : clickGui.getGlobalAnimationSmooth(), UiAnimation.Type.EASE_OUT, true);
 
         NanoUi.drawLeftText(vg, stack, bold, track.x, track.y - scaled(8.0F, scale), scaled(11.5F, scale), theme.textArgb(), label);
-        NanoUi.drawRightText(vg, stack, regular, track.x2(), track.y - scaled(8.0F, scale), scaled(10.0F, scale), theme.textMutedArgb(), formatSliderValue(label, value));
+        NanoUi.drawRightText(vg, stack, regular, track.x2(), track.y - scaled(8.0F, scale), scaled(10.0F, scale), theme.textMutedArgb(), formatSliderValue(sliderKey, value));
 
         NanoUi.drawSurface(vg, stack, track.x, track.y, track.w, track.h, theme.controlRadius(), theme.controlArgb(), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 98));
         NanoUi.drawSurface(vg, stack, track.x + 1.0F, track.y + 1.0F, Math.max(0.0F, (track.w - 2.0F) * displayRatio), Math.max(0.0F, track.h - 2.0F), Math.max(2.0F, theme.controlRadius() - 1.0F), this.mixArgb(theme.controlActiveArgb(), theme.accentArgb(), 0.74F), 0);
@@ -763,24 +762,9 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         return module instanceof ClickGuiModule ? (ClickGuiModule)module : null;
     }
 
-    private String sliderAnimKey(String label)
+    private String sliderAnimKey(String sliderKey)
     {
-        if ("Offset X".equals(label))
-        {
-            return "offset_x";
-        }
-
-        if ("Offset Y".equals(label))
-        {
-            return "offset_y";
-        }
-
-        if ("Scale".equals(label))
-        {
-            return "scale";
-        }
-
-        return "generic";
+        return sliderKey == null || sliderKey.isEmpty() ? "generic" : sliderKey;
     }
 
     private NanoTheme resolveTheme()
@@ -834,14 +818,77 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         return Integer.toString(Math.round(value * 100.0F)) + "%";
     }
 
-    private static String formatSliderValue(String label, float value)
+    private static String formatSliderValue(String sliderKey, float value)
     {
-        if ("Scale".equals(label))
+        if ("scale".equals(sliderKey))
         {
             return formatScale(value);
         }
 
         return formatOffset(value);
+    }
+
+    private String anchorDisplayName(Anchor anchor)
+    {
+        if (anchor == null)
+        {
+            return this.tr("hud.anchor.top_left", "top_left");
+        }
+
+        switch (anchor)
+        {
+            case TOP_RIGHT:
+                return this.tr("hud.anchor.top_right", "top_right");
+            case BOTTOM_LEFT:
+                return this.tr("hud.anchor.bottom_left", "bottom_left");
+            case BOTTOM_RIGHT:
+                return this.tr("hud.anchor.bottom_right", "bottom_right");
+            case CENTER:
+                return this.tr("hud.anchor.center", "center");
+            case TOP_LEFT:
+            default:
+                return this.tr("hud.anchor.top_left", "top_left");
+        }
+    }
+
+    private String dockDisplayName(Dock dock)
+    {
+        if (dock == null)
+        {
+            return this.tr("hud.dock.none", "none");
+        }
+
+        switch (dock)
+        {
+            case TOP:
+                return this.tr("hud.dock.top", "top");
+            case BOTTOM:
+                return this.tr("hud.dock.bottom", "bottom");
+            case LEFT:
+                return this.tr("hud.dock.left", "left");
+            case RIGHT:
+                return this.tr("hud.dock.right", "right");
+            case CENTER:
+                return this.tr("hud.dock.center", "center");
+            case NONE:
+            default:
+                return this.tr("hud.dock.none", "none");
+        }
+    }
+
+    private String hudElementName(HudElement element)
+    {
+        if (element == null)
+        {
+            return this.tr("hud.element.none", "no element");
+        }
+        return element.getDisplayName();
+    }
+
+    private String tr(String key, String fallback, Object... args)
+    {
+        client.i18n.I18nManager i18n = ClientBootstrap.instance().getI18n();
+        return i18n == null ? fallback : i18n.translateOrDefault(key, fallback, args);
     }
 
     private static final class PanelLayout

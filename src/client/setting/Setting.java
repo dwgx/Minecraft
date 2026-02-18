@@ -1,7 +1,9 @@
 package client.setting;
 
+import java.util.Locale;
+
 /**
- * 设置基类，模块配置与 UI 控件共用这套模型。
+ * Base setting model shared by modules and UI controls.
  */
 public abstract class Setting<T>
 {
@@ -32,9 +34,105 @@ public abstract class Setting<T>
         return this.name;
     }
 
+    public String getDisplayName()
+    {
+        return this.getDisplayName(null);
+    }
+
+    public String getDisplayName(String ownerId)
+    {
+        String normalizedKey = normalizeToken(this.key);
+        String fallback = this.name == null ? "" : this.name;
+
+        if (normalizedKey.isEmpty())
+        {
+            return fallback;
+        }
+
+        String owner = normalizeToken(ownerId);
+
+        if (!owner.isEmpty())
+        {
+            String scoped = tryTranslate("setting." + owner + "." + normalizedKey + ".name");
+
+            if (scoped != null)
+            {
+                return scoped;
+            }
+        }
+
+        return translateOrDefault("setting." + normalizedKey + ".name", fallback);
+    }
+
     public String getDescription()
     {
         return this.description;
+    }
+
+    public String getDisplayDescription()
+    {
+        return this.getDisplayDescription(null);
+    }
+
+    public String getDisplayDescription(String ownerId)
+    {
+        String normalizedKey = normalizeToken(this.key);
+        String fallback = this.description == null ? "" : this.description;
+
+        if (normalizedKey.isEmpty())
+        {
+            return fallback;
+        }
+
+        String owner = normalizeToken(ownerId);
+
+        if (!owner.isEmpty())
+        {
+            String scoped = tryTranslate("setting." + owner + "." + normalizedKey + ".description");
+
+            if (scoped != null)
+            {
+                return scoped;
+            }
+        }
+
+        return translateOrDefault("setting." + normalizedKey + ".description", fallback);
+    }
+
+    public String getDisplayOption(Object option)
+    {
+        return this.getDisplayOption(null, option);
+    }
+
+    public String getDisplayOption(String ownerId, Object option)
+    {
+        if (option == null)
+        {
+            return "null";
+        }
+
+        String normalizedKey = normalizeToken(this.key);
+        String normalizedOption = normalizeToken(String.valueOf(option));
+        String fallback = String.valueOf(option).toLowerCase(Locale.ROOT);
+
+        if (normalizedKey.isEmpty() || normalizedOption.isEmpty())
+        {
+            return fallback;
+        }
+
+        String owner = normalizeToken(ownerId);
+
+        if (!owner.isEmpty())
+        {
+            String scoped = tryTranslate("setting." + owner + "." + normalizedKey + ".option." + normalizedOption);
+
+            if (scoped != null)
+            {
+                return scoped;
+            }
+        }
+
+        return translateOrDefault("setting." + normalizedKey + ".option." + normalizedOption, fallback);
     }
 
     public T getDefaultValue()
@@ -49,7 +147,15 @@ public abstract class Setting<T>
 
     public void set(T value)
     {
-        this.value = this.normalize(value);
+        T normalized = this.normalize(value);
+
+        if (equalsValue(this.value, normalized))
+        {
+            return;
+        }
+
+        this.value = normalized;
+        markConfigDirty();
     }
 
     public boolean isVisible()
@@ -65,11 +171,74 @@ public abstract class Setting<T>
 
     public void reset()
     {
-        this.value = this.defaultValue;
+        this.set(this.defaultValue);
     }
 
     protected T normalize(T value)
     {
         return value;
+    }
+
+    private static String tryTranslate(String key)
+    {
+        if (key == null || key.isEmpty())
+        {
+            return null;
+        }
+
+        client.i18n.I18nManager i18n = client.core.ClientBootstrap.instance().getI18n();
+
+        if (i18n == null)
+        {
+            return null;
+        }
+
+        String value = i18n.translateOrDefault(key, key);
+        return key.equals(value) ? null : value;
+    }
+
+    private static String translateOrDefault(String key, String fallback)
+    {
+        client.i18n.I18nManager i18n = client.core.ClientBootstrap.instance().getI18n();
+        return i18n == null ? fallback : i18n.translateOrDefault(key, fallback);
+    }
+
+    private static String normalizeToken(String value)
+    {
+        if (value == null)
+        {
+            return "";
+        }
+
+        String normalized = value.trim().toLowerCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
+        StringBuilder out = new StringBuilder(normalized.length());
+
+        for (int i = 0; i < normalized.length(); ++i)
+        {
+            char c = normalized.charAt(i);
+
+            if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')
+            {
+                out.append(c);
+            }
+        }
+
+        return out.toString();
+    }
+
+    private static boolean equalsValue(Object left, Object right)
+    {
+        return left == right || left != null && left.equals(right);
+    }
+
+    private static void markConfigDirty()
+    {
+        client.config.ConfigManager config = client.core.ClientBootstrap.instance().getConfigManager();
+
+        if (config != null)
+        {
+            config.markModulesDirty();
+            config.markHudDirty();
+        }
     }
 }

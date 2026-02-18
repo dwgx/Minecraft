@@ -10,7 +10,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * 模块基类：统一生命周期与设置容器。
+ * Base module class with lifecycle hooks and setting container.
  */
 public abstract class Module
 {
@@ -41,6 +41,12 @@ public abstract class Module
         return this.name;
     }
 
+    public String getDisplayName()
+    {
+        client.i18n.I18nManager i18n = client.core.ClientBootstrap.instance().getI18n();
+        return i18n == null ? this.name : i18n.translateOrDefault("module." + this.id + ".name", this.name);
+    }
+
     public void setName(String name)
     {
         this.name = name;
@@ -63,6 +69,20 @@ public abstract class Module
 
     public final void setEnabled(boolean enabled)
     {
+        if (this.isActionModule())
+        {
+            if (enabled)
+            {
+                this.onEnable();
+            }
+            else
+            {
+                this.onDisable();
+            }
+
+            return;
+        }
+
         if (this.enabled == enabled)
         {
             return;
@@ -87,6 +107,12 @@ public abstract class Module
 
     public final void toggle()
     {
+        if (this.isActionModule())
+        {
+            this.setEnabled(true);
+            return;
+        }
+
         this.setEnabled(!this.enabled);
     }
 
@@ -124,6 +150,11 @@ public abstract class Module
 
     public void onDisable()
     {
+    }
+
+    public boolean isActionModule()
+    {
+        return false;
     }
 
     public void onTick()

@@ -1,5 +1,6 @@
 package client.hud;
 
+import client.core.ClientBootstrap;
 import client.render.RenderContext2D;
 import client.setting.EnumSetting;
 import dwgx.nano.NanoFontBook;
@@ -52,12 +53,12 @@ public final class HudFpsElement extends HudElement
 
     public String sourceText()
     {
-        return this.getSource() == FpsSource.DISPLAY_REFRESH ? "display" : "debug";
+        return this.getSource() == FpsSource.DISPLAY_REFRESH ? this.tr("hud.fps.source.display", "display") : this.tr("hud.fps.source.debug", "debug");
     }
 
     public String displayText()
     {
-        return "FPS: " + this.resolveFps();
+        return this.tr("hud.fps.text", "FPS: {0}", Integer.valueOf(this.resolveFps()));
     }
 
     private int resolveFps()
@@ -97,5 +98,11 @@ public final class HudFpsElement extends HudElement
             nvgFillColor(vg, color);
             nvgText(vg, 0.0F, 0.0F, text);
         }
+    }
+
+    private String tr(String key, String fallback, Object... args)
+    {
+        client.i18n.I18nManager i18n = ClientBootstrap.instance().getI18n();
+        return i18n == null ? fallback : i18n.translateOrDefault(key, fallback, args);
     }
 }

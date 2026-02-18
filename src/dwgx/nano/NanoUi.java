@@ -16,13 +16,15 @@ import static org.lwjgl.nanovg.NanoVG.nvgScissor;
 
 public final class NanoUi
 {
+    private static final float BACKDROP_OVERSCAN = 1.0F;
+
     private NanoUi()
     {
     }
 
     public static void drawBackdrop(long vg, MemoryStack stack, float width, float height, NanoTheme theme)
     {
-        NanoRenderUtils.fillRect(vg, 0.0F, 0.0F, width, height, NanoRenderUtils.argb(stack, theme.backdropArgb()));
+        NanoRenderUtils.fillRect(vg, -BACKDROP_OVERSCAN, -BACKDROP_OVERSCAN, width + BACKDROP_OVERSCAN * 2.0F, height + BACKDROP_OVERSCAN * 2.0F, NanoRenderUtils.argb(stack, theme.backdropArgb()));
     }
 
     public static void drawWindow(long vg, MemoryStack stack, float x, float y, float width, float height, NanoTheme theme)

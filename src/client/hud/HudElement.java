@@ -32,6 +32,18 @@ public abstract class HudElement
         return this.name;
     }
 
+    public String getDisplayName()
+    {
+        client.i18n.I18nManager i18n = client.core.ClientBootstrap.instance().getI18n();
+
+        if (i18n == null || this.id == null || this.id.isEmpty())
+        {
+            return this.name;
+        }
+
+        return i18n.translateOrDefault("hud.element." + this.id + ".name", this.name);
+    }
+
     public HudLayer getLayer()
     {
         return this.layer;
@@ -49,7 +61,19 @@ public abstract class HudElement
 
     public void setEnabled(boolean enabled)
     {
+        if (this.enabled == enabled)
+        {
+            return;
+        }
+
         this.enabled = enabled;
+
+        client.config.ConfigManager config = client.core.ClientBootstrap.instance().getConfigManager();
+
+        if (config != null)
+        {
+            config.markHudDirty();
+        }
     }
 
     public <T extends Setting<?>> T addSetting(T setting)

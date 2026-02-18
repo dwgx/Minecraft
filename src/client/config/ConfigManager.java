@@ -7,6 +7,7 @@ import client.hud.Dock;
 import client.hud.HudElement;
 import client.hud.HudManager;
 import client.hud.HudTransform;
+import client.i18n.I18nManager;
 import client.module.Module;
 import client.module.ModuleManager;
 import client.module.ModuleStateListener;
@@ -19,6 +20,7 @@ import client.setting.IntSetting;
 import client.setting.KeybindSetting;
 import client.setting.NumberSetting;
 import client.setting.Setting;
+import client.setting.StringSetting;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
@@ -29,7 +31,7 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * 分域配置管理器：
+ * Split configuration manager:
  * - client.json
  * - modules.json
  * - hud.json
@@ -43,16 +45,22 @@ public final class ConfigManager implements ModuleStateListener
     private final ClientInfo clientInfo;
     private final ModuleManager moduleManager;
     private final HudManager hudManager;
+    private final I18nManager i18n;
     private final ProfileManager profileManager;
     private final ConfigIO io = new ConfigIO();
     private final ConfigMigrator migrator = new ConfigMigrator();
     private boolean autosaveOnModuleChange = true;
+    private boolean dirtyTrackingSuspended;
+    private boolean dirtyClient = true;
+    private boolean dirtyModules = true;
+    private boolean dirtyHud = true;
 
-    public ConfigManager(Path configRoot, ClientInfo clientInfo, ModuleManager moduleManager, HudManager hudManager)
+    public ConfigManager(Path configRoot, ClientInfo clientInfo, ModuleManager moduleManager, HudManager hudManager, I18nManager i18n)
     {
         this.clientInfo = clientInfo;
         this.moduleManager = moduleManager;
         this.hudManager = hudManager;
+        this.i18n = i18n;
         this.profileManager = new ProfileManager(configRoot);
 
         if (this.moduleManager != null)
@@ -71,6 +79,30 @@ public final class ConfigManager implements ModuleStateListener
         this.autosaveOnModuleChange = autosaveOnModuleChange;
     }
 
+    public void markClientDirty()
+    {
+        if (!this.dirtyTrackingSuspended)
+        {
+            this.dirtyClient = true;
+        }
+    }
+
+    public void markModulesDirty()
+    {
+        if (!this.dirtyTrackingSuspended)
+        {
+            this.dirtyModules = true;
+        }
+    }
+
+    public void markHudDirty()
+    {
+        if (!this.dirtyTrackingSuspended)
+        {
+            this.dirtyHud = true;
+        }
+    }
+
     public void saveAll() throws IOException
     {
         this.saveClient();
@@ -80,28 +112,76 @@ public final class ConfigManager implements ModuleStateListener
 
     public void loadAll() throws IOException
     {
-        this.loadClient();
-        this.loadModules();
-        this.loadHud();
+        this.dirtyTrackingSuspended = true;
+
+        try
+        {
+            this.loadClient();
+            this.loadModules();
+            this.loadHud();
+        }
+        finally
+        {
+            this.dirtyTrackingSuspended = false;
+            this.dirtyClient = false;
+            this.dirtyModules = false;
+            this.dirtyHud = false;
+        }
     }
 
     public void saveClient() throws IOException
     {
+        if (!this.dirtyClient)
+        {
+            return;
+        }
+
         JsonObject root = this.createHeader();
         root.addProperty("clientId", this.clientInfo.getId());
         root.addProperty("clientName", this.clientInfo.getName());
         root.addProperty("clientVersion", this.clientInfo.getVersion());
-        this.io.writeAtomic(this.path(FILE_CLIENT), root);
+
+        if (this.i18n != null)
+        {
+            root.addProperty("locale", this.i18n.getCurrentLocale());
+        }
+
+        this.io.writeAtomicIfChanged(this.path(FILE_CLIENT), root);
+        this.dirtyClient = false;
     }
 
     public void loadClient() throws IOException
     {
-        JsonObject root = this.ensureSchema(this.io.read(this.path(FILE_CLIENT)));
-        this.maybeWriteMigrated(FILE_CLIENT, root);
+        SchemaResult schema = this.ensureSchema(this.io.read(this.path(FILE_CLIENT)));
+        JsonObject root = schema.root;
+        boolean changed = schema.changed;
+
+        if (this.i18n != null)
+        {
+            String locale = this.readString(root, "locale");
+
+            if (locale != null)
+            {
+                this.i18n.setCurrentLocale(locale);
+            }
+            else
+            {
+                root.addProperty("locale", this.i18n.getCurrentLocale());
+                changed = true;
+            }
+        }
+
+        this.maybeWriteMigrated(FILE_CLIENT, root, changed);
+        this.dirtyClient = false;
     }
 
     public void saveModules() throws IOException
     {
+        if (!this.dirtyModules)
+        {
+            return;
+        }
+
         JsonObject root = this.createHeader();
         JsonObject modules = new JsonObject();
         List<Module> allModules = this.moduleManager.getAll();
@@ -110,7 +190,7 @@ public final class ConfigManager implements ModuleStateListener
         {
             Module module = allModules.get(i);
             JsonObject moduleJson = new JsonObject();
-            moduleJson.addProperty("enabled", Boolean.valueOf(module.isEnabled()));
+            moduleJson.addProperty("enabled", Boolean.valueOf(module.isActionModule() ? false : module.isEnabled()));
 
             JsonObject bind = new JsonObject();
             bind.addProperty("key", Integer.valueOf(module.getBind().getKeyCode()));
@@ -130,44 +210,58 @@ public final class ConfigManager implements ModuleStateListener
         }
 
         root.add("modules", modules);
-        this.io.writeAtomic(this.path(FILE_MODULES), root);
+        this.io.writeAtomicIfChanged(this.path(FILE_MODULES), root);
+        this.dirtyModules = false;
     }
 
     public void loadModules() throws IOException
     {
-        JsonObject root = this.ensureSchema(this.io.read(this.path(FILE_MODULES)));
-        JsonObject modules = root.has("modules") && root.get("modules").isJsonObject() ? root.getAsJsonObject("modules") : new JsonObject();
+        SchemaResult schema = this.ensureSchema(this.io.read(this.path(FILE_MODULES)));
+        JsonObject root = schema.root;
+        JsonObject modules = this.readObject(root, "modules");
+        boolean changed = schema.changed;
+
+        if (modules == null)
+        {
+            modules = new JsonObject();
+        }
+
         List<Module> allModules = this.moduleManager.getAll();
 
         for (int i = 0; i < allModules.size(); ++i)
         {
             Module module = allModules.get(i);
 
-            if (!modules.has(module.getId()) || !modules.get(module.getId()).isJsonObject())
+            JsonObject moduleJson = this.readObject(modules, module.getId());
+
+            if (moduleJson == null)
             {
                 continue;
             }
 
-            JsonObject moduleJson = modules.getAsJsonObject(module.getId());
+            Boolean enabled = this.readBoolean(moduleJson, "enabled");
 
-            if (moduleJson.has("enabled"))
+            if (enabled != null && !module.isActionModule())
             {
-                module.setEnabled(moduleJson.get("enabled").getAsBoolean());
+                module.setEnabled(enabled.booleanValue());
             }
 
-            if (moduleJson.has("bind") && moduleJson.get("bind").isJsonObject())
-            {
-                JsonObject bind = moduleJson.getAsJsonObject("bind");
+            JsonObject bind = this.readObject(moduleJson, "bind");
 
-                if (bind.has("key"))
+            if (bind != null)
+            {
+                Integer keyCode = this.readInt(bind, "key");
+
+                if (keyCode != null)
                 {
-                    module.getBind().setKeyCode(bind.get("key").getAsInt());
+                    module.getBind().setKeyCode(keyCode.intValue());
                 }
             }
 
-            if (moduleJson.has("settings") && moduleJson.get("settings").isJsonObject())
+            JsonObject settings = this.readObject(moduleJson, "settings");
+
+            if (settings != null)
             {
-                JsonObject settings = moduleJson.getAsJsonObject("settings");
                 List<Setting<?>> moduleSettings = module.getSettings();
 
                 for (int j = 0; j < moduleSettings.size(); ++j)
@@ -176,17 +270,29 @@ public final class ConfigManager implements ModuleStateListener
 
                     if (settings.has(setting.getKey()))
                     {
-                        this.applySetting(setting, settings.get(setting.getKey()));
+                        try
+                        {
+                            this.applySetting(setting, settings.get(setting.getKey()));
+                        }
+                        catch (RuntimeException ignored)
+                        {
+                        }
                     }
                 }
             }
         }
 
-        this.maybeWriteMigrated(FILE_MODULES, root);
+        this.maybeWriteMigrated(FILE_MODULES, root, changed);
+        this.dirtyModules = false;
     }
 
     public void saveHud() throws IOException
     {
+        if (!this.dirtyHud)
+        {
+            return;
+        }
+
         JsonObject root = this.createHeader();
         JsonObject elements = new JsonObject();
         List<HudElement> all = this.hudManager.getElements();
@@ -218,77 +324,102 @@ public final class ConfigManager implements ModuleStateListener
         }
 
         root.add("elements", elements);
-        this.io.writeAtomic(this.path(FILE_HUD), root);
+        this.io.writeAtomicIfChanged(this.path(FILE_HUD), root);
+        this.dirtyHud = false;
     }
 
     public void loadHud() throws IOException
     {
-        JsonObject root = this.ensureSchema(this.io.read(this.path(FILE_HUD)));
-        JsonObject elements = root.has("elements") && root.get("elements").isJsonObject() ? root.getAsJsonObject("elements") : new JsonObject();
+        SchemaResult schema = this.ensureSchema(this.io.read(this.path(FILE_HUD)));
+        JsonObject root = schema.root;
+        JsonObject elements = this.readObject(root, "elements");
+        boolean changed = schema.changed;
+
+        if (elements == null)
+        {
+            elements = new JsonObject();
+        }
+
         List<HudElement> all = this.hudManager.getElements();
 
         for (int i = 0; i < all.size(); ++i)
         {
             HudElement element = all.get(i);
 
-            if (!elements.has(element.getId()) || !elements.get(element.getId()).isJsonObject())
+            JsonObject e = this.readObject(elements, element.getId());
+
+            if (e == null)
             {
                 continue;
             }
 
-            JsonObject e = elements.getAsJsonObject(element.getId());
             HudTransform t = element.getTransform();
 
-            if (e.has("enabled"))
+            Boolean enabled = this.readBoolean(e, "enabled");
+
+            if (enabled != null)
             {
-                element.setEnabled(e.get("enabled").getAsBoolean());
+                element.setEnabled(enabled.booleanValue());
             }
 
-            if (e.has("anchor"))
+            String anchorValue = this.readString(e, "anchor");
+
+            if (anchorValue != null)
             {
                 try
                 {
-                    t.setAnchor(Anchor.valueOf(e.get("anchor").getAsString()));
+                    t.setAnchor(Anchor.valueOf(anchorValue));
                 }
                 catch (IllegalArgumentException ignored)
                 {
                 }
             }
 
-            if (e.has("dock"))
+            String dockValue = this.readString(e, "dock");
+
+            if (dockValue != null)
             {
                 try
                 {
-                    t.setDock(Dock.valueOf(e.get("dock").getAsString()));
+                    t.setDock(Dock.valueOf(dockValue));
                 }
                 catch (IllegalArgumentException ignored)
                 {
                 }
             }
 
-            if (e.has("x"))
+            Float offsetX = this.readFloat(e, "x");
+
+            if (offsetX != null)
             {
-                t.setOffsetX(e.get("x").getAsFloat());
+                t.setOffsetX(offsetX.floatValue());
             }
 
-            if (e.has("y"))
+            Float offsetY = this.readFloat(e, "y");
+
+            if (offsetY != null)
             {
-                t.setOffsetY(e.get("y").getAsFloat());
+                t.setOffsetY(offsetY.floatValue());
             }
 
-            if (e.has("scale"))
+            Float scale = this.readFloat(e, "scale");
+
+            if (scale != null)
             {
-                t.setScale(e.get("scale").getAsFloat());
+                t.setScale(scale.floatValue());
             }
 
-            if (e.has("snapToGrid"))
+            Boolean snapToGrid = this.readBoolean(e, "snapToGrid");
+
+            if (snapToGrid != null)
             {
-                t.setSnapToGrid(e.get("snapToGrid").getAsBoolean());
+                t.setSnapToGrid(snapToGrid.booleanValue());
             }
 
-            if (e.has("settings") && e.get("settings").isJsonObject())
+            JsonObject settings = this.readObject(e, "settings");
+
+            if (settings != null)
             {
-                JsonObject settings = e.getAsJsonObject("settings");
                 List<Setting<?>> elementSettings = element.getSettings();
 
                 for (int j = 0; j < elementSettings.size(); ++j)
@@ -297,17 +428,31 @@ public final class ConfigManager implements ModuleStateListener
 
                     if (settings.has(setting.getKey()))
                     {
-                        this.applySetting(setting, settings.get(setting.getKey()));
+                        try
+                        {
+                            this.applySetting(setting, settings.get(setting.getKey()));
+                        }
+                        catch (RuntimeException ignored)
+                        {
+                        }
                     }
                 }
             }
         }
 
-        this.maybeWriteMigrated(FILE_HUD, root);
+        this.maybeWriteMigrated(FILE_HUD, root, changed);
+        this.dirtyHud = false;
     }
 
     public void onModuleChanged(Module module)
     {
+        if (this.dirtyTrackingSuspended)
+        {
+            return;
+        }
+
+        this.markModulesDirty();
+
         if (!this.autosaveOnModuleChange)
         {
             return;
@@ -337,28 +482,141 @@ public final class ConfigManager implements ModuleStateListener
         return this.profileManager.resolveInActiveProfile(fileName);
     }
 
-    private JsonObject ensureSchema(JsonObject root)
+    private SchemaResult ensureSchema(JsonObject root)
     {
-        int version = root.has("schemaVersion") ? root.get("schemaVersion").getAsInt() : ConfigSchema.CURRENT_VERSION;
+        JsonObject out = root == null ? new JsonObject() : root;
+        Integer versionValue = this.readInt(out, "schemaVersion");
+        int version = versionValue == null ? ConfigSchema.CURRENT_VERSION : versionValue.intValue();
+        boolean changed = false;
 
         if (version < ConfigSchema.CURRENT_VERSION)
         {
-            return this.migrator.migrate(root, version, ConfigSchema.CURRENT_VERSION);
+            JsonObject migrated = this.migrator.migrate(out, version, ConfigSchema.CURRENT_VERSION);
+            out = migrated == null ? new JsonObject() : migrated;
+            Integer migratedVersion = this.readInt(out, "schemaVersion");
+            changed = migratedVersion != null && migratedVersion.intValue() == ConfigSchema.CURRENT_VERSION;
         }
-
-        if (!root.has("schemaVersion"))
+        else if (versionValue == null)
         {
-            root.addProperty("schemaVersion", Integer.valueOf(ConfigSchema.CURRENT_VERSION));
+            out.addProperty("schemaVersion", Integer.valueOf(ConfigSchema.CURRENT_VERSION));
+            changed = true;
         }
 
-        return root;
+        return new SchemaResult(out, changed);
     }
 
-    private void maybeWriteMigrated(String fileName, JsonObject root) throws IOException
+    private void maybeWriteMigrated(String fileName, JsonObject root, boolean changed) throws IOException
     {
-        if (root != null && root.has("schemaVersion"))
+        if (root != null && changed)
         {
-            this.io.writeAtomic(this.path(fileName), root);
+            this.io.writeAtomicIfChanged(this.path(fileName), root);
+        }
+    }
+
+    private JsonObject readObject(JsonObject root, String key)
+    {
+        if (root == null || key == null || key.isEmpty() || !root.has(key))
+        {
+            return null;
+        }
+
+        JsonElement element = root.get(key);
+        return element != null && element.isJsonObject() ? element.getAsJsonObject() : null;
+    }
+
+    private String readString(JsonObject root, String key)
+    {
+        if (root == null || key == null || key.isEmpty() || !root.has(key))
+        {
+            return null;
+        }
+
+        JsonElement element = root.get(key);
+
+        if (element == null || !element.isJsonPrimitive())
+        {
+            return null;
+        }
+
+        try
+        {
+            return element.getAsString();
+        }
+        catch (RuntimeException ignored)
+        {
+            return null;
+        }
+    }
+
+    private Boolean readBoolean(JsonObject root, String key)
+    {
+        if (root == null || key == null || key.isEmpty() || !root.has(key))
+        {
+            return null;
+        }
+
+        JsonElement element = root.get(key);
+
+        if (element == null || !element.isJsonPrimitive())
+        {
+            return null;
+        }
+
+        try
+        {
+            return Boolean.valueOf(element.getAsBoolean());
+        }
+        catch (RuntimeException ignored)
+        {
+            return null;
+        }
+    }
+
+    private Integer readInt(JsonObject root, String key)
+    {
+        if (root == null || key == null || key.isEmpty() || !root.has(key))
+        {
+            return null;
+        }
+
+        JsonElement element = root.get(key);
+
+        if (element == null || !element.isJsonPrimitive())
+        {
+            return null;
+        }
+
+        try
+        {
+            return Integer.valueOf(element.getAsInt());
+        }
+        catch (RuntimeException ignored)
+        {
+            return null;
+        }
+    }
+
+    private Float readFloat(JsonObject root, String key)
+    {
+        if (root == null || key == null || key.isEmpty() || !root.has(key))
+        {
+            return null;
+        }
+
+        JsonElement element = root.get(key);
+
+        if (element == null || !element.isJsonPrimitive())
+        {
+            return null;
+        }
+
+        try
+        {
+            return Float.valueOf(element.getAsFloat());
+        }
+        catch (RuntimeException ignored)
+        {
+            return null;
         }
     }
 
@@ -380,6 +638,10 @@ public final class ConfigManager implements ModuleStateListener
         else if (setting instanceof NumberSetting)
         {
             return new JsonPrimitive(((NumberSetting)setting).get().doubleValue());
+        }
+        else if (setting instanceof StringSetting)
+        {
+            return new JsonPrimitive(((StringSetting)setting).get());
         }
         else if (setting instanceof EnumSetting)
         {
@@ -412,54 +674,76 @@ public final class ConfigManager implements ModuleStateListener
     @SuppressWarnings({"rawtypes", "unchecked"})
     private void applySetting(Setting<?> setting, JsonElement element)
     {
-        if (element == null || element.isJsonNull())
+        try
         {
-            return;
-        }
-
-        if (setting instanceof BoolSetting && element.isJsonPrimitive())
-        {
-            ((BoolSetting)setting).setEnabled(element.getAsBoolean());
-        }
-        else if (setting instanceof IntSetting && element.isJsonPrimitive())
-        {
-            ((IntSetting)setting).set(Integer.valueOf(element.getAsInt()));
-        }
-        else if (setting instanceof FloatSetting && element.isJsonPrimitive())
-        {
-            ((FloatSetting)setting).set(Float.valueOf(element.getAsFloat()));
-        }
-        else if (setting instanceof NumberSetting && element.isJsonPrimitive())
-        {
-            ((NumberSetting)setting).set(Double.valueOf(element.getAsDouble()));
-        }
-        else if (setting instanceof EnumSetting && element.isJsonPrimitive())
-        {
-            ((EnumSetting)setting).setByName(element.getAsString());
-        }
-        else if (setting instanceof ColorSetting && element.isJsonObject())
-        {
-            JsonObject c = element.getAsJsonObject();
-            int r = c.has("r") ? c.get("r").getAsInt() : 255;
-            int g = c.has("g") ? c.get("g").getAsInt() : 255;
-            int b = c.has("b") ? c.get("b").getAsInt() : 255;
-            int a = c.has("a") ? c.get("a").getAsInt() : 255;
-            boolean rainbow = c.has("rainbow") && c.get("rainbow").getAsBoolean();
-            ((ColorSetting)setting).set(new ColorValue(r, g, b, a, rainbow));
-        }
-        else if (setting instanceof KeybindSetting && element.isJsonObject())
-        {
-            JsonObject bind = element.getAsJsonObject();
-            KeybindSetting keybindSetting = (KeybindSetting)setting;
-
-            if (bind.has("key"))
+            if (element == null || element.isJsonNull())
             {
-                keybindSetting.setKeyCode(bind.get("key").getAsInt());
+                return;
+            }
+
+            if (setting instanceof BoolSetting && element.isJsonPrimitive())
+            {
+                ((BoolSetting)setting).setEnabled(element.getAsBoolean());
+            }
+            else if (setting instanceof IntSetting && element.isJsonPrimitive())
+            {
+                ((IntSetting)setting).set(Integer.valueOf(element.getAsInt()));
+            }
+            else if (setting instanceof FloatSetting && element.isJsonPrimitive())
+            {
+                ((FloatSetting)setting).set(Float.valueOf(element.getAsFloat()));
+            }
+            else if (setting instanceof NumberSetting && element.isJsonPrimitive())
+            {
+                ((NumberSetting)setting).set(Double.valueOf(element.getAsDouble()));
+            }
+            else if (setting instanceof StringSetting && element.isJsonPrimitive())
+            {
+                ((StringSetting)setting).set(element.getAsString());
+            }
+            else if (setting instanceof EnumSetting && element.isJsonPrimitive())
+            {
+                ((EnumSetting)setting).setByName(element.getAsString());
+            }
+            else if (setting instanceof ColorSetting && element.isJsonObject())
+            {
+                JsonObject c = element.getAsJsonObject();
+                int r = c.has("r") ? c.get("r").getAsInt() : 255;
+                int g = c.has("g") ? c.get("g").getAsInt() : 255;
+                int b = c.has("b") ? c.get("b").getAsInt() : 255;
+                int a = c.has("a") ? c.get("a").getAsInt() : 255;
+                boolean rainbow = c.has("rainbow") && c.get("rainbow").getAsBoolean();
+                ((ColorSetting)setting).set(new ColorValue(r, g, b, a, rainbow));
+            }
+            else if (setting instanceof KeybindSetting && element.isJsonObject())
+            {
+                JsonObject bind = element.getAsJsonObject();
+                KeybindSetting keybindSetting = (KeybindSetting)setting;
+
+                if (bind.has("key"))
+                {
+                    keybindSetting.setKeyCode(bind.get("key").getAsInt());
+                }
+            }
+            else if (setting instanceof KeybindSetting && element.isJsonPrimitive())
+            {
+                ((KeybindSetting)setting).setKeyCode(element.getAsInt());
             }
         }
-        else if (setting instanceof KeybindSetting && element.isJsonPrimitive())
+        catch (RuntimeException ignored)
         {
-            ((KeybindSetting)setting).setKeyCode(element.getAsInt());
+        }
+    }
+
+    private static final class SchemaResult
+    {
+        private final JsonObject root;
+        private final boolean changed;
+
+        private SchemaResult(JsonObject root, boolean changed)
+        {
+            this.root = root;
+            this.changed = changed;
         }
     }
 

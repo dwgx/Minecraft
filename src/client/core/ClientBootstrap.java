@@ -9,12 +9,14 @@ import client.event.Render2DEvent;
 import client.event.TickEvent;
 import client.hud.HudEditorScreen;
 import client.hud.HudManager;
+import client.i18n.I18nManager;
 import client.module.ModuleManager;
 import client.module.impl.client.ClickGuiModule;
 import client.module.impl.client.HudEditModule;
 import client.module.impl.client.UiScaleEditModule;
 import client.module.impl.movement.EagleModule;
 import client.module.impl.movement.KeepSprintModule;
+import client.module.impl.movement.ScaffoldModule;
 import client.render.RenderContext2D;
 import client.render.NanoVGContext;
 import client.ui.NanoRenderableScreen;
@@ -26,7 +28,7 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.util.ChatComponentText;
 
 /**
- * 分层客户端运行时的统一入口。
+ * Main runtime entry for client layers.
  */
 public final class ClientBootstrap
 {
@@ -38,6 +40,7 @@ public final class ClientBootstrap
     private final ModuleManager modules = new ModuleManager();
     private final ClientCommandManager commandManager = new ClientCommandManager(this.modules);
     private final HudManager hud = new HudManager();
+    private final I18nManager i18n = new I18nManager();
     private final ShutdownHook shutdownHook = new ShutdownHook();
 
     private ConfigManager configManager;
@@ -64,7 +67,8 @@ public final class ClientBootstrap
             return;
         }
 
-        this.configManager = new ConfigManager(configRoot, this.clientInfo, this.modules, this.hud);
+        this.i18n.reload();
+        this.configManager = new ConfigManager(configRoot, this.clientInfo, this.modules, this.hud, this.i18n);
         this.registerBuiltinModules();
         this.registerBuiltinHudElements();
 
@@ -73,6 +77,9 @@ public final class ClientBootstrap
             this.configManager.loadAll();
         }
         catch (IOException ignored)
+        {
+        }
+        catch (RuntimeException ignored)
         {
         }
 
@@ -101,6 +108,7 @@ public final class ClientBootstrap
         this.modules.register(new UiScaleEditModule());
         this.modules.register(new EagleModule());
         this.modules.register(new KeepSprintModule());
+        this.modules.register(new ScaffoldModule());
         this.modulesRegistered = true;
     }
 
@@ -155,6 +163,9 @@ public final class ClientBootstrap
         catch (IOException ignored)
         {
         }
+        catch (RuntimeException ignored)
+        {
+        }
     }
 
     private void autosaveIfDue()
@@ -193,6 +204,11 @@ public final class ClientBootstrap
     public HudManager getHud()
     {
         return this.hud;
+    }
+
+    public I18nManager getI18n()
+    {
+        return this.i18n;
     }
 
     public ConfigManager getConfigManager()

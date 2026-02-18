@@ -45,10 +45,15 @@ public final class NanoVGContext
 
     public void beginFrame(DisplayMetrics metrics)
     {
-        this.beginFrame(metrics.getWindowWidth(), metrics.getWindowHeight(), metrics.getPixelRatio());
+        this.beginFrame(metrics.getLogicalWindowWidth(), metrics.getLogicalWindowHeight(), metrics.getPixelRatio());
     }
 
     public void beginFrame(int windowWidth, int windowHeight, float pixelRatio)
+    {
+        this.beginFrame((float)windowWidth, (float)windowHeight, pixelRatio);
+    }
+
+    public void beginFrame(float windowWidth, float windowHeight, float pixelRatio)
     {
         if (this.vg == 0L)
         {
@@ -61,8 +66,8 @@ public final class NanoVGContext
             this.endFrame();
         }
 
-        int safeWidth = Math.max(1, windowWidth);
-        int safeHeight = Math.max(1, windowHeight);
+        float safeWidth = sanitizeDimension(windowWidth);
+        float safeHeight = sanitizeDimension(windowHeight);
         float safePixelRatio = Float.isNaN(pixelRatio) || Float.isInfinite(pixelRatio) || pixelRatio <= 0.0F ? 1.0F : pixelRatio;
 
         glDisable(GL_SCISSOR_TEST);
@@ -151,5 +156,10 @@ public final class NanoVGContext
         OpenGlHelper.setActiveTexture(OpenGlHelper.defaultTexUnit);
         OpenGlHelper.setClientActiveTexture(OpenGlHelper.defaultTexUnit);
         glBindTexture(GL_TEXTURE_2D, 0);
+    }
+
+    private static float sanitizeDimension(float value)
+    {
+        return Float.isNaN(value) || Float.isInfinite(value) || value <= 0.0F ? 1.0F : value;
     }
 }

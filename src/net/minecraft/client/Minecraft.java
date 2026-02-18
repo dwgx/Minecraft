@@ -1198,7 +1198,14 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         this.framebufferMc.framebufferRender(this.displayWidth, this.displayHeight);
         GlStateManager.popMatrix();
         ScaledResolution scaledresolution = new ScaledResolution(this);
-        DisplayMetrics displaymetrics = new DisplayMetrics(scaledresolution.getScaledWidth(), scaledresolution.getScaledHeight(), this.displayWidth, this.displayHeight);
+        DisplayMetrics displaymetrics = new DisplayMetrics(
+            scaledresolution.getScaledWidth(),
+            scaledresolution.getScaledHeight(),
+            (float)scaledresolution.getScaledWidth_double(),
+            (float)scaledresolution.getScaledHeight_double(),
+            this.displayWidth,
+            this.displayHeight
+        );
         boolean nanoAttribPushed = false;
         boolean nanoMatrixPushed = false;
         int nanoPrevMatrixMode = GL11.GL_MODELVIEW;
