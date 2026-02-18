@@ -589,12 +589,6 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         for (int i = elements.size() - 1; i >= 0; --i)
         {
             HudElement element = elements.get(i);
-
-            if (!element.isEnabled())
-            {
-                continue;
-            }
-
             Rect bounds = this.resolveElementScreenRect(element);
 
             if (bounds != null && bounds.contains(mouseX, mouseY, ELEMENT_HIT_EXPAND_X, ELEMENT_HIT_EXPAND_Y))

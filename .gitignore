@@ -5,6 +5,7 @@
 /run/assets/
 /run/
 /sources.txt
+/temp.out
 /docs/knowledge-base/
 /skiko-sandbox/
 /skija-sandbox/
@@ -20,6 +21,10 @@
 hs_err_pid*
 *.tmp
 *.swp
+lib/000-lwjgl-compat.jar
+lib/librarylwjglopenal-20100824.jar
+lib/lwjgl_util-2.9.4-nightly-20150209.jar
+natives/windows/
 
 # System junk
 .DS_Store

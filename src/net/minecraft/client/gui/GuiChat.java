@@ -1,6 +1,7 @@
 package net.minecraft.client.gui;
 
 import com.google.common.collect.Lists;
+import client.core.ClientBootstrap;
 import java.io.IOException;
 import java.util.List;
 import net.minecraft.network.play.client.C14PacketTabComplete;
@@ -216,13 +217,27 @@ public class GuiChat extends GuiScreen
             int i = this.inputField.func_146197_a(-1, this.inputField.getCursorPosition(), false);
             this.foundPlayerNames.clear();
             this.autocompleteIndex = 0;
-            String s = this.inputField.getText().substring(i).toLowerCase();
-            String s1 = this.inputField.getText().substring(0, this.inputField.getCursorPosition());
-            this.sendAutocompleteRequest(s1, s);
+            List<String> localMatches = ClientBootstrap.instance().completeChatCommand(this.inputField.getText(), this.inputField.getCursorPosition());
 
-            if (this.foundPlayerNames.isEmpty())
+            if (localMatches != null)
             {
-                return;
+                this.foundPlayerNames.addAll(localMatches);
+
+                if (this.foundPlayerNames.isEmpty())
+                {
+                    return;
+                }
+            }
+            else
+            {
+                String s = this.inputField.getText().substring(i).toLowerCase();
+                String s1 = this.inputField.getText().substring(0, this.inputField.getCursorPosition());
+                this.sendAutocompleteRequest(s1, s);
+
+                if (this.foundPlayerNames.isEmpty())
+                {
+                    return;
+                }
             }
 
             this.playerNamesFound = true;

@@ -20,10 +20,10 @@ public class EagleModule extends Module
 
     public EagleModule()
     {
-        super("eage", "Eage", Category.MOVEMENT);
-        SettingGroup group = this.addGroup("general", "通用");
-        this.onlyOnGround = this.addSetting(new BoolSetting("only_ground", "仅地面生效", "只在玩家着地时触发", true));
-        this.requireBlocks = this.addSetting(new BoolSetting("require_blocks", "需要手持方块", "仅在手持可放置方块时触发", true));
+        super("eagle", "Eagle", Category.MOVEMENT);
+        SettingGroup group = this.addGroup("general", "General");
+        this.onlyOnGround = this.addSetting(new BoolSetting("only_ground", "Only On Ground", "Activate only while the player is on ground", true));
+        this.requireBlocks = this.addSetting(new BoolSetting("require_blocks", "Require Blocks", "Activate only while holding a placeable block", true));
         group.add(this.onlyOnGround);
         group.add(this.requireBlocks);
     }

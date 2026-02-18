@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import net.minecraft.client.Minecraft;
 
 /**
  * 模块注册中心：负责索引、查询与生命周期分发。
@@ -22,25 +23,29 @@ public final class ModuleManager implements ModuleStateListener
 
     public synchronized void register(Module module)
     {
-        if (module == null || this.byId.containsKey(module.getId()))
+        String idKey = normalize(module == null ? null : module.getId());
+
+        if (module == null || idKey == null || this.byId.containsKey(idKey))
         {
             return;
         }
 
         this.modules.add(module);
-        this.byId.put(module.getId(), module);
-        this.byName.put(module.getName().toLowerCase(Locale.ROOT), module);
+        this.byId.put(idKey, module);
+        this.byName.put(normalize(module.getName()), module);
         module.setStateListener(this);
     }
 
     public synchronized Module getById(String id)
     {
-        return id == null ? null : this.byId.get(id);
+        String key = normalize(id);
+        return key == null ? null : this.byId.get(key);
     }
 
     public synchronized Module getByName(String name)
     {
-        return name == null ? null : this.byName.get(name.toLowerCase(Locale.ROOT));
+        String key = normalize(name);
+        return key == null ? null : this.byName.get(key);
     }
 
     public synchronized List<Module> getByCategory(Category category)
@@ -97,21 +102,25 @@ public final class ModuleManager implements ModuleStateListener
 
     public void onKey(KeyEvent event)
     {
+        Minecraft mc = Minecraft.getMinecraft();
+
+        if (mc != null && mc.currentScreen != null)
+        {
+            return;
+        }
+
         List<Module> snapshot = this.getAll();
 
         for (int i = 0; i < snapshot.size(); ++i)
         {
             Module module = snapshot.get(i);
+            int bindKeyCode = module.getBind().getKeyCode();
 
-            if (module.getBind().getKeyCode() == event.getKeyCode())
+            if (bindKeyCode > KeybindSetting.NONE_KEY_CODE && bindKeyCode == event.getKeyCode())
             {
-                if (module.getBind().getMode() == KeybindSetting.BindMode.TOGGLE && event.isPressed())
+                if (event.isPressed())
                 {
                     module.toggle();
-                }
-                else if (module.getBind().getMode() == KeybindSetting.BindMode.HOLD)
-                {
-                    module.setEnabled(event.isPressed());
                 }
             }
 
@@ -133,5 +142,10 @@ public final class ModuleManager implements ModuleStateListener
         {
             this.externalStateListener.onModuleChanged(module);
         }
+    }
+
+    private static String normalize(String value)
+    {
+        return value == null ? null : value.toLowerCase(Locale.ROOT);
     }
 }

@@ -43,7 +43,7 @@ public final class NanoFontManager
         }
 
         ByteBuffer data = readFileToBuffer(file);
-        int id = nvgCreateFontMem(vg, alias, data, 0);
+        int id = nvgCreateFontMem(vg, alias, data, false);
 
         if (id >= 0)
         {

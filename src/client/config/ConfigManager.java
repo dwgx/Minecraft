@@ -114,7 +114,6 @@ public final class ConfigManager implements ModuleStateListener
 
             JsonObject bind = new JsonObject();
             bind.addProperty("key", Integer.valueOf(module.getBind().getKeyCode()));
-            bind.addProperty("mode", module.getBind().getMode().name());
             moduleJson.add("bind", bind);
 
             JsonObject settings = new JsonObject();
@@ -164,17 +163,6 @@ public final class ConfigManager implements ModuleStateListener
                 {
                     module.getBind().setKeyCode(bind.get("key").getAsInt());
                 }
-
-                if (bind.has("mode"))
-                {
-                    try
-                    {
-                        module.getBind().setMode(KeybindSetting.BindMode.valueOf(bind.get("mode").getAsString()));
-                    }
-                    catch (IllegalArgumentException ignored)
-                    {
-                    }
-                }
             }
 
             if (moduleJson.has("settings") && moduleJson.get("settings").isJsonObject())
@@ -215,6 +203,17 @@ public final class ConfigManager implements ModuleStateListener
             e.addProperty("y", Float.valueOf(t.getOffsetY()));
             e.addProperty("scale", Float.valueOf(t.getScale()));
             e.addProperty("snapToGrid", Boolean.valueOf(t.isSnapToGrid()));
+
+            JsonObject settings = new JsonObject();
+            List<Setting<?>> elementSettings = element.getSettings();
+
+            for (int j = 0; j < elementSettings.size(); ++j)
+            {
+                Setting<?> setting = elementSettings.get(j);
+                settings.add(setting.getKey(), this.serializeSetting(setting));
+            }
+
+            e.add("settings", settings);
             elements.add(element.getId(), e);
         }
 
@@ -285,6 +284,22 @@ public final class ConfigManager implements ModuleStateListener
             if (e.has("snapToGrid"))
             {
                 t.setSnapToGrid(e.get("snapToGrid").getAsBoolean());
+            }
+
+            if (e.has("settings") && e.get("settings").isJsonObject())
+            {
+                JsonObject settings = e.getAsJsonObject("settings");
+                List<Setting<?>> elementSettings = element.getSettings();
+
+                for (int j = 0; j < elementSettings.size(); ++j)
+                {
+                    Setting<?> setting = elementSettings.get(j);
+
+                    if (settings.has(setting.getKey()))
+                    {
+                        this.applySetting(setting, settings.get(setting.getKey()));
+                    }
+                }
             }
         }
 
@@ -387,7 +402,6 @@ public final class ConfigManager implements ModuleStateListener
             KeybindSetting bind = (KeybindSetting)setting;
             JsonObject bindJson = new JsonObject();
             bindJson.addProperty("key", Integer.valueOf(bind.getKeyCode()));
-            bindJson.addProperty("mode", bind.getMode().name());
             return bindJson;
         }
 
@@ -442,17 +456,11 @@ public final class ConfigManager implements ModuleStateListener
             {
                 keybindSetting.setKeyCode(bind.get("key").getAsInt());
             }
-
-            if (bind.has("mode"))
-            {
-                try
-                {
-                    keybindSetting.setMode(KeybindSetting.BindMode.valueOf(bind.get("mode").getAsString()));
-                }
-                catch (IllegalArgumentException ignored)
-                {
-                }
-            }
+        }
+        else if (setting instanceof KeybindSetting && element.isJsonPrimitive())
+        {
+            ((KeybindSetting)setting).setKeyCode(element.getAsInt());
         }
     }
+
 }

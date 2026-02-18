@@ -15,6 +15,8 @@ import com.mojang.authlib.properties.PropertyMap;
 import com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService;
 import client.core.ClientBootstrap;
 import client.render.DisplayMetrics;
+import client.render.NanoRuntime;
+import client.render.NanoVGContext;
 import client.render.RenderContext2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -341,6 +343,8 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     private final Thread mcThread = Thread.currentThread();
     private ModelManager modelManager;
     private final ClientBootstrap clientBootstrap = ClientBootstrap.instance();
+    private NanoVGContext nanoVGContext;
+    private long nanoVGHandle;
 
     /**
      * The BlockRenderDispatcher instance that will be used based off gamesettings
@@ -415,7 +419,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         {
             CrashReport crashreport = CrashReport.makeCrashReport(throwable, "Initializing game");
             crashreport.makeCategory("Initialization");
-            this.displayCrashReport(this.addGraphicsAndWorldToCrashReport(crashreport));
+            this.displayCrashReport(this.safeAddGraphicsAndWorldToCrashReport(crashreport));
             return;
         }
 
@@ -503,6 +507,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         this.setWindowIcon();
         this.setInitialDisplayMode();
         this.createDisplay();
+        this.initializeNanoVG();
         OpenGlHelper.initializeTextures();
         this.framebufferMc = new Framebuffer(this.displayWidth, this.displayHeight, true);
         this.framebufferMc.setFramebufferColor(0.0F, 0.0F, 0.0F, 0.0F);
@@ -1068,6 +1073,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         try
         {
             this.clientBootstrap.getShutdownHook().run();
+            this.destroyNanoVG();
             this.stream.shutdownStream();
             logger.info("Stopping!");
 
@@ -1191,7 +1197,83 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         GlStateManager.pushMatrix();
         this.framebufferMc.framebufferRender(this.displayWidth, this.displayHeight);
         GlStateManager.popMatrix();
-        this.clientBootstrap.onRender2D(new RenderContext2D((client.render.NanoVGContext)null, new DisplayMetrics(Display.getWindowWidth(), Display.getWindowHeight(), this.displayWidth, this.displayHeight), this.timer.renderPartialTicks));
+        ScaledResolution scaledresolution = new ScaledResolution(this);
+        DisplayMetrics displaymetrics = new DisplayMetrics(scaledresolution.getScaledWidth(), scaledresolution.getScaledHeight(), this.displayWidth, this.displayHeight);
+        boolean nanoAttribPushed = false;
+        boolean nanoMatrixPushed = false;
+        int nanoPrevMatrixMode = GL11.GL_MODELVIEW;
+
+        if (this.nanoVGContext != null)
+        {
+            try
+            {
+                GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+                nanoAttribPushed = true;
+                nanoPrevMatrixMode = GL11.glGetInteger(GL11.GL_MATRIX_MODE);
+                GL11.glMatrixMode(GL11.GL_MODELVIEW);
+                GL11.glPushMatrix();
+                GL11.glMatrixMode(GL11.GL_PROJECTION);
+                GL11.glPushMatrix();
+                GL11.glMatrixMode(nanoPrevMatrixMode);
+                nanoMatrixPushed = true;
+
+                GL11.glDisable(GL11.GL_SCISSOR_TEST);
+                GL11.glDisable(GL11.GL_STENCIL_TEST);
+                GL11.glViewport(0, 0, this.displayWidth, this.displayHeight);
+                this.nanoVGContext.beginFrame(displaymetrics);
+            }
+            catch (Throwable throwable2)
+            {
+                logger.warn("Failed to begin NanoVG frame, disabling NanoVG runtime", throwable2);
+                this.destroyNanoVG();
+            }
+        }
+
+        try
+        {
+            this.clientBootstrap.onRender2D(new RenderContext2D(this.nanoVGContext, displaymetrics, this.timer.renderPartialTicks));
+        }
+        finally
+        {
+            if (this.nanoVGContext != null && this.nanoVGContext.isFrameActive())
+            {
+                try
+                {
+                    this.nanoVGContext.endFrame();
+                }
+                catch (Throwable throwable3)
+                {
+                    logger.warn("Failed to end NanoVG frame, disabling NanoVG runtime", throwable3);
+                    this.destroyNanoVG();
+                }
+            }
+
+            if (nanoMatrixPushed)
+            {
+                try
+                {
+                    GL11.glMatrixMode(GL11.GL_MODELVIEW);
+                    GL11.glPopMatrix();
+                    GL11.glMatrixMode(GL11.GL_PROJECTION);
+                    GL11.glPopMatrix();
+                    GL11.glMatrixMode(nanoPrevMatrixMode);
+                }
+                catch (Throwable ignored)
+                {
+                }
+            }
+
+            if (nanoAttribPushed)
+            {
+                try
+                {
+                    GL11.glPopAttrib();
+                }
+                catch (Throwable ignored)
+                {
+                }
+            }
+        }
         GlStateManager.pushMatrix();
         this.entityRenderer.renderStreamIndicator(this.timer.renderPartialTicks);
         GlStateManager.popMatrix();
@@ -2716,7 +2798,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         {
             public String call()
             {
-                return GL11.glGetString(GL11.GL_RENDERER) + " GL version " + GL11.glGetString(GL11.GL_VERSION) + ", " + GL11.glGetString(GL11.GL_VENDOR);
+                return Minecraft.this.safeOpenGlInfo();
             }
         });
         theCrash.getCategory().addCrashSectionCallable("GL Caps", new Callable<String>()
@@ -2800,6 +2882,60 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         }
 
         return theCrash;
+    }
+
+    private CrashReport safeAddGraphicsAndWorldToCrashReport(CrashReport crashReport)
+    {
+        if (crashReport == null)
+        {
+            return null;
+        }
+
+        if (!Display.isCreated())
+        {
+            return crashReport;
+        }
+
+        return this.addGraphicsAndWorldToCrashReport(crashReport);
+    }
+
+    private String safeOpenGlInfo()
+    {
+        if (!Display.isCreated())
+        {
+            return "unavailable (display not created)";
+        }
+
+        try
+        {
+            if (GLContext.getCapabilities() == null)
+            {
+                return "unavailable (no active OpenGL capabilities)";
+            }
+        }
+        catch (Throwable throwable)
+        {
+            return "unavailable (" + throwable.getClass().getSimpleName() + ")";
+        }
+
+        try
+        {
+            String renderer = GL11.glGetString(GL11.GL_RENDERER);
+            String version = GL11.glGetString(GL11.GL_VERSION);
+            String vendor = GL11.glGetString(GL11.GL_VENDOR);
+
+            if (renderer == null || version == null || vendor == null)
+            {
+                return "unavailable (glGetString returned null)";
+            }
+
+            return renderer + " GL version " + version + ", " + vendor;
+        }
+        catch (Throwable throwable)
+        {
+            String message = throwable.getMessage();
+            return "unavailable (" + throwable.getClass().getSimpleName() + (message == null || message.isEmpty() ? "" : ": " + message) + ")";
+        }
     }
 
     /**
@@ -3345,6 +3481,53 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     public void setConnectedToRealms(boolean isConnected)
     {
         this.connectedToRealms = isConnected;
+    }
+
+    private void initializeNanoVG()
+    {
+        this.destroyNanoVG();
+
+        try
+        {
+            this.nanoVGHandle = NanoRuntime.createContext(true, true, false);
+
+            if (this.nanoVGHandle != 0L)
+            {
+                this.nanoVGContext = new NanoVGContext(this.nanoVGHandle);
+                ClientBootstrap.instance().setNanoAvailable(true);
+            }
+            else
+            {
+                logger.warn("NanoVG context creation returned 0; Nano-based UI disabled.");
+                ClientBootstrap.instance().setNanoAvailable(false);
+            }
+        }
+        catch (Throwable throwable)
+        {
+            this.nanoVGContext = null;
+            this.nanoVGHandle = 0L;
+            logger.warn("Failed to initialize NanoVG runtime; Nano-based UI disabled.", throwable);
+            ClientBootstrap.instance().setNanoAvailable(false);
+        }
+    }
+
+    private void destroyNanoVG()
+    {
+        if (this.nanoVGContext != null && this.nanoVGContext.isFrameActive())
+        {
+            try
+            {
+                this.nanoVGContext.endFrame();
+            }
+            catch (Throwable ignored)
+            {
+            }
+        }
+
+        NanoRuntime.destroyContext(this.nanoVGHandle);
+        this.nanoVGContext = null;
+        this.nanoVGHandle = 0L;
+        ClientBootstrap.instance().setNanoAvailable(false);
     }
 }
 

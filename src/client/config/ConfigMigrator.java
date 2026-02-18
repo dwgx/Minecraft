@@ -39,8 +39,14 @@ public final class ConfigMigrator
             version = step.toVersion();
         }
 
-        current.addProperty("schemaVersion", Integer.valueOf(to));
-        return current;
+        if (version >= to)
+        {
+            current.addProperty("schemaVersion", Integer.valueOf(to));
+            return current;
+        }
+
+        // no applicable migration path; keep original version to avoid silent corruption
+        return root;
     }
 
     private MigrationStep findStep(int fromVersion)

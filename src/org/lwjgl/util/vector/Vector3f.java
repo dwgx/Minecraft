@@ -18,6 +18,10 @@ public class Vector3f implements Serializable, ReadableVector3f, WritableVector3
         this(src.x, src.y, src.z);
     }
 
+    public Vector3f(ReadableVector3f src) {
+        this(src.getX(), src.getY(), src.getZ());
+    }
+
     public Vector3f set(float x, float y, float z) {
         this.x = x; this.y = y; this.z = z;
         return this;

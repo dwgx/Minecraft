@@ -7,6 +7,7 @@ public final class ProfileManager
 {
     private final Path profilesRoot;
     private String activeProfile = "default";
+    private static final String SAFE_PATTERN = "^[A-Za-z0-9_-]{1,48}$";
 
     public ProfileManager(Path configRoot)
     {
@@ -25,7 +26,7 @@ public final class ProfileManager
 
     public void setActiveProfile(String activeProfile)
     {
-        if (activeProfile != null && !activeProfile.trim().isEmpty())
+        if (activeProfile != null && activeProfile.trim().matches(SAFE_PATTERN))
         {
             this.activeProfile = activeProfile.trim();
         }
