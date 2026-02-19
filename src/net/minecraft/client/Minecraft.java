@@ -18,6 +18,7 @@ import client.render.DisplayMetrics;
 import client.render.NanoRuntime;
 import client.render.NanoVGContext;
 import client.render.RenderContext2D;
+import dwgx.ui.ext.UiExtensionManager;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -598,16 +599,16 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
         if (this.serverName != null)
         {
-            this.displayGuiScreen(new GuiConnecting(new GuiMainMenu(), this, this.serverName, this.serverPort));
+            this.displayGuiScreen(new GuiConnecting(UiExtensionManager.createMainMenuScreen(), this, this.serverName, this.serverPort));
         }
         else
         {
-            this.displayGuiScreen(new GuiMainMenu());
+            this.displayGuiScreen(UiExtensionManager.createMainMenuScreen());
         }
 
         this.renderEngine.deleteTexture(this.mojangLogo);
         this.mojangLogo = null;
-        this.loadingScreen = new LoadingScreenRenderer(this);
+        this.loadingScreen = UiExtensionManager.createLoadingScreen(this);
 
         if (this.gameSettings.fullScreen && !this.fullscreen)
         {
@@ -1020,7 +1021,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
         if (guiScreenIn == null && this.theWorld == null)
         {
-            guiScreenIn = new GuiMainMenu();
+            guiScreenIn = UiExtensionManager.createMainMenuScreen();
         }
         else if (guiScreenIn == null && this.thePlayer.getHealth() <= 0.0F)
         {
@@ -1892,7 +1893,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             this.currentScreen.onResize(this, scaledresolution.getScaledWidth(), scaledresolution.getScaledHeight());
         }
 
-        this.loadingScreen = new LoadingScreenRenderer(this);
+        this.loadingScreen = UiExtensionManager.createLoadingScreen(this);
         this.updateFramebufferSize();
         this.logResizeState("resize:after");
     }

@@ -1,5 +1,6 @@
 package net.minecraft.client.gui;
 
+import dwgx.ui.ext.UiExtensionManager;
 import java.io.IOException;
 import net.minecraft.client.gui.achievement.GuiAchievements;
 import net.minecraft.client.gui.achievement.GuiStats;
@@ -52,22 +53,23 @@ public class GuiIngameMenu extends GuiScreen
             case 1:
                 boolean flag = this.mc.isIntegratedServerRunning();
                 boolean flag1 = this.mc.isConnectedToRealms();
+                GuiScreen mainMenuScreen = UiExtensionManager.createMainMenuScreen();
                 button.enabled = false;
                 this.mc.theWorld.sendQuittingDisconnectingPacket();
                 this.mc.loadWorld((WorldClient)null);
 
                 if (flag)
                 {
-                    this.mc.displayGuiScreen(new GuiMainMenu());
+                    this.mc.displayGuiScreen(mainMenuScreen);
                 }
                 else if (flag1)
                 {
                     RealmsBridge realmsbridge = new RealmsBridge();
-                    realmsbridge.switchToRealms(new GuiMainMenu());
+                    realmsbridge.switchToRealms(mainMenuScreen);
                 }
                 else
                 {
-                    this.mc.displayGuiScreen(new GuiMultiplayer(new GuiMainMenu()));
+                    this.mc.displayGuiScreen(new GuiMultiplayer(mainMenuScreen));
                 }
 
             case 2:

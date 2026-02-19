@@ -10,6 +10,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
+import dwgx.ui.MainMenuSession;
+import dwgx.ui.ext.MainMenuSplashShader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
@@ -26,7 +28,6 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.demo.DemoWorldServer;
 import net.minecraft.world.storage.ISaveFormat;
 import net.minecraft.world.storage.WorldInfo;
-import dwgx.ui.MainMenuSession;
 import org.apache.commons.io.Charsets;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -88,6 +89,7 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
     private boolean field_183502_L;
     private GuiScreen field_183503_M;
     private MainMenuSession dwgxSession;
+    private MainMenuSplashShader splashShader;
 
     public GuiMainMenu()
     {
@@ -572,7 +574,20 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
         float f = 1.8F - MathHelper.abs(MathHelper.sin((float)(Minecraft.getSystemTime() % 1000L) / 1000.0F * (float)Math.PI * 2.0F) * 0.1F);
         f = f * 100.0F / (float)(this.fontRendererObj.getStringWidth(this.splashText) + 32);
         GlStateManager.scale(f, f, f);
-        this.drawCenteredString(this.fontRendererObj, this.splashText, 0, -8, -256);
+        boolean shaderActive = this.getSplashShader().begin(-256);
+
+        try
+        {
+            this.drawCenteredString(this.fontRendererObj, this.splashText, 0, -8, -256);
+        }
+        finally
+        {
+            if (shaderActive)
+            {
+                this.splashShader.end();
+            }
+        }
+
         GlStateManager.popMatrix();
         String s = "Minecraft 1.8.9";
 
@@ -648,10 +663,26 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
      */
     public void onGuiClosed()
     {
+        if (this.splashShader != null)
+        {
+            this.splashShader.close();
+            this.splashShader = null;
+        }
+
         if (this.field_183503_M != null)
         {
             this.field_183503_M.onGuiClosed();
         }
+    }
+
+    private MainMenuSplashShader getSplashShader()
+    {
+        if (this.splashShader == null)
+        {
+            this.splashShader = new MainMenuSplashShader();
+        }
+
+        return this.splashShader;
     }
 }
 
