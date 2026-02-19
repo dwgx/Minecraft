@@ -1,8 +1,5 @@
 package dwgx.ui.ext;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import net.minecraft.client.renderer.OpenGlHelper;
@@ -19,7 +16,6 @@ import org.lwjgl.opengl.GLContext;
 public final class MainMenuSplashShader
 {
     private static final Logger LOGGER = LogManager.getLogger(MainMenuSplashShader.class);
-    private static final String FRAGMENT_RESOURCE_PATH = "/dwgx/ui/ext/flappybird_frag.glsl";
     private static final String VERTEX_SOURCE =
         "#version 120\n" +
         "varying vec2 vTexCoord;\n" +
@@ -46,7 +42,7 @@ public final class MainMenuSplashShader
         "    }\n" +
         "    gl_FragColor = outColor;\n" +
         "}\n";
-    private static final String FRAGMENT_SOURCE = loadFragmentSource();
+    private static final String FRAGMENT_SOURCE = flappybird_frag.source();
 
     private int programId;
     private int vertexShaderId;
@@ -229,47 +225,6 @@ public final class MainMenuSplashShader
         }
 
         return GLContext.getCapabilities().OpenGL20 || GLContext.getCapabilities().GL_ARB_shader_objects;
-    }
-
-    private static String loadFragmentSource()
-    {
-        String source = readResource(FRAGMENT_RESOURCE_PATH);
-
-        if (source == null || source.trim().isEmpty())
-        {
-            LOGGER.warn("Splash shader resource {} not found, using fallback fragment shader.", FRAGMENT_RESOURCE_PATH);
-            return FALLBACK_FRAGMENT_SOURCE;
-        }
-
-        return source;
-    }
-
-    private static String readResource(String path)
-    {
-        InputStream stream = MainMenuSplashShader.class.getResourceAsStream(path);
-
-        if (stream == null)
-        {
-            return null;
-        }
-
-        try (InputStream in = stream; ByteArrayOutputStream out = new ByteArrayOutputStream(8192))
-        {
-            byte[] buffer = new byte[4096];
-            int read;
-
-            while ((read = in.read(buffer)) != -1)
-            {
-                out.write(buffer, 0, read);
-            }
-
-            return new String(out.toByteArray(), StandardCharsets.UTF_8);
-        }
-        catch (IOException ioException)
-        {
-            LOGGER.warn("Failed to read splash shader resource {}.", path, ioException);
-            return null;
-        }
     }
 
     private void setUniform1f(int location, float value)
