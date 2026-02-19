@@ -28,7 +28,11 @@ import com.google.gson.JsonPrimitive;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Split configuration manager:
@@ -38,6 +42,7 @@ import java.util.List;
  */
 public final class ConfigManager implements ModuleStateListener
 {
+    private static final Logger LOGGER = LogManager.getLogger(ConfigManager.class);
     private static final String FILE_CLIENT = "client.json";
     private static final String FILE_MODULES = "modules.json";
     private static final String FILE_HUD = "hud.json";
@@ -49,6 +54,7 @@ public final class ConfigManager implements ModuleStateListener
     private final ProfileManager profileManager;
     private final ConfigIO io = new ConfigIO();
     private final ConfigMigrator migrator = new ConfigMigrator();
+    private final List<String> loadIssues = new ArrayList<String>();
     private boolean autosaveOnModuleChange = true;
     private boolean dirtyTrackingSuspended;
     private boolean dirtyClient = true;
@@ -72,6 +78,18 @@ public final class ConfigManager implements ModuleStateListener
     public ProfileManager profiles()
     {
         return this.profileManager;
+    }
+
+    public synchronized List<String> consumeLoadIssues()
+    {
+        if (this.loadIssues.isEmpty())
+        {
+            return Collections.emptyList();
+        }
+
+        List<String> out = new ArrayList<String>(this.loadIssues);
+        this.loadIssues.clear();
+        return out;
     }
 
     public void setAutosaveOnModuleChange(boolean autosaveOnModuleChange)
@@ -112,6 +130,11 @@ public final class ConfigManager implements ModuleStateListener
 
     public void loadAll() throws IOException
     {
+        synchronized (this)
+        {
+            this.loadIssues.clear();
+        }
+
         this.dirtyTrackingSuspended = true;
 
         try
@@ -152,7 +175,17 @@ public final class ConfigManager implements ModuleStateListener
 
     public void loadClient() throws IOException
     {
-        SchemaResult schema = this.ensureSchema(this.io.read(this.path(FILE_CLIENT)));
+        Path target = this.path(FILE_CLIENT);
+        ConfigIO.ReadResult readResult = this.io.readWithResult(target);
+
+        if (!readResult.isParsed())
+        {
+            this.recordLoadIssue(FILE_CLIENT, target, readResult.getError());
+            this.dirtyClient = false;
+            return;
+        }
+
+        SchemaResult schema = this.ensureSchema(readResult.getData());
         JsonObject root = schema.root;
         boolean changed = schema.changed;
 
@@ -216,7 +249,17 @@ public final class ConfigManager implements ModuleStateListener
 
     public void loadModules() throws IOException
     {
-        SchemaResult schema = this.ensureSchema(this.io.read(this.path(FILE_MODULES)));
+        Path target = this.path(FILE_MODULES);
+        ConfigIO.ReadResult readResult = this.io.readWithResult(target);
+
+        if (!readResult.isParsed())
+        {
+            this.recordLoadIssue(FILE_MODULES, target, readResult.getError());
+            this.dirtyModules = false;
+            return;
+        }
+
+        SchemaResult schema = this.ensureSchema(readResult.getData());
         JsonObject root = schema.root;
         JsonObject modules = this.readObject(root, "modules");
         boolean changed = schema.changed;
@@ -330,7 +373,17 @@ public final class ConfigManager implements ModuleStateListener
 
     public void loadHud() throws IOException
     {
-        SchemaResult schema = this.ensureSchema(this.io.read(this.path(FILE_HUD)));
+        Path target = this.path(FILE_HUD);
+        ConfigIO.ReadResult readResult = this.io.readWithResult(target);
+
+        if (!readResult.isParsed())
+        {
+            this.recordLoadIssue(FILE_HUD, target, readResult.getError());
+            this.dirtyHud = false;
+            return;
+        }
+
+        SchemaResult schema = this.ensureSchema(readResult.getData());
         JsonObject root = schema.root;
         JsonObject elements = this.readObject(root, "elements");
         boolean changed = schema.changed;
@@ -511,6 +564,15 @@ public final class ConfigManager implements ModuleStateListener
         {
             this.io.writeAtomicIfChanged(this.path(fileName), root);
         }
+    }
+
+    private synchronized void recordLoadIssue(String fileName, Path path, String error)
+    {
+        String detail = error == null || error.isEmpty() ? "unknown parse error" : error;
+        String location = path == null ? "(unknown path)" : path.toAbsolutePath().toString();
+        String message = "Failed to parse config '" + fileName + "' at " + location + ": " + detail;
+        this.loadIssues.add(message);
+        LOGGER.warn(message);
     }
 
     private JsonObject readObject(JsonObject root, String key)

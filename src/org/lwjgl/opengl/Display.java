@@ -5,11 +5,14 @@ import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWCursorPosCallback;
 import org.lwjgl.glfw.GLFWCursorEnterCallback;
 import org.lwjgl.glfw.GLFWErrorCallback;
+import org.lwjgl.glfw.GLFWFramebufferSizeCallback;
 import org.lwjgl.glfw.GLFWImage;
 import org.lwjgl.glfw.GLFWKeyCallback;
 import org.lwjgl.glfw.GLFWMouseButtonCallback;
 import org.lwjgl.glfw.GLFWScrollCallback;
 import org.lwjgl.glfw.GLFWWindowFocusCallback;
+import org.lwjgl.glfw.GLFWWindowRefreshCallback;
+import org.lwjgl.glfw.GLFWWindowSizeCallback;
 import org.lwjgl.glfw.GLFWVidMode;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
@@ -44,6 +47,9 @@ public final class Display {
     private static GLFWCursorEnterCallback cursorEnterCallback;
     private static GLFWScrollCallback scrollCallback;
     private static GLFWWindowFocusCallback windowFocusCallback;
+    private static GLFWWindowSizeCallback windowSizeCallback;
+    private static GLFWFramebufferSizeCallback framebufferSizeCallback;
+    private static GLFWWindowRefreshCallback windowRefreshCallback;
     private static final int[] windowWidthBuffer = new int[1];
     private static final int[] windowHeightBuffer = new int[1];
     private static final int[] framebufferWidth = new int[1];
@@ -58,6 +64,7 @@ public final class Display {
     private static int windowedHeight = 480;
     private static boolean hasWindowedPlacement;
     private static long lastSyncNanos = System.nanoTime();
+    private static boolean refreshRequested;
 
     private Display() {}
 
@@ -151,11 +158,37 @@ public final class Display {
             windowFocusCallback = GLFWWindowFocusCallback.create((win, focused) -> Mouse.onWindowFocusChanged(focused));
             GLFW.glfwSetWindowFocusCallback(window, windowFocusCallback);
 
+            windowSizeCallback = GLFWWindowSizeCallback.create((win, newWindowWidth, newWindowHeight) -> {
+                if (newWindowWidth <= 0 || newWindowHeight <= 0) {
+                    return;
+                }
+
+                windowWidth = newWindowWidth;
+                windowHeight = newWindowHeight;
+                markRefreshRequested("window-size-callback");
+            });
+            GLFW.glfwSetWindowSizeCallback(window, windowSizeCallback);
+
+            framebufferSizeCallback = GLFWFramebufferSizeCallback.create((win, newFramebufferWidth, newFramebufferHeight) -> {
+                if (newFramebufferWidth <= 0 || newFramebufferHeight <= 0) {
+                    return;
+                }
+
+                width = newFramebufferWidth;
+                height = newFramebufferHeight;
+                markRefreshRequested("framebuffer-size-callback");
+            });
+            GLFW.glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+
+            windowRefreshCallback = GLFWWindowRefreshCallback.create((win) -> markRefreshRequested("window-refresh-callback"));
+            GLFW.glfwSetWindowRefreshCallback(window, windowRefreshCallback);
+
             refreshDimensions();
             if (!fullscreen) {
                 captureWindowedPlacement();
             }
             lastSyncNanos = System.nanoTime();
+            refreshRequested = false;
             GL11.glViewport(0, 0, width, height);
             debugResize("create");
         } catch (Throwable t) {
@@ -188,6 +221,18 @@ public final class Display {
                 windowFocusCallback.free();
                 windowFocusCallback = null;
             }
+            if (windowSizeCallback != null) {
+                windowSizeCallback.free();
+                windowSizeCallback = null;
+            }
+            if (framebufferSizeCallback != null) {
+                framebufferSizeCallback.free();
+                framebufferSizeCallback = null;
+            }
+            if (windowRefreshCallback != null) {
+                windowRefreshCallback.free();
+                windowRefreshCallback = null;
+            }
             if (cursorEnterCallback != null) {
                 cursorEnterCallback.free();
                 cursorEnterCallback = null;
@@ -214,6 +259,7 @@ public final class Display {
         Keyboard.reset();
         Mouse.reset();
         wasResized = false;
+        refreshRequested = false;
         hasWindowedPlacement = false;
         lastSyncNanos = System.nanoTime();
     }
@@ -423,27 +469,25 @@ public final class Display {
 
     public static void update() {
         if (!isCreated()) return;
-        GLFW.glfwPollEvents();
-        int prevWindowWidth = windowWidth;
-        int prevWindowHeight = windowHeight;
-        int prevWidth = width;
-        int prevHeight = height;
-        refreshDimensions();
 
-        boolean resizedThisUpdate =
-            prevWindowWidth != windowWidth
-                || prevWindowHeight != windowHeight
-                || prevWidth != width
-                || prevHeight != height;
-
-        if (resizedThisUpdate) {
-            if (RESIZE_DEBUG) {
-                debugResize("update:skip-swap-on-resize");
-            }
-            return;
+        // Keep swap in the present path. Skipping swaps while dragging/maximizing
+        // causes visible black flashes on Windows.
+        if (GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_ICONIFIED) != GLFW.GLFW_TRUE) {
+            GLFW.glfwSwapBuffers(window);
         }
+        refreshDimensions();
+    }
 
-        GLFW.glfwSwapBuffers(window);
+    public static void processMessages() {
+        if (!isCreated()) return;
+        GLFW.glfwPollEvents();
+        refreshDimensions();
+    }
+
+    public static boolean consumeRefreshRequested() {
+        boolean requested = refreshRequested;
+        refreshRequested = false;
+        return requested;
     }
 
     public static void sync(int fps) {
@@ -534,7 +578,7 @@ public final class Display {
             windowHeight = newWindowHeight;
             width = newWidth;
             height = newHeight;
-            wasResized = true;
+            markRefreshRequested("refreshDimensions");
         }
     }
 
@@ -591,6 +635,18 @@ public final class Display {
             windowFocusCallback.free();
             windowFocusCallback = null;
         }
+        if (windowSizeCallback != null) {
+            windowSizeCallback.free();
+            windowSizeCallback = null;
+        }
+        if (framebufferSizeCallback != null) {
+            framebufferSizeCallback.free();
+            framebufferSizeCallback = null;
+        }
+        if (windowRefreshCallback != null) {
+            windowRefreshCallback.free();
+            windowRefreshCallback = null;
+        }
         if (cursorEnterCallback != null) {
             cursorEnterCallback.free();
             cursorEnterCallback = null;
@@ -617,7 +673,16 @@ public final class Display {
         }
         Keyboard.reset();
         Mouse.reset();
+        refreshRequested = false;
         hasWindowedPlacement = false;
+    }
+
+    private static void markRefreshRequested(String stage) {
+        wasResized = true;
+        refreshRequested = true;
+        if (RESIZE_DEBUG) {
+            debugResize(stage);
+        }
     }
 
     private static ByteBuffer toNativeIconBuffer(ByteBuffer icon) {

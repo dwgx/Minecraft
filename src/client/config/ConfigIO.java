@@ -24,9 +24,19 @@ public final class ConfigIO
 
     public JsonObject read(Path target) throws IOException
     {
-        if (target == null || !Files.isRegularFile(target))
+        return this.readWithResult(target).getData();
+    }
+
+    public ReadResult readWithResult(Path target) throws IOException
+    {
+        if (target == null)
         {
-            return new JsonObject();
+            return new ReadResult(new JsonObject(), true, false, null);
+        }
+
+        if (!Files.isRegularFile(target))
+        {
+            return new ReadResult(new JsonObject(), true, false, null);
         }
 
         BufferedReader reader = Files.newBufferedReader(target, UTF8);
@@ -34,11 +44,19 @@ public final class ConfigIO
         try
         {
             JsonElement element = (new JsonParser()).parse(reader);
-            return element != null && element.isJsonObject() ? element.getAsJsonObject() : new JsonObject();
+
+            if (element != null && element.isJsonObject())
+            {
+                return new ReadResult(element.getAsJsonObject(), true, true, null);
+            }
+
+            return new ReadResult(new JsonObject(), false, true, "Root element is not a JSON object");
         }
-        catch (RuntimeException ignored)
+        catch (RuntimeException ex)
         {
-            return new JsonObject();
+            String detail = ex.getMessage();
+            String message = detail == null || detail.isEmpty() ? ex.getClass().getSimpleName() : ex.getClass().getSimpleName() + ": " + detail;
+            return new ReadResult(new JsonObject(), false, true, message);
         }
         finally
         {
@@ -103,5 +121,41 @@ public final class ConfigIO
         }
 
         return true;
+    }
+
+    public static final class ReadResult
+    {
+        private final JsonObject data;
+        private final boolean parsed;
+        private final boolean filePresent;
+        private final String error;
+
+        private ReadResult(JsonObject data, boolean parsed, boolean filePresent, String error)
+        {
+            this.data = data == null ? new JsonObject() : data;
+            this.parsed = parsed;
+            this.filePresent = filePresent;
+            this.error = error;
+        }
+
+        public JsonObject getData()
+        {
+            return this.data;
+        }
+
+        public boolean isParsed()
+        {
+            return this.parsed;
+        }
+
+        public boolean isFilePresent()
+        {
+            return this.filePresent;
+        }
+
+        public String getError()
+        {
+            return this.error;
+        }
     }
 }

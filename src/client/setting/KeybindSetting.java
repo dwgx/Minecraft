@@ -17,7 +17,7 @@ public class KeybindSetting extends Setting<Integer>
     public KeybindSetting(String key, String name, String description, int defaultKeyCode, BindMode defaultMode)
     {
         super(key, name, description, Integer.valueOf(defaultKeyCode <= 0 ? NONE_KEY_CODE : defaultKeyCode));
-        this.mode = BindMode.TOGGLE;
+        this.mode = defaultMode == null ? BindMode.TOGGLE : defaultMode;
     }
 
     public int getKeyCode()
@@ -37,7 +37,7 @@ public class KeybindSetting extends Setting<Integer>
 
     public void setMode(BindMode mode)
     {
-        this.mode = BindMode.TOGGLE;
+        this.mode = mode == null ? BindMode.TOGGLE : mode;
     }
 
     public boolean isBound()

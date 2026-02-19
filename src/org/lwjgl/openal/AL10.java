@@ -2802,7 +2802,7 @@ public class AL10 {
 
      * 
 
-     * <p>Buffers containing audio data with more than one channel will be played without 3D spatialization features �?these formats are normally used for
+     * <p>Buffers containing audio data with more than one channel will be played without 3D spatialization features - these formats are normally used for
 
      * background music.</p>
 
@@ -2854,7 +2854,7 @@ public class AL10 {
 
      * 
 
-     * <p>Buffers containing audio data with more than one channel will be played without 3D spatialization features �?these formats are normally used for
+     * <p>Buffers containing audio data with more than one channel will be played without 3D spatialization features - these formats are normally used for
 
      * background music.</p>
 
@@ -2906,7 +2906,7 @@ public class AL10 {
 
      * 
 
-     * <p>Buffers containing audio data with more than one channel will be played without 3D spatialization features �?these formats are normally used for
+     * <p>Buffers containing audio data with more than one channel will be played without 3D spatialization features - these formats are normally used for
 
      * background music.</p>
 
@@ -2958,7 +2958,7 @@ public class AL10 {
 
      * 
 
-     * <p>Buffers containing audio data with more than one channel will be played without 3D spatialization features �?these formats are normally used for
+     * <p>Buffers containing audio data with more than one channel will be played without 3D spatialization features - these formats are normally used for
 
      * background music.</p>
 
@@ -3182,7 +3182,7 @@ public class AL10 {
 
      * 
 
-     * <p>Invalid and unsupported string tokens return ALC_FALSE. {@code extName} is not case sensitive �?the implementation will convert the name to all
+     * <p>Invalid and unsupported string tokens return ALC_FALSE. {@code extName} is not case sensitive - the implementation will convert the name to all
 
      * upper-case internally (and will express extension names in upper-case).</p>
 
@@ -3214,7 +3214,7 @@ public class AL10 {
 
      * 
 
-     * <p>Invalid and unsupported string tokens return ALC_FALSE. {@code extName} is not case sensitive �?the implementation will convert the name to all
+     * <p>Invalid and unsupported string tokens return ALC_FALSE. {@code extName} is not case sensitive - the implementation will convert the name to all
 
      * upper-case internally (and will express extension names in upper-case).</p>
 

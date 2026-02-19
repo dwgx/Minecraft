@@ -6,6 +6,8 @@
   "setting.ui_scale_edit.hud_edit_scale.description": "HudEdit scale",
   "mainmenu.session.title": "Session",
   "error.nanovg_unavailable.uiscaleedit": "§cNanoVG unavailable; UIScaleEdit disabled.",
+  "config.load.failed": "§cクライアント設定の読み込みに失敗しました。ログを確認してください。",
+  "config.load.warning": "§eクライアント設定の読み込みで {0} 件の問題が見つかりました。ログを確認してください。",
   "setting.ui_scale_edit.click_gui_anchor_y.description": "ClickGUI normalized anchor y",
   "clickgui.value.null": "null",
   "clickgui.title.client": "Client",

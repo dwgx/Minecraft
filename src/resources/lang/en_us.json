@@ -34,6 +34,8 @@
   "error.nanovg_unavailable.clickgui": "\u00a7cNanoVG unavailable; ClickGUI disabled.",
   "error.nanovg_unavailable.hudedit": "\u00a7cNanoVG unavailable; HudEdit disabled.",
   "error.nanovg_unavailable.uiscaleedit": "\u00a7cNanoVG unavailable; UIScaleEdit disabled.",
+  "config.load.failed": "\u00a7cFailed to load client config. See logs.",
+  "config.load.warning": "\u00a7eClient config load reported {0} issue(s). See logs.",
   "ui.powered_by": "Powered by DWGX",
   "clickgui.title.client": "Client",
   "clickgui.top.setting": "Setting",

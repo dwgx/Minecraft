@@ -10,12 +10,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import net.minecraft.client.Minecraft;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * 模块注册中心：负责索引、查询与生命周期分发。
  */
 public final class ModuleManager implements ModuleStateListener
 {
+    private static final Logger LOGGER = LogManager.getLogger(ModuleManager.class);
     private final List<Module> modules = new ArrayList<Module>();
     private final Map<String, Module> byId = new HashMap<String, Module>();
     private final Map<String, Module> byName = new HashMap<String, Module>();
@@ -80,7 +83,14 @@ public final class ModuleManager implements ModuleStateListener
 
             if (module.isEnabled())
             {
-                module.onTick();
+                try
+                {
+                    module.onTick();
+                }
+                catch (Throwable throwable)
+                {
+                    this.logModuleFailure("onTick", module, throwable);
+                }
             }
         }
     }
@@ -95,7 +105,14 @@ public final class ModuleManager implements ModuleStateListener
 
             if (module.isEnabled())
             {
-                module.onRender2D(context);
+                try
+                {
+                    module.onRender2D(context);
+                }
+                catch (Throwable throwable)
+                {
+                    this.logModuleFailure("onRender2D", module, throwable);
+                }
             }
         }
     }
@@ -120,13 +137,27 @@ public final class ModuleManager implements ModuleStateListener
             {
                 if (event.isPressed())
                 {
-                    module.toggle();
+                    try
+                    {
+                        module.toggle();
+                    }
+                    catch (Throwable throwable)
+                    {
+                        this.logModuleFailure("toggle", module, throwable);
+                    }
                 }
             }
 
             if (module.isEnabled())
             {
-                module.onKey(event);
+                try
+                {
+                    module.onKey(event);
+                }
+                catch (Throwable throwable)
+                {
+                    this.logModuleFailure("onKey", module, throwable);
+                }
             }
         }
     }
@@ -147,5 +178,11 @@ public final class ModuleManager implements ModuleStateListener
     private static String normalize(String value)
     {
         return value == null ? null : value.toLowerCase(Locale.ROOT);
+    }
+
+    private void logModuleFailure(String stage, Module module, Throwable throwable)
+    {
+        String moduleId = module == null ? "unknown" : module.getId();
+        LOGGER.error("Module '{}' failed in {}.", moduleId, stage, throwable);
     }
 }

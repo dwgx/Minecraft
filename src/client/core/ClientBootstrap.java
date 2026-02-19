@@ -26,12 +26,15 @@ import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.util.ChatComponentText;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Main runtime entry for client layers.
  */
 public final class ClientBootstrap
 {
+    private static final Logger LOGGER = LogManager.getLogger(ClientBootstrap.class);
     private static final long AUTOSAVE_INTERVAL_MS = 15000L;
     private static final ClientBootstrap INSTANCE = new ClientBootstrap();
 
@@ -75,12 +78,17 @@ public final class ClientBootstrap
         try
         {
             this.configManager.loadAll();
+            this.reportConfigLoadIssues();
         }
-        catch (IOException ignored)
+        catch (IOException ex)
         {
+            LOGGER.warn("Failed to load client config from {}", configRoot, ex);
+            this.notifyUser(this.i18n.translateOrDefault("config.load.failed", "\u00a7cFailed to load client config. See logs."));
         }
-        catch (RuntimeException ignored)
+        catch (RuntimeException ex)
         {
+            LOGGER.warn("Unexpected runtime error while loading client config from {}", configRoot, ex);
+            this.notifyUser(this.i18n.translateOrDefault("config.load.failed", "\u00a7cFailed to load client config. See logs."));
         }
 
         this.shutdownHook.addAction(new Runnable()
@@ -166,6 +174,30 @@ public final class ClientBootstrap
         catch (RuntimeException ignored)
         {
         }
+    }
+
+    private void reportConfigLoadIssues()
+    {
+        if (this.configManager == null)
+        {
+            return;
+        }
+
+        List<String> issues = this.configManager.consumeLoadIssues();
+
+        if (issues.isEmpty())
+        {
+            return;
+        }
+
+        LOGGER.warn("Client config load completed with {} issue(s).", Integer.valueOf(issues.size()));
+
+        for (int i = 0; i < issues.size(); ++i)
+        {
+            LOGGER.warn("Config issue {}: {}", Integer.valueOf(i + 1), issues.get(i));
+        }
+
+        this.notifyUser(this.i18n.translateOrDefault("config.load.warning", "\u00a7eClient config load reported {0} issue(s). See logs.", Integer.valueOf(issues.size())));
     }
 
     private void autosaveIfDue()
@@ -268,8 +300,23 @@ public final class ClientBootstrap
 
     public void onRender2D(RenderContext2D context)
     {
-        this.eventBus.post(new Render2DEvent(context));
-        this.modules.onRender2D(context);
+        try
+        {
+            this.eventBus.post(new Render2DEvent(context));
+        }
+        catch (Throwable throwable)
+        {
+            LOGGER.error("Render2D event dispatch failed.", throwable);
+        }
+
+        try
+        {
+            this.modules.onRender2D(context);
+        }
+        catch (Throwable throwable)
+        {
+            LOGGER.error("Module Render2D dispatch failed.", throwable);
+        }
 
         Minecraft mc = Minecraft.getMinecraft();
         GuiScreen current = mc == null ? null : mc.currentScreen;
@@ -277,7 +324,14 @@ public final class ClientBootstrap
 
         if (inWorld && (current == null || current instanceof HudEditorScreen))
         {
-            this.hud.render(context);
+            try
+            {
+                this.hud.render(context);
+            }
+            catch (Throwable throwable)
+            {
+                LOGGER.error("HUD render failed.", throwable);
+            }
         }
 
         if (current instanceof NanoRenderableScreen)
@@ -294,6 +348,10 @@ public final class ClientBootstrap
             try
             {
                 ((NanoRenderableScreen)current).renderNano(context);
+            }
+            catch (Throwable throwable)
+            {
+                LOGGER.error("Nano screen render failed: {}", current.getClass().getName(), throwable);
             }
             finally
             {

@@ -196,6 +196,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     private static final Logger logger = LogManager.getLogger();
     private static final boolean RESIZE_DEBUG = Boolean.getBoolean("dwgx.render.resizeDebug");
     private static final int NANO_FRAME_FAILURE_DISABLE_THRESHOLD = 3;
+    private static final long RESIZE_PRESENT_BOOST_MS = 500L;
     private static final ResourceLocation locationMojangPng = new ResourceLocation("textures/gui/title/mojang.png");
     public static final boolean isRunningOnMac = Util.getOSType() == Util.EnumOS.OSX;
 
@@ -348,6 +349,8 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     private NanoVGContext nanoVGContext;
     private long nanoVGHandle;
     private int nanoFrameFailureCount;
+    private long resizePresentBoostUntilMs;
+    private boolean windowResizedThisFrame;
 
     /**
      * The BlockRenderDispatcher instance that will be used based off gamesettings
@@ -1111,6 +1114,11 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     {
         long i = System.nanoTime();
         this.mcProfiler.startSection("root");
+        this.windowResizedThisFrame = false;
+
+        Display.processMessages();
+        this.checkWindowResize();
+        this.markResizePresentBoostIfRequested("frame-start");
 
         if (Display.isCreated() && Display.isCloseRequested())
         {
@@ -1150,6 +1158,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         }
 
         this.checkWindowResize();
+        this.markResizePresentBoostIfRequested("post-tick");
         this.mcProfiler.endStartSection("preRenderErrors");
         long i1 = System.nanoTime() - l;
         this.checkGLError("Pre render");
@@ -1158,8 +1167,8 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         this.mcProfiler.endSection();
         this.mcProfiler.startSection("render");
         GlStateManager.pushMatrix();
-        GlStateManager.clear(16640);
         this.framebufferMc.bindFramebuffer(true);
+        GlStateManager.clear(16640);
         this.mcProfiler.startSection("display");
         GlStateManager.enableTexture2D();
 
@@ -1199,7 +1208,13 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         this.framebufferMc.unbindFramebuffer();
         GlStateManager.popMatrix();
         GlStateManager.pushMatrix();
-        this.framebufferMc.framebufferRender(this.displayWidth, this.displayHeight);
+
+        // Window size may change in the middle of a frame (maximize/restore drag).
+        // Present using the current backbuffer size to avoid uncovered black areas.
+        Display.syncDimensions();
+        int presentDisplayWidth = Math.max(1, Display.getWidth());
+        int presentDisplayHeight = Math.max(1, Display.getHeight());
+        this.framebufferMc.framebufferRender(presentDisplayWidth, presentDisplayHeight);
         GlStateManager.popMatrix();
         ScaledResolution scaledresolution = new ScaledResolution(this);
         DisplayMetrics displaymetrics = new DisplayMetrics(
@@ -1207,13 +1222,18 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             scaledresolution.getScaledHeight(),
             (float)scaledresolution.getScaledWidth_double(),
             (float)scaledresolution.getScaledHeight_double(),
-            this.displayWidth,
-            this.displayHeight
+            presentDisplayWidth,
+            presentDisplayHeight
         );
         boolean nanoAttribPushed = false;
         boolean nanoMatrixPushed = false;
         int nanoPrevMatrixMode = GL11.GL_MODELVIEW;
         NanoVGContext frameNanoContext = this.nanoVGContext;
+        boolean nanoFrameRequested = this.theWorld != null || this.currentScreen instanceof client.ui.NanoRenderableScreen;
+        if (!nanoFrameRequested)
+        {
+            frameNanoContext = null;
+        }
         boolean nanoFrameStarted = false;
 
         if (frameNanoContext != null)
@@ -1258,7 +1278,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
                 }
                 catch (Throwable throwable2)
                 {
-                    this.handleNanoFrameFailure("beginFrame", throwable2);
+                    this.handleNanoFrameFailure(this.nanoFailureStage("beginFrame"), throwable2);
                     frameNanoContext = null;
                 }
             }
@@ -1279,7 +1299,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
                 }
                 catch (Throwable throwable3)
                 {
-                    this.handleNanoFrameFailure("endFrame", throwable3);
+                    this.handleNanoFrameFailure(this.nanoFailureStage("endFrame"), throwable3);
                 }
             }
 
@@ -1349,9 +1369,19 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
         if (this.isFramerateLimitBelowMax())
         {
-            this.mcProfiler.startSection("fpslimit_wait");
-            Display.sync(this.getLimitFramerate());
-            this.mcProfiler.endSection();
+            if (this.windowResizedThisFrame)
+            {
+                if (RESIZE_DEBUG)
+                {
+                    logger.info("[resize-debug] skip fpslimit_wait due resize in this frame");
+                }
+            }
+            else
+            {
+                this.mcProfiler.startSection("fpslimit_wait");
+                Display.sync(this.getLimitFramerate());
+                this.mcProfiler.endSection();
+            }
         }
 
         this.mcProfiler.endSection();
@@ -1379,6 +1409,8 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
             if (this.displayWidth != i || this.displayHeight != j)
             {
+                this.windowResizedThisFrame = true;
+                this.resizePresentBoostUntilMs = System.currentTimeMillis() + RESIZE_PRESENT_BOOST_MS;
                 this.resize(this.displayWidth, this.displayHeight);
             }
             else
@@ -1388,9 +1420,35 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         }
     }
 
+    private void markResizePresentBoostIfRequested(String stage)
+    {
+        if (!Display.consumeRefreshRequested())
+        {
+            return;
+        }
+
+        this.windowResizedThisFrame = true;
+        this.resizePresentBoostUntilMs = Math.max(this.resizePresentBoostUntilMs, System.currentTimeMillis() + RESIZE_PRESENT_BOOST_MS);
+
+        if (RESIZE_DEBUG)
+        {
+            logger.info("[resize-debug] force present boost due {} refresh request", stage);
+        }
+    }
+
     public int getLimitFramerate()
     {
-        return this.theWorld == null && this.currentScreen != null ? 30 : this.gameSettings.limitFramerate;
+        if (this.theWorld == null && this.currentScreen != null)
+        {
+            if (System.currentTimeMillis() < this.resizePresentBoostUntilMs)
+            {
+                return (int)GameSettings.Options.FRAMERATE_LIMIT.getValueMax();
+            }
+
+            return 30;
+        }
+
+        return this.gameSettings.limitFramerate;
     }
 
     public boolean isFramerateLimitBelowMax()
@@ -3522,6 +3580,13 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             logger.warn("NanoVG failed {} consecutive frames; disabling runtime until restart.", Integer.valueOf(this.nanoFrameFailureCount));
             this.destroyNanoVG();
         }
+    }
+
+    private String nanoFailureStage(String baseStage)
+    {
+        String stage = baseStage == null ? "unknown" : baseStage;
+        String screen = this.currentScreen == null ? "null" : this.currentScreen.getClass().getName();
+        return stage + " [screen=" + screen + "]";
     }
 
     private void logResizeState(String stage)
