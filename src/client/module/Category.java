@@ -6,7 +6,6 @@ public enum Category
 {
     COMBAT,
     MOVEMENT,
-    RENDER,
     HUD,
     WORLD,
     MISC,

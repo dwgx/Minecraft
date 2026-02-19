@@ -35,7 +35,7 @@ public final class TargetPanelModule extends Module
 
     public TargetPanelModule()
     {
-        super("target_panel", "TargetPanel", Category.RENDER);
+        super("target_panel", "TargetPanel", Category.HUD);
         SettingGroup group = this.addGroup("general", "General");
         this.posX = this.addSetting(new FloatSetting("x", "X", "Panel X offset from left", 16.0F, 0.0F, 800.0F, 1.0F));
         this.posY = this.addSetting(new FloatSetting("y", "Y", "Panel Y offset from top", 70.0F, 0.0F, 500.0F, 1.0F));
@@ -159,4 +159,3 @@ public final class TargetPanelModule extends Module
         return ((KillAuraModule)module).getCurrentTarget();
     }
 }
-
