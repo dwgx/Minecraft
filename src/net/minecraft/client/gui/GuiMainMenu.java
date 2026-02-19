@@ -12,6 +12,7 @@ import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import dwgx.ui.MainMenuSession;
 import dwgx.ui.ext.MainMenuSplashShader;
+import dwgx.ui.ext.UiExtensionManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
@@ -557,7 +558,13 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
     public void drawScreen(int mouseX, int mouseY, float partialTicks)
     {
         GlStateManager.disableAlpha();
-        this.renderSkybox(mouseX, mouseY, partialTicks);
+        boolean shaderBackgroundRendered = this.renderShaderBackground();
+
+        if (!shaderBackgroundRendered)
+        {
+            this.renderSkybox(mouseX, mouseY, partialTicks);
+        }
+
         GlStateManager.enableAlpha();
         Tessellator tessellator = Tessellator.getInstance();
         WorldRenderer worldrenderer = tessellator.getWorldRenderer();
@@ -589,7 +596,7 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
         float f = 1.8F - MathHelper.abs(MathHelper.sin((float)(Minecraft.getSystemTime() % 1000L) / 1000.0F * (float)Math.PI * 2.0F) * 0.1F);
         f = f * 100.0F / (float)(this.fontRendererObj.getStringWidth(this.splashText) + 32);
         GlStateManager.scale(f, f, f);
-        boolean shaderActive = this.getSplashShader().begin(-256);
+        boolean shaderActive = UiExtensionManager.isSplashShaderEnabled() && this.getSplashShader().begin(-256);
 
         try
         {
@@ -632,6 +639,53 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
         if (this.func_183501_a())
         {
             this.field_183503_M.drawScreen(mouseX, mouseY, partialTicks);
+        }
+    }
+
+    private boolean renderShaderBackground()
+    {
+        if (!UiExtensionManager.isMainMenuBackgroundShaderEnabled())
+        {
+            return false;
+        }
+
+        MainMenuSplashShader shader = this.getSplashShader();
+        boolean shaderActive = shader.begin(16777215);
+
+        if (!shaderActive)
+        {
+            return false;
+        }
+
+        try
+        {
+            this.mc.getTextureManager().bindTexture(Gui.optionsBackground);
+            GlStateManager.disableCull();
+            GlStateManager.disableDepth();
+            GlStateManager.depthMask(false);
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+            Tessellator tessellator = Tessellator.getInstance();
+            WorldRenderer worldrenderer = tessellator.getWorldRenderer();
+            worldrenderer.begin(7, DefaultVertexFormats.POSITION_TEX_COLOR);
+            worldrenderer.pos(0.0D, (double)this.height, (double)this.zLevel).tex(0.0D, 1.0D).color(255, 255, 255, 255).endVertex();
+            worldrenderer.pos((double)this.width, (double)this.height, (double)this.zLevel).tex(1.0D, 1.0D).color(255, 255, 255, 255).endVertex();
+            worldrenderer.pos((double)this.width, 0.0D, (double)this.zLevel).tex(1.0D, 0.0D).color(255, 255, 255, 255).endVertex();
+            worldrenderer.pos(0.0D, 0.0D, (double)this.zLevel).tex(0.0D, 0.0D).color(255, 255, 255, 255).endVertex();
+            tessellator.draw();
+            return true;
+        }
+        catch (Throwable throwable)
+        {
+            logger.warn("Main menu shader background render failed. Falling back to skybox.", throwable);
+            return false;
+        }
+        finally
+        {
+            shader.end();
+            GlStateManager.depthMask(true);
+            GlStateManager.enableDepth();
+            GlStateManager.enableCull();
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         }
     }
 

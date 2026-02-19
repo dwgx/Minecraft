@@ -15,6 +15,7 @@ import org.apache.logging.log4j.Logger;
  * - dwgx.ui.mainmenu.replace=true|false
  * - dwgx.ui.loading.replace=true|false
  * - dwgx.ui.mainmenu.splashShader=true|false
+ * - dwgx.ui.mainmenu.backgroundShader=true|false
  */
 public final class UiExtensionManager
 {
@@ -32,6 +33,7 @@ public final class UiExtensionManager
     private static final String PROP_MAINMENU_REPLACE = "dwgx.ui.mainmenu.replace";
     private static final String PROP_LOADING_REPLACE = "dwgx.ui.loading.replace";
     private static final String PROP_SPLASH_SHADER = "dwgx.ui.mainmenu.splashShader";
+    private static final String PROP_BACKGROUND_SHADER = "dwgx.ui.mainmenu.backgroundShader";
     private static final MainMenuFactory DEFAULT_MAIN_MENU_FACTORY = new MainMenuFactory()
     {
         public GuiMainMenu create()
@@ -49,6 +51,7 @@ public final class UiExtensionManager
     private static volatile boolean mainMenuReplaceEnabled = readBooleanProperty(PROP_MAINMENU_REPLACE, true);
     private static volatile boolean loadingReplaceEnabled = readBooleanProperty(PROP_LOADING_REPLACE, true);
     private static volatile boolean splashShaderEnabled = readBooleanProperty(PROP_SPLASH_SHADER, true);
+    private static volatile boolean backgroundShaderEnabled = readBooleanProperty(PROP_BACKGROUND_SHADER, true);
     private static volatile MainMenuFactory mainMenuFactory = DEFAULT_MAIN_MENU_FACTORY;
     private static volatile LoadingScreenFactory loadingFactory = DEFAULT_LOADING_FACTORY;
 
@@ -86,6 +89,11 @@ public final class UiExtensionManager
         return splashShaderEnabled;
     }
 
+    public static boolean isMainMenuBackgroundShaderEnabled()
+    {
+        return backgroundShaderEnabled;
+    }
+
     public static void setMainMenuReplaceEnabled(boolean enabled)
     {
         mainMenuReplaceEnabled = enabled;
@@ -99,6 +107,11 @@ public final class UiExtensionManager
     public static void setSplashShaderEnabled(boolean enabled)
     {
         splashShaderEnabled = enabled;
+    }
+
+    public static void setMainMenuBackgroundShaderEnabled(boolean enabled)
+    {
+        backgroundShaderEnabled = enabled;
     }
 
     public static void setMainMenuFactory(MainMenuFactory factory)

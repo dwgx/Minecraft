@@ -57,7 +57,7 @@ public final class MainMenuSplashShader
 
     public boolean begin(int baseColor)
     {
-        if (!UiExtensionManager.isSplashShaderEnabled() || !isShaderPathAvailable())
+        if (!isShaderPathAvailable())
         {
             return false;
         }

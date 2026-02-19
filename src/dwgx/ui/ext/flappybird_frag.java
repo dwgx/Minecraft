@@ -1,4 +1,4 @@
-﻿package dwgx.ui.ext;
+package dwgx.ui.ext;
 
 /**
  * Embedded FlappyBird fragment shader source.
@@ -16,7 +16,7 @@ final class flappybird_frag
         "",
         "// FlappyBird by Ben Raziel. Feb 2014",
         "//",
-        "// Based on the \\"Super Mario Bros\\" shader by HLorenzi",
+        "// Based on the shader by HLorenzi",
         "// https://www.shadertoy.com/view/Msj3zD",
         "",
         "// Helper functions for drawing sprites",
@@ -608,7 +608,7 @@ final class flappybird_frag
         "    float jumpFrame = float(int(mod(iTime * 60.0, 30.0)));",
         "    int horzDist = int(HORZ_PIPE_DISTANCE);",
         "",
-        "    // calculate the \\"jumping\\" effect on the Y axis.",
+        "    // calculate the effect on the Y axis.",
         "    // Using equations of motion, const acceleration: x = x0 + v0*t + 1/2at^2",
         "    float yPos = START_POS + SPEED * jumpFrame + ACCELERATION * pow(jumpFrame, 2.0);",
         "",
@@ -617,7 +617,7 @@ final class flappybird_frag
         "    int prevDownCycles = 0;",
         "",
         "    // count the number of pipes we've already passed.",
-        "    // for each such pipe, we deduce if we went \\"up\\" or \\"down\\" in Y",
+        "    // for each such pipe, we deduce if we went \\up\\ or \\down\\ in Y",
         "    int cycleCount = int(fCycleFrame / HORZ_PIPE_DISTANCE);",
         "",
         "    for (int i = 0; i < 10; i++) {",
