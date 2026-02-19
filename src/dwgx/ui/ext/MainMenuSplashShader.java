@@ -11,7 +11,7 @@ import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GLContext;
 
 /**
- * Lightweight GLSL program for animated splash text tint.
+ * 主菜单 Flappy 着色器程序，可用于背景和 splash 文字渲染。
  */
 public final class MainMenuSplashShader
 {
@@ -51,9 +51,28 @@ public final class MainMenuSplashShader
     private int uniformTime = -1;
     private int uniformResolution = -1;
     private int uniformBaseColor = -1;
+    private int uniformGameTick = -1;
+    private int uniformBirdY = -1;
+    private int uniformBirdFrame = -1;
+    private int uniformBirdAlive = -1;
+    private int uniformControlEnabled = -1;
     private boolean failed;
     private boolean active;
     private long startAtMs = System.currentTimeMillis();
+    private float flappyGameTick;
+    private float flappyBirdY = 110.0F;
+    private float flappyBirdFrame;
+    private boolean flappyAlive = true;
+    private boolean flappyControlEnabled;
+
+    public void setFlappyState(float gameTick, float birdY, float birdFrame, boolean alive, boolean controlEnabled)
+    {
+        this.flappyGameTick = gameTick;
+        this.flappyBirdY = birdY;
+        this.flappyBirdFrame = birdFrame;
+        this.flappyAlive = alive;
+        this.flappyControlEnabled = controlEnabled;
+    }
 
     public boolean begin(int baseColor)
     {
@@ -73,6 +92,11 @@ public final class MainMenuSplashShader
             OpenGlHelper.glUniform1i(this.uniformTex, 0);
             this.setUniform1f(this.uniformTime, (float)(System.currentTimeMillis() - this.startAtMs) / 1000.0F);
             this.setUniform2f(this.uniformResolution, (float)Math.max(1, Display.getWidth()), (float)Math.max(1, Display.getHeight()));
+            this.setUniform1f(this.uniformGameTick, this.flappyGameTick);
+            this.setUniform1f(this.uniformBirdY, this.flappyBirdY);
+            this.setUniform1f(this.uniformBirdFrame, this.flappyBirdFrame);
+            this.setUniform1f(this.uniformBirdAlive, this.flappyAlive ? 1.0F : 0.0F);
+            this.setUniform1f(this.uniformControlEnabled, this.flappyControlEnabled ? 1.0F : 0.0F);
 
             float r = (float)(baseColor >> 16 & 255) / 255.0F;
             float g = (float)(baseColor >> 8 & 255) / 255.0F;
@@ -152,6 +176,11 @@ public final class MainMenuSplashShader
 
             this.uniformResolution = OpenGlHelper.glGetUniformLocation(this.programId, "iResolution");
             this.uniformBaseColor = OpenGlHelper.glGetUniformLocation(this.programId, "uBaseColor");
+            this.uniformGameTick = OpenGlHelper.glGetUniformLocation(this.programId, "uGameTick");
+            this.uniformBirdY = OpenGlHelper.glGetUniformLocation(this.programId, "uBirdY");
+            this.uniformBirdFrame = OpenGlHelper.glGetUniformLocation(this.programId, "uBirdFrame");
+            this.uniformBirdAlive = OpenGlHelper.glGetUniformLocation(this.programId, "uBirdAlive");
+            this.uniformControlEnabled = OpenGlHelper.glGetUniformLocation(this.programId, "uControlEnabled");
             this.startAtMs = System.currentTimeMillis();
             return true;
         }
@@ -204,6 +233,11 @@ public final class MainMenuSplashShader
         this.uniformTime = -1;
         this.uniformResolution = -1;
         this.uniformBaseColor = -1;
+        this.uniformGameTick = -1;
+        this.uniformBirdY = -1;
+        this.uniformBirdFrame = -1;
+        this.uniformBirdAlive = -1;
+        this.uniformControlEnabled = -1;
     }
 
     private void markFailed(String message, Throwable throwable)
