@@ -53,22 +53,22 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         ANIMATION
     }
 
-    private static final float BASE_WIDTH = 760.0F;
-    private static final float BASE_HEIGHT = 520.0F;
-    private static final float MIN_WIDTH = 430.0F;
-    private static final float MIN_HEIGHT = 280.0F;
+    private static final float BASE_WIDTH = 900.0F;
+    private static final float BASE_HEIGHT = 620.0F;
+    private static final float MIN_WIDTH = 520.0F;
+    private static final float MIN_HEIGHT = 340.0F;
     private static final float SCREEN_MARGIN = 8.0F;
     private static final float HEADER_HEIGHT = 36.0F;
     private static final float OUTER_PAD = 12.0F;
-    private static final float ROW_SETTING = 24.0F;
+    private static final float ROW_SETTING = 26.0F;
     private static final float INFO_CARD_HEIGHT = 62.0F;
     private static final float DEBUG_CARD_HEIGHT = 34.0F;
     private static final float RADIUS_WINDOW = 9.0F;
     private static final float RADIUS_PANEL = 8.0F;
     private static final float RADIUS_ROW = 6.0F;
     private static final float RADIUS_CONTROL = 6.0F;
-    private static final float VALUE_COL_WIDTH = 88.0F;
-    private static final float RESET_COL_WIDTH = 34.0F;
+    private static final float VALUE_COL_WIDTH = 132.0F;
+    private static final float RESET_COL_WIDTH = 38.0F;
 
     private final ModuleManager modules;
     private final GuiScreen parentScreen;
@@ -1267,14 +1267,26 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
             if (chip.contains(mouseX, mouseY))
             {
-                @SuppressWarnings({"rawtypes", "unchecked"})
-                EnumSetting paletteSetting = (EnumSetting)setting;
-                paletteSetting.set(values[i]);
-                return true;
+                if (setting instanceof EnumSetting)
+                {
+                    EnumSetting<?> paletteSetting = (EnumSetting<?>)setting;
+
+                    if (paletteSetting.getEnumType() == NanoPalette.class)
+                    {
+                        this.applyPaletteSelection(paletteSetting, values[i]);
+                        return true;
+                    }
+                }
             }
         }
 
         return false;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void applyPaletteSelection(EnumSetting<?> setting, NanoPalette value)
+    {
+        ((EnumSetting<NanoPalette>)setting).set(value);
     }
 
     private Rect paletteChipRect(Rect valueRect, float scale, int index, int total)

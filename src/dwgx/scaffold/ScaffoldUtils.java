@@ -1,5 +1,6 @@
 package dwgx.scaffold;
 
+import client.rotation.RotationUtils;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -44,6 +45,11 @@ public final class ScaffoldUtils
 
     public static PlacementTarget findPlacementTarget(Minecraft mc, EntityPlayerSP player, PlaceMode mode, int targetY, double forwardOffset, int searchRadius, float reachDistance, boolean useMotionPrediction, float predictionGain, float stabilityBias, int extensionDistance, BlockPos lastPlacedPos)
     {
+        return findPlacementTarget(mc, player, mode, targetY, forwardOffset, searchRadius, reachDistance, useMotionPrediction, predictionGain, stabilityBias, extensionDistance, false, lastPlacedPos);
+    }
+
+    public static PlacementTarget findPlacementTarget(Minecraft mc, EntityPlayerSP player, PlaceMode mode, int targetY, double forwardOffset, int searchRadius, float reachDistance, boolean useMotionPrediction, float predictionGain, float stabilityBias, int extensionDistance, boolean omniDirectionalExpand, BlockPos lastPlacedPos)
+    {
         if (mc == null || mc.theWorld == null || player == null)
         {
             return null;
@@ -61,7 +67,7 @@ public final class ScaffoldUtils
         }
 
         int extension = Math.max(0, extensionDistance);
-        List<BlockPos> seeds = buildSeedTargets(player, targetY, resolvedMode, adaptiveLead, extension);
+        List<BlockPos> seeds = buildSeedTargets(player, targetY, resolvedMode, adaptiveLead, extension, omniDirectionalExpand);
         Set<BlockPos> tested = new HashSet<BlockPos>();
         int radius = Math.max(0, searchRadius);
 
@@ -157,6 +163,34 @@ public final class ScaffoldUtils
         return bestSlot;
     }
 
+    public static int findFirstBlockSlot(InventoryPlayer inventory, int preferredSlot)
+    {
+        if (inventory == null)
+        {
+            return -1;
+        }
+
+        if (preferredSlot >= 0 && preferredSlot < 9)
+        {
+            ItemStack preferred = inventory.mainInventory[preferredSlot];
+
+            if (isValidScaffoldBlock(preferred))
+            {
+                return preferredSlot;
+            }
+        }
+
+        for (int i = 0; i < 9; ++i)
+        {
+            if (isValidScaffoldBlock(inventory.mainInventory[i]))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
     public static boolean isValidScaffoldBlock(ItemStack stack)
     {
         if (stack == null || stack.stackSize <= 0)
@@ -183,15 +217,8 @@ public final class ScaffoldUtils
 
     public static float[] calculateRotations(EntityPlayerSP player, Vec3 targetVec)
     {
-        Vec3 eye = getEyePosition(player);
-        double dx = targetVec.xCoord - eye.xCoord;
-        double dy = targetVec.yCoord - eye.yCoord;
-        double dz = targetVec.zCoord - eye.zCoord;
-        double horizontal = Math.sqrt(dx * dx + dz * dz);
-        float yaw = (float)(Math.toDegrees(Math.atan2(dz, dx)) - 90.0D);
-        float pitch = (float)(-Math.toDegrees(Math.atan2(dy, horizontal)));
-        pitch = MathHelper.clamp_float(pitch, -89.9F, 89.9F);
-        return new float[] {yaw, pitch};
+        RotationUtils.Rotation rotation = RotationUtils.fromEyeTo(player, targetVec);
+        return new float[] {rotation.getYaw(), rotation.getPitch()};
     }
 
     public static void applyRotation(EntityPlayerSP player, float targetYaw, float targetPitch, RotationMode mode, float turnSpeed)
@@ -201,32 +228,20 @@ public final class ScaffoldUtils
             return;
         }
 
-        float yaw = targetYaw;
-        float pitch = targetPitch;
+        RotationUtils.Rotation rotation = RotationUtils.snap(targetYaw, targetPitch);
 
         if (mode == RotationMode.SMOOTH)
         {
-            float maxStep = Math.max(1.0F, turnSpeed);
-            float yawDelta = MathHelper.wrapAngleTo180_float(targetYaw - player.rotationYaw);
-            float pitchDelta = targetPitch - player.rotationPitch;
-            yaw = player.rotationYaw + MathHelper.clamp_float(yawDelta, -maxStep, maxStep);
-            pitch = player.rotationPitch + MathHelper.clamp_float(pitchDelta, -maxStep, maxStep);
+            RotationUtils.Rotation current = RotationUtils.current(player);
+            rotation = RotationUtils.stepSmooth(current, rotation, turnSpeed);
         }
 
-        setPlayerRotation(player, yaw, pitch);
+        RotationUtils.applyLegit(player, rotation.getYaw(), rotation.getPitch());
     }
 
     public static boolean isAimAligned(EntityPlayerSP player, float targetYaw, float targetPitch, float tolerance)
     {
-        if (player == null)
-        {
-            return false;
-        }
-
-        float clampedTolerance = Math.max(0.0F, tolerance);
-        float yawDelta = Math.abs(MathHelper.wrapAngleTo180_float(targetYaw - player.rotationYaw));
-        float pitchDelta = Math.abs(targetPitch - player.rotationPitch);
-        return yawDelta <= clampedTolerance && pitchDelta <= clampedTolerance;
+        return RotationUtils.isAligned(player, targetYaw, targetPitch, tolerance);
     }
 
     public static Vec3 resolveViewDirection(EntityPlayerSP player)
@@ -286,9 +301,9 @@ public final class ScaffoldUtils
         return null;
     }
 
-    private static List<BlockPos> buildSeedTargets(EntityPlayerSP player, int y, PlaceMode mode, double forwardOffset, int extensionDistance)
+    private static List<BlockPos> buildSeedTargets(EntityPlayerSP player, int y, PlaceMode mode, double forwardOffset, int extensionDistance, boolean omniDirectionalExpand)
     {
-        List<BlockPos> result = new ArrayList<BlockPos>(18);
+        List<BlockPos> result = new ArrayList<BlockPos>(26);
         int baseX = MathHelper.floor_double(player.posX);
         int baseZ = MathHelper.floor_double(player.posZ);
         BlockPos under = new BlockPos(baseX, y, baseZ);
@@ -314,6 +329,19 @@ public final class ScaffoldUtils
             {
                 addUnique(result, axisForward);
                 addUnique(result, projectedForward);
+            }
+            else if (mode == PlaceMode.EXPAND)
+            {
+                addUnique(result, projectedForward);
+                addUnique(result, axisForward);
+
+                if (omniDirectionalExpand && (sideX != 0 || sideZ != 0))
+                {
+                    addUnique(result, new BlockPos(projectedForward.getX() + sideX, y, projectedForward.getZ() + sideZ));
+                    addUnique(result, new BlockPos(projectedForward.getX() - sideX, y, projectedForward.getZ() - sideZ));
+                    addUnique(result, new BlockPos(axisForward.getX() + sideX, y, axisForward.getZ() + sideZ));
+                    addUnique(result, new BlockPos(axisForward.getX() - sideX, y, axisForward.getZ() - sideZ));
+                }
             }
             else if (mode == PlaceMode.UNDER)
             {
@@ -425,8 +453,8 @@ public final class ScaffoldUtils
         double dz = center.zCoord - desired.zCoord;
         double forwardDistSq = dx * dx + dz * dz;
         double reachDist = eye.distanceTo(target.hitVec);
-        float yawDelta = Math.abs(MathHelper.wrapAngleTo180_float(target.yaw - player.rotationYaw));
-        float pitchDelta = Math.abs(target.pitch - player.rotationPitch);
+        float yawDelta = Math.abs(RotationUtils.yawDelta(player.rotationYaw, target.yaw));
+        float pitchDelta = Math.abs(RotationUtils.pitchDelta(player.rotationPitch, target.pitch));
         double rotationPenalty = (double)yawDelta * 0.0105D + (double)pitchDelta * 0.0140D;
         double score = forwardDistSq * 1.30D + reachDist * 0.17D + rotationPenalty;
         Vec3 viewDir = resolveViewDirection(player);
@@ -449,6 +477,18 @@ public final class ScaffoldUtils
             if (forwardDot < 0.05D)
             {
                 score += 0.85D;
+            }
+        }
+        else if (mode == PlaceMode.EXPAND)
+        {
+            int playerX = MathHelper.floor_double(player.posX);
+            int playerZ = MathHelper.floor_double(player.posZ);
+            int axisDist = Math.abs(target.placePos.getX() - playerX) + Math.abs(target.placePos.getZ() - playerZ);
+            score += axisDist == 0 ? 0.40D : Math.min(0.90D, (double)axisDist * 0.06D);
+
+            if (forwardDot < 0.02D)
+            {
+                score += 1.05D;
             }
         }
         else if (forwardDot < -0.15D)
@@ -488,22 +528,16 @@ public final class ScaffoldUtils
         return new Vec3((double)blockPos.getX() + 0.5D + (double)side.getFrontOffsetX() * 0.5D, (double)blockPos.getY() + 0.5D + (double)side.getFrontOffsetY() * 0.5D, (double)blockPos.getZ() + 0.5D + (double)side.getFrontOffsetZ() * 0.5D);
     }
 
-    private static void setPlayerRotation(EntityPlayerSP player, float yaw, float pitch)
-    {
-        player.rotationYaw = yaw;
-        player.rotationPitch = MathHelper.clamp_float(pitch, -89.9F, 89.9F);
-        player.rotationYawHead = player.rotationYaw;
-        player.renderYawOffset = player.rotationYaw;
-    }
-
     public static RotationSnapshot captureRotation(EntityPlayerSP player)
     {
-        if (player == null)
+        RotationUtils.RotationSnapshot snapshot = RotationUtils.capture(player);
+
+        if (snapshot == null)
         {
             return null;
         }
 
-        return new RotationSnapshot(player.rotationYaw, player.rotationPitch, player.rotationYawHead, player.renderYawOffset);
+        return new RotationSnapshot(snapshot.getYaw(), snapshot.getPitch(), snapshot.getYawHead(), snapshot.getRenderYawOffset());
     }
 
     public static void restoreRotation(EntityPlayerSP player, RotationSnapshot snapshot)
@@ -513,10 +547,7 @@ public final class ScaffoldUtils
             return;
         }
 
-        player.rotationYaw = snapshot.yaw;
-        player.rotationPitch = snapshot.pitch;
-        player.rotationYawHead = snapshot.yawHead;
-        player.renderYawOffset = snapshot.renderYawOffset;
+        RotationUtils.restore(player, new RotationUtils.RotationSnapshot(snapshot.yaw, snapshot.pitch, snapshot.yawHead, snapshot.renderYawOffset));
     }
 
     public static final class PlacementTarget
@@ -602,6 +633,7 @@ public final class ScaffoldUtils
     {
         SMART,
         UNDER,
-        FORWARD
+        FORWARD,
+        EXPAND
     }
 }

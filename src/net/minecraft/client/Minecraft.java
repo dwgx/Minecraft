@@ -1226,109 +1226,15 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             presentDisplayWidth,
             presentDisplayHeight
         );
-        boolean nanoAttribPushed = false;
-        boolean nanoMatrixPushed = false;
-        int nanoPrevMatrixMode = GL11.GL_MODELVIEW;
-        NanoVGContext frameNanoContext = this.nanoVGContext;
-        boolean nanoFrameRequested = this.theWorld != null || this.currentScreen instanceof client.ui.NanoRenderableScreen;
-        if (!nanoFrameRequested)
-        {
-            frameNanoContext = null;
-        }
-        boolean nanoFrameStarted = false;
-
-        if (frameNanoContext != null)
-        {
-            if (this.displayWidth <= 0 || this.displayHeight <= 0)
-            {
-                if (RESIZE_DEBUG)
-                {
-                    logger.info("[resize-debug] skip NanoVG frame due invalid size {}x{}", Integer.valueOf(this.displayWidth), Integer.valueOf(this.displayHeight));
-                }
-
-                frameNanoContext = null;
-            }
-            else
-            {
-                try
-                {
-                    GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-                    nanoAttribPushed = true;
-                    nanoPrevMatrixMode = GL11.glGetInteger(GL11.GL_MATRIX_MODE);
-                    GL11.glMatrixMode(GL11.GL_MODELVIEW);
-                    GL11.glPushMatrix();
-                    GL11.glMatrixMode(GL11.GL_PROJECTION);
-                    GL11.glPushMatrix();
-                    GL11.glMatrixMode(nanoPrevMatrixMode);
-                    nanoMatrixPushed = true;
-
-                    GL11.glDisable(GL11.GL_SCISSOR_TEST);
-                    GL11.glDisable(GL11.GL_STENCIL_TEST);
-                    GL11.glViewport(0, 0, this.displayWidth, this.displayHeight);
-                    frameNanoContext.beginFrame(displaymetrics);
-                    nanoFrameStarted = frameNanoContext.isFrameActive();
-
-                    if (nanoFrameStarted)
-                    {
-                        this.nanoFrameFailureCount = 0;
-                    }
-                    else
-                    {
-                        frameNanoContext = null;
-                    }
-                }
-                catch (Throwable throwable2)
-                {
-                    this.handleNanoFrameFailure(this.nanoFailureStage("beginFrame"), throwable2);
-                    frameNanoContext = null;
-                }
-            }
-        }
+        NanoFrameScope nanoFrameScope = this.beginNanoUiFrame(displaymetrics);
 
         try
         {
-            this.clientBootstrap.onRender2D(new RenderContext2D(nanoFrameStarted ? frameNanoContext : null, displaymetrics, this.timer.renderPartialTicks));
+            this.clientBootstrap.onRender2D(new RenderContext2D(this.resolveNanoRenderContext(nanoFrameScope), displaymetrics, this.timer.renderPartialTicks));
         }
         finally
         {
-            if (nanoFrameStarted && frameNanoContext != null && frameNanoContext.isFrameActive())
-            {
-                try
-                {
-                    frameNanoContext.endFrame();
-                    this.nanoFrameFailureCount = 0;
-                }
-                catch (Throwable throwable3)
-                {
-                    this.handleNanoFrameFailure(this.nanoFailureStage("endFrame"), throwable3);
-                }
-            }
-
-            if (nanoMatrixPushed)
-            {
-                try
-                {
-                    GL11.glMatrixMode(GL11.GL_MODELVIEW);
-                    GL11.glPopMatrix();
-                    GL11.glMatrixMode(GL11.GL_PROJECTION);
-                    GL11.glPopMatrix();
-                    GL11.glMatrixMode(nanoPrevMatrixMode);
-                }
-                catch (Throwable ignored)
-                {
-                }
-            }
-
-            if (nanoAttribPushed)
-            {
-                try
-                {
-                    GL11.glPopAttrib();
-                }
-                catch (Throwable ignored)
-                {
-                }
-            }
+            this.endNanoUiFrame(nanoFrameScope);
         }
         GlStateManager.pushMatrix();
         this.entityRenderer.renderStreamIndicator(this.timer.renderPartialTicks);
@@ -3574,6 +3480,128 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         this.connectedToRealms = isConnected;
     }
 
+    private NanoFrameScope beginNanoUiFrame(DisplayMetrics metrics)
+    {
+        NanoFrameScope scope = new NanoFrameScope();
+        scope.context = this.nanoVGContext;
+
+        boolean frameRequested = this.theWorld != null || this.currentScreen instanceof client.ui.NanoRenderableScreen;
+
+        if (!frameRequested)
+        {
+            scope.context = null;
+            return scope;
+        }
+
+        if (scope.context == null)
+        {
+            return scope;
+        }
+
+        if (this.displayWidth <= 0 || this.displayHeight <= 0)
+        {
+            if (RESIZE_DEBUG)
+            {
+                logger.info("[resize-debug] skip NanoVG frame due invalid size {}x{}", Integer.valueOf(this.displayWidth), Integer.valueOf(this.displayHeight));
+            }
+
+            scope.context = null;
+            return scope;
+        }
+
+        try
+        {
+            GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+            scope.attribPushed = true;
+            scope.previousMatrixMode = GL11.glGetInteger(GL11.GL_MATRIX_MODE);
+            GL11.glMatrixMode(GL11.GL_MODELVIEW);
+            GL11.glPushMatrix();
+            GL11.glMatrixMode(GL11.GL_PROJECTION);
+            GL11.glPushMatrix();
+            GL11.glMatrixMode(scope.previousMatrixMode);
+            scope.matrixPushed = true;
+
+            GL11.glDisable(GL11.GL_SCISSOR_TEST);
+            GL11.glDisable(GL11.GL_STENCIL_TEST);
+            GL11.glViewport(0, 0, this.displayWidth, this.displayHeight);
+            scope.context.beginFrame(metrics);
+            scope.frameStarted = scope.context.isFrameActive();
+
+            if (scope.frameStarted)
+            {
+                this.nanoFrameFailureCount = 0;
+            }
+            else
+            {
+                scope.context = null;
+            }
+        }
+        catch (Throwable throwable)
+        {
+            this.handleNanoFrameFailure(this.nanoFailureStage("beginFrame"), throwable);
+            scope.context = null;
+        }
+
+        return scope;
+    }
+
+    private NanoVGContext resolveNanoRenderContext(NanoFrameScope scope)
+    {
+        if (scope == null || !scope.frameStarted)
+        {
+            return null;
+        }
+
+        return scope.context;
+    }
+
+    private void endNanoUiFrame(NanoFrameScope scope)
+    {
+        if (scope == null)
+        {
+            return;
+        }
+
+        if (scope.frameStarted && scope.context != null && scope.context.isFrameActive())
+        {
+            try
+            {
+                scope.context.endFrame();
+                this.nanoFrameFailureCount = 0;
+            }
+            catch (Throwable throwable)
+            {
+                this.handleNanoFrameFailure(this.nanoFailureStage("endFrame"), throwable);
+            }
+        }
+
+        if (scope.matrixPushed)
+        {
+            try
+            {
+                GL11.glMatrixMode(GL11.GL_MODELVIEW);
+                GL11.glPopMatrix();
+                GL11.glMatrixMode(GL11.GL_PROJECTION);
+                GL11.glPopMatrix();
+                GL11.glMatrixMode(scope.previousMatrixMode);
+            }
+            catch (Throwable ignored)
+            {
+            }
+        }
+
+        if (scope.attribPushed)
+        {
+            try
+            {
+                GL11.glPopAttrib();
+            }
+            catch (Throwable ignored)
+            {
+            }
+        }
+    }
+
     private void handleNanoFrameFailure(String stage, Throwable throwable)
     {
         ++this.nanoFrameFailureCount;
@@ -3674,6 +3702,15 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         this.nanoVGHandle = 0L;
         this.nanoFrameFailureCount = 0;
         ClientBootstrap.instance().setNanoAvailable(false);
+    }
+
+    private static final class NanoFrameScope
+    {
+        private NanoVGContext context;
+        private boolean frameStarted;
+        private boolean attribPushed;
+        private boolean matrixPushed;
+        private int previousMatrixMode = GL11.GL_MODELVIEW;
     }
 }
 

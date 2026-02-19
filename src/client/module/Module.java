@@ -20,6 +20,7 @@ public abstract class Module
     private final KeybindSetting bind;
     private boolean enabled;
     private ModuleStateListener stateListener;
+    private boolean eventLinksAttached;
     private final List<Setting<?>> settings = new ArrayList<Setting<?>>();
     private final List<SettingGroup> groups = new ArrayList<SettingGroup>();
 
@@ -29,6 +30,7 @@ public abstract class Module
         this.name = name;
         this.category = category;
         this.bind = new KeybindSetting("bind", "Bind", "Keyboard bind", 0, KeybindSetting.BindMode.TOGGLE);
+        this.eventLinksAttached = false;
     }
 
     public String getId()
@@ -171,5 +173,32 @@ public abstract class Module
 
     public void onKey(KeyEvent event)
     {
+    }
+
+    protected final void attachEventLinks()
+    {
+        if (this.eventLinksAttached)
+        {
+            return;
+        }
+
+        client.core.ClientBootstrap.instance().getEventBus().register(this);
+        this.eventLinksAttached = true;
+    }
+
+    protected final void detachEventLinks()
+    {
+        if (!this.eventLinksAttached)
+        {
+            return;
+        }
+
+        client.core.ClientBootstrap.instance().getEventBus().unregister(this);
+        this.eventLinksAttached = false;
+    }
+
+    protected final boolean hasEventLinks()
+    {
+        return this.eventLinksAttached;
     }
 }

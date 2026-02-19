@@ -18,10 +18,12 @@ import client.setting.EnumSetting;
 import client.setting.FloatSetting;
 import client.setting.IntSetting;
 import client.setting.KeybindSetting;
+import client.setting.MultiSelectSetting;
 import client.setting.NumberSetting;
 import client.setting.Setting;
 import client.setting.StringSetting;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
@@ -721,6 +723,17 @@ public final class ConfigManager implements ModuleStateListener
             color.addProperty("rainbow", Boolean.valueOf(c.isRainbow()));
             return color;
         }
+        else if (setting instanceof MultiSelectSetting)
+        {
+            JsonArray values = new JsonArray();
+
+            for (String option : ((MultiSelectSetting)setting).get())
+            {
+                values.add(new JsonPrimitive(option));
+            }
+
+            return values;
+        }
         else if (setting instanceof KeybindSetting)
         {
             KeybindSetting bind = (KeybindSetting)setting;
@@ -776,6 +789,44 @@ public final class ConfigManager implements ModuleStateListener
                 int a = c.has("a") ? c.get("a").getAsInt() : 255;
                 boolean rainbow = c.has("rainbow") && c.get("rainbow").getAsBoolean();
                 ((ColorSetting)setting).set(new ColorValue(r, g, b, a, rainbow));
+            }
+            else if (setting instanceof MultiSelectSetting && element.isJsonArray())
+            {
+                JsonArray array = element.getAsJsonArray();
+                List<String> selected = new ArrayList<String>();
+
+                for (int i = 0; i < array.size(); ++i)
+                {
+                    JsonElement item = array.get(i);
+
+                    if (item != null && item.isJsonPrimitive())
+                    {
+                        selected.add(item.getAsString());
+                    }
+                }
+
+                ((MultiSelectSetting)setting).setSelections(selected);
+            }
+            else if (setting instanceof MultiSelectSetting && element.isJsonPrimitive())
+            {
+                String token = element.getAsString();
+
+                if (token == null || token.trim().isEmpty())
+                {
+                    ((MultiSelectSetting)setting).setSelections(Collections.<String>emptyList());
+                }
+                else
+                {
+                    String[] parts = token.split(",");
+                    List<String> selected = new ArrayList<String>(parts.length);
+
+                    for (int i = 0; i < parts.length; ++i)
+                    {
+                        selected.add(parts[i]);
+                    }
+
+                    ((MultiSelectSetting)setting).setSelections(selected);
+                }
             }
             else if (setting instanceof KeybindSetting && element.isJsonObject())
             {

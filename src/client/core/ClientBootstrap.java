@@ -9,14 +9,10 @@ import client.event.Render2DEvent;
 import client.event.TickEvent;
 import client.hud.HudEditorScreen;
 import client.hud.HudManager;
+import client.hud.HudRegistry;
 import client.i18n.I18nManager;
 import client.module.ModuleManager;
-import client.module.impl.client.ClickGuiModule;
-import client.module.impl.client.HudEditModule;
-import client.module.impl.client.UiScaleEditModule;
-import client.module.impl.movement.EagleModule;
-import client.module.impl.movement.KeepSprintModule;
-import client.module.impl.movement.ScaffoldModule;
+import client.module.ModuleRegistry;
 import client.render.RenderContext2D;
 import client.render.NanoVGContext;
 import client.ui.NanoRenderableScreen;
@@ -25,7 +21,6 @@ import java.nio.file.Path;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.util.ChatComponentText;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -111,12 +106,7 @@ public final class ClientBootstrap
             return;
         }
 
-        this.modules.register(new ClickGuiModule());
-        this.modules.register(new HudEditModule());
-        this.modules.register(new UiScaleEditModule());
-        this.modules.register(new EagleModule());
-        this.modules.register(new KeepSprintModule());
-        this.modules.register(new ScaffoldModule());
+        ModuleRegistry.registerBuiltins(this.modules);
         this.modulesRegistered = true;
     }
 
@@ -127,7 +117,7 @@ public final class ClientBootstrap
             return;
         }
 
-        this.hud.register(new client.hud.HudFpsElement());
+        HudRegistry.registerBuiltins(this.hud);
         this.hudElementsRegistered = true;
     }
 
@@ -300,6 +290,14 @@ public final class ClientBootstrap
 
     public void onRender2D(RenderContext2D context)
     {
+        this.dispatchRenderEvent(context);
+        this.renderModules(context);
+        this.renderHud(context);
+        this.renderNanoScreen(context);
+    }
+
+    private void dispatchRenderEvent(RenderContext2D context)
+    {
         try
         {
             this.eventBus.post(new Render2DEvent(context));
@@ -308,7 +306,10 @@ public final class ClientBootstrap
         {
             LOGGER.error("Render2D event dispatch failed.", throwable);
         }
+    }
 
+    private void renderModules(RenderContext2D context)
+    {
         try
         {
             this.modules.onRender2D(context);
@@ -317,7 +318,10 @@ public final class ClientBootstrap
         {
             LOGGER.error("Module Render2D dispatch failed.", throwable);
         }
+    }
 
+    private void renderHud(RenderContext2D context)
+    {
         Minecraft mc = Minecraft.getMinecraft();
         GuiScreen current = mc == null ? null : mc.currentScreen;
         boolean inWorld = mc != null && mc.theWorld != null;
@@ -333,6 +337,12 @@ public final class ClientBootstrap
                 LOGGER.error("HUD render failed.", throwable);
             }
         }
+    }
+
+    private void renderNanoScreen(RenderContext2D context)
+    {
+        Minecraft mc = Minecraft.getMinecraft();
+        GuiScreen current = mc == null ? null : mc.currentScreen;
 
         if (current instanceof NanoRenderableScreen)
         {

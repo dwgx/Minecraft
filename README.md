@@ -43,7 +43,7 @@ $env:JAVA_HOME = 'D:\Software\DEV\Java\jdk1.8.0_471'
 $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 Remove-Item -Recurse -Force .\out -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path .\out\classes | Out-Null
-javac -source 1.6 -target 1.6 -encoding UTF-8 `
+javac -source 1.8 -target 1.8 -encoding UTF-8 `
       -classpath "lib/*" `
       -d out\classes `
       (Get-ChildItem -Recurse src -Filter *.java | % FullName)
@@ -59,8 +59,8 @@ java -Djava.library.path=.\natives `
      --assetsDir "$env:APPDATA\.minecraft\assets" --assetIndex 1.8 --accessToken 0
 ```
 
-### Why `-source 1.6 -target 1.6`?
-Mojang built 1.8.9 for the Java 6 bytecode level. Compiling to 1.6 with JDK 8 reproduces the same class format and avoids class file version mismatches at runtime.
+### Why `-source 1.8 -target 1.8`?
+This codebase includes modernized compatibility/runtime code (for LWJGL 3 integration) that uses Java 8 language features. Use JDK 8 source/target for local builds.
 
 ## Contributing / hygiene
 - Do **not** commit IDE metadata (`.idea/`, `*.iml`), caches, logs, downloaded assets, or experimental third-party libraries.
