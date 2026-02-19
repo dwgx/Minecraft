@@ -509,7 +509,9 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
      */
     private void renderSkybox(int p_73971_1_, int p_73971_2_, float p_73971_3_)
     {
-        this.mc.getFramebuffer().unbindFramebuffer();
+        // Keep skybox rendering inside the active game framebuffer.
+        // Rebinding to the default framebuffer mid-frame can produce black flashes
+        // during maximize/restore on some window compositors.
         GlStateManager.viewport(0, 0, 256, 256);
         this.drawPanorama(p_73971_1_, p_73971_2_, p_73971_3_);
         this.rotateAndBlurSkybox(p_73971_3_);
@@ -519,8 +521,21 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
         this.rotateAndBlurSkybox(p_73971_3_);
         this.rotateAndBlurSkybox(p_73971_3_);
         this.rotateAndBlurSkybox(p_73971_3_);
-        this.mc.getFramebuffer().bindFramebuffer(true);
-        GlStateManager.viewport(0, 0, this.mc.displayWidth, this.mc.displayHeight);
+        int viewportWidth;
+        int viewportHeight;
+
+        if (OpenGlHelper.isFramebufferEnabled())
+        {
+            viewportWidth = Math.max(1, this.mc.getFramebuffer().framebufferWidth);
+            viewportHeight = Math.max(1, this.mc.getFramebuffer().framebufferHeight);
+        }
+        else
+        {
+            viewportWidth = Math.max(1, this.mc.displayWidth);
+            viewportHeight = Math.max(1, this.mc.displayHeight);
+        }
+
+        GlStateManager.viewport(0, 0, viewportWidth, viewportHeight);
         float f = this.width > this.height ? 120.0F / (float)this.width : 120.0F / (float)this.height;
         float f1 = (float)this.height * f / 256.0F;
         float f2 = (float)this.width * f / 256.0F;

@@ -59,6 +59,7 @@ function Scan-Files {
 
 $srcClient = Join-Path $rootPath "src/client"
 $srcAll = Join-Path $rootPath "src"
+$srcGui = Join-Path $rootPath "src/net/minecraft/client/gui"
 $nanoOwner = (Join-Path $rootPath "src/net/minecraft/client/Minecraft.java")
 
 # Client-side custom UI/modules must not touch swap loop or low-level clear/viewport.
@@ -66,6 +67,10 @@ Scan-Files -BaseDir $srcClient -Pattern '\bDisplay\.(?:update|sync|processMessag
 Scan-Files -BaseDir $srcClient -Pattern '\bGL11\.glViewport\s*\(' -RuleName 'client-no-raw-viewport'
 Scan-Files -BaseDir $srcClient -Pattern '\bGlStateManager\.viewport\s*\(' -RuleName 'client-no-viewport'
 Scan-Files -BaseDir $srcClient -Pattern '\bGlStateManager\.clear\s*\(' -RuleName 'client-no-clear'
+
+# GUI rendering should not rebind Minecraft's primary framebuffer mid-frame.
+# Doing so can expose incomplete backbuffer content during window resize/restore.
+Scan-Files -BaseDir $srcGui -Pattern '\bgetFramebuffer\(\)\.(?:unbindFramebuffer|bindFramebuffer)\s*\(' -RuleName 'gui-no-main-framebuffer-rebind'
 
 # Nano runtime ownership must remain in Minecraft.
 if (Test-Path -LiteralPath $srcAll) {
