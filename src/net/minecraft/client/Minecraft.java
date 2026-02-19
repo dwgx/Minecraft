@@ -1457,6 +1457,15 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         return (float)this.getLimitFramerate() < GameSettings.Options.FRAMERATE_LIMIT.getValueMax();
     }
 
+    /**
+     * True while resize/maximize transition is still settling.
+     * During this window custom menu post-process effects should prefer safe fallback rendering.
+     */
+    public boolean isResizeTransitionActive()
+    {
+        return this.windowResizedThisFrame || System.currentTimeMillis() < this.resizePresentBoostUntilMs;
+    }
+
     public void freeMemory()
     {
         try

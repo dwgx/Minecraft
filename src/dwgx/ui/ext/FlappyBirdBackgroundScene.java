@@ -1,9 +1,279 @@
 package dwgx.ui.ext;
 
+import org.lwjgl.opengl.Display;
+
+/**
+ * FlappyBird 风格主菜单背景场景。
+ * 负责输入、状态推进、碰撞检测和提示文案。
+ */
+public final class FlappyBirdBackgroundScene implements MainMenuBackgroundScene
+{
+    private static final float PIPE_WIDTH = 26.0F;
+    private static final float PIPE_BOTTOM = 39.0F;
+    private static final float VERTICAL_PIPE_GAP = 55.0F;
+    private static final float PIPE_MIN_HEIGHT = 20.0F;
+    private static final float PIPE_MAX_HEIGHT = 70.0F;
+    private static final float PIPE_GROUP_SIZE = 8.0F;
+    private static final float PIPE_SPACING = 100.0F;
+    private static final float BIRD_X = 105.0F;
+    private static final float BIRD_WIDTH = 14.0F;
+    private static final float BIRD_HEIGHT = 12.0F;
+    private static final float BIRD_START_Y = 110.0F;
+    private static final float GRAVITY = -180.0F;
+    private static final float FLAP_VELOCITY = 78.0F;
+    private static final int LWJGL_KEY_SPACE = 57;
+
+    private float gameTick;
+    private float birdY = BIRD_START_Y;
+    private float birdVelocity;
+    private float wingFrame;
+    private boolean birdAlive = true;
+    private int score;
+    private int bestScore;
+    private long lastUpdateMs;
+    private boolean jumpQueued;
+
+    static String fragmentShaderSource()
+    {
+        return FlappyBirdFragmentShaderTemplate.source();
+    }
+
+    public void initialize()
+    {
+        if (this.lastUpdateMs == 0L)
+        {
+            this.resetGame();
+        }
+    }
+
+    public boolean handleKeyInput(char typedChar, int keyCode, boolean sceneEnabled)
+    {
+        if (!sceneEnabled)
+        {
+            return false;
+        }
+
+        if (typedChar == ' ' || keyCode == LWJGL_KEY_SPACE)
+        {
+            this.jumpQueued = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    public void tick(boolean sceneEnabled)
+    {
+        if (!sceneEnabled)
+        {
+            this.lastUpdateMs = System.currentTimeMillis();
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+
+        if (this.lastUpdateMs == 0L)
+        {
+            this.lastUpdateMs = now;
+            return;
+        }
+
+        float deltaSeconds = (float)(now - this.lastUpdateMs) / 1000.0F;
+        this.lastUpdateMs = now;
+
+        if (deltaSeconds <= 0.0F)
+        {
+            return;
+        }
+
+        if (deltaSeconds > 0.05F)
+        {
+            deltaSeconds = 0.05F;
+        }
+
+        this.wingFrame += deltaSeconds * 12.0F;
+
+        if (this.jumpQueued)
+        {
+            this.jumpQueued = false;
+
+            if (!this.birdAlive)
+            {
+                this.resetGame();
+                return;
+            }
+
+            this.birdVelocity = FLAP_VELOCITY;
+        }
+
+        if (!this.birdAlive)
+        {
+            return;
+        }
+
+        this.gameTick += deltaSeconds * 60.0F;
+        this.birdVelocity += GRAVITY * deltaSeconds;
+        this.birdY += this.birdVelocity * deltaSeconds;
+
+        float levelHeight = this.resolveLevelHeight();
+
+        if (this.birdY <= PIPE_BOTTOM)
+        {
+            this.birdY = PIPE_BOTTOM;
+            this.markGameOver();
+            return;
+        }
+
+        if (this.birdY + BIRD_HEIGHT >= levelHeight - 1.0F)
+        {
+            this.birdY = levelHeight - BIRD_HEIGHT - 1.0F;
+            this.markGameOver();
+            return;
+        }
+
+        if (this.hasPipeCollision())
+        {
+            this.markGameOver();
+            return;
+        }
+
+        this.score = Math.max(0, (int)Math.floor((this.gameTick + BIRD_X) / PIPE_SPACING));
+        this.bestScore = Math.max(this.bestScore, this.score);
+    }
+
+    public void applyShaderUniforms(MainMenuSplashShader shader)
+    {
+        if (shader == null)
+        {
+            return;
+        }
+
+        shader.setFlappyState(this.gameTick, this.birdY, this.wingFrame, this.birdAlive, true);
+    }
+
+    public String getOverlayHint(boolean sceneEnabled)
+    {
+        if (!sceneEnabled)
+        {
+            return null;
+        }
+
+        if (this.birdAlive)
+        {
+            return "空格跳跃  分数: " + this.score + "  最高: " + this.bestScore;
+        }
+
+        return "失败了，按空格重新开始  本次: " + this.score + "  最高: " + this.bestScore;
+    }
+
+    private boolean hasPipeCollision()
+    {
+        float cycleLength = PIPE_SPACING * PIPE_GROUP_SIZE;
+        float offset = this.gameTick % cycleLength;
+        float pipeX = -offset;
+        float birdLeft = BIRD_X;
+        float birdRight = BIRD_X + BIRD_WIDTH;
+        float birdBottom = this.birdY;
+        float birdTop = this.birdY + BIRD_HEIGHT;
+
+        for (int i = 0; i < 12; ++i)
+        {
+            float pipeLeft = pipeX;
+            float pipeRight = pipeX + PIPE_WIDTH;
+
+            if (birdRight >= pipeLeft && birdLeft <= pipeRight)
+            {
+                float bottomHeight = this.resolveBottomPipeHeight(i);
+                float gapBottom = PIPE_BOTTOM + bottomHeight;
+                float gapTop = gapBottom + VERTICAL_PIPE_GAP;
+
+                if (birdBottom < gapBottom || birdTop > gapTop)
+                {
+                    return true;
+                }
+            }
+
+            pipeX += PIPE_SPACING;
+        }
+
+        return false;
+    }
+
+    private float resolveBottomPipeHeight(int index)
+    {
+        float center = (PIPE_MAX_HEIGHT + PIPE_MIN_HEIGHT) / 2.0F;
+        float upperMid = (center + PIPE_MAX_HEIGHT) / 2.0F;
+        float lowerMid = (center + PIPE_MIN_HEIGHT) / 2.0F;
+        int cycle = index % 8;
+
+        if (cycle == 1 || cycle == 3)
+        {
+            return upperMid;
+        }
+
+        if (cycle == 2)
+        {
+            return PIPE_MAX_HEIGHT;
+        }
+
+        if (cycle == 5 || cycle == 7)
+        {
+            return lowerMid;
+        }
+
+        if (cycle == 6)
+        {
+            return PIPE_MIN_HEIGHT;
+        }
+
+        return center;
+    }
+
+    private float resolveLevelHeight()
+    {
+        float levelHeight = (float)Math.max(1, Display.getHeight()) / 2.0F;
+
+        if (levelHeight >= 320.0F)
+        {
+            levelHeight /= 2.0F;
+        }
+
+        if (levelHeight < 100.0F)
+        {
+            levelHeight *= 2.0F;
+        }
+
+        return levelHeight;
+    }
+
+    private void markGameOver()
+    {
+        if (!this.birdAlive)
+        {
+            return;
+        }
+
+        this.birdAlive = false;
+        this.bestScore = Math.max(this.bestScore, this.score);
+    }
+
+    private void resetGame()
+    {
+        this.gameTick = 0.0F;
+        this.birdY = BIRD_START_Y;
+        this.birdVelocity = 0.0F;
+        this.wingFrame = 0.0F;
+        this.birdAlive = true;
+        this.score = 0;
+        this.jumpQueued = false;
+        this.lastUpdateMs = System.currentTimeMillis();
+    }
+}
+
 /**
  * Embedded FlappyBird fragment shader source.
  */
-final class flappybird_frag
+final class FlappyBirdFragmentShaderTemplate
 {
     private static final String[] LINES = new String[]
     {
@@ -16,6 +286,7 @@ final class flappybird_frag
         "uniform float uBirdFrame;",
         "uniform float uBirdAlive;",
         "uniform float uControlEnabled;",
+        "uniform float uUseTexAlpha;",
         "varying vec2 vTexCoord;",
         "varying vec4 vColor;",
         "",
@@ -690,20 +961,23 @@ final class flappybird_frag
         "void main()",
         "{",
         "    vec4 texel = texture2D(uTex, vTexCoord);",
+        "    float texMode = uUseTexAlpha > 0.5 ? 1.0 : 0.0;",
         "",
-        "    if (texel.a <= 0.001)",
+        "    if (texMode > 0.5 && texel.a <= 0.001)",
         "    {",
         "        discard;",
         "    }",
         "",
         "    vec4 sceneColor = vec4(0.0);",
         "    mainImage(sceneColor, gl_FragCoord.xy);",
-        "    gl_FragColor = vec4(sceneColor.rgb * vColor.rgb, texel.a * vColor.a);",
+        "    vec3 texRgb = texMode > 0.5 ? texel.rgb : vec3(1.0);",
+        "    float texAlpha = texMode > 0.5 ? texel.a : 1.0;",
+        "    gl_FragColor = vec4(sceneColor.rgb * texRgb * vColor.rgb, texAlpha * vColor.a);",
         "}"
     };
     private static final String SOURCE = buildSource();
 
-    private flappybird_frag()
+    private FlappyBirdFragmentShaderTemplate()
     {
     }
 

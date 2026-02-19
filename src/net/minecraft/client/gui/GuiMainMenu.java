@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import dwgx.ui.MainMenuSession;
+import dwgx.ui.ext.MainMenuBackgroundRuntime;
 import dwgx.ui.ext.MainMenuSplashShader;
 import dwgx.ui.ext.UiExtensionManager;
 import net.minecraft.client.Minecraft;
@@ -32,8 +33,6 @@ import net.minecraft.world.storage.WorldInfo;
 import org.apache.commons.io.Charsets;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GLContext;
 import org.lwjgl.util.glu.Project;
@@ -65,20 +64,22 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
      */
     private final Object threadLock = new Object();
 
-    /** OpenGL graphics card warning. */
+    /** OpenGL 能力警告（第一行）。 */
     private String openGLWarning1;
 
-    /** OpenGL graphics card warning. */
+    /** OpenGL 能力警告（第二行）。 */
     private String openGLWarning2;
 
-    /** Link to the Mojang Support about minimum requirements */
+    /** 警告对应的帮助链接。 */
     private String openGLWarningLink;
     private static final ResourceLocation splashTexts = new ResourceLocation("texts/splashes.txt");
     private static final ResourceLocation minecraftTitleTextures = new ResourceLocation("textures/gui/title/minecraft.png");
 
     /** An array of all the paths to the panorama pictures. */
     private static final ResourceLocation[] titlePanoramaPaths = new ResourceLocation[] {new ResourceLocation("textures/gui/title/background/panorama_0.png"), new ResourceLocation("textures/gui/title/background/panorama_1.png"), new ResourceLocation("textures/gui/title/background/panorama_2.png"), new ResourceLocation("textures/gui/title/background/panorama_3.png"), new ResourceLocation("textures/gui/title/background/panorama_4.png"), new ResourceLocation("textures/gui/title/background/panorama_5.png")};
-    public static final String field_96138_a = "请点击 " + EnumChatFormatting.UNDERLINE + "这里" + EnumChatFormatting.RESET + " 查看更多信息。";
+    public static final String field_96138_a = "点击 " + EnumChatFormatting.UNDERLINE + "这里" + EnumChatFormatting.RESET + " 查看更多信息。";
+    private static final String OPENGL_WARNING_LINE1 = "检测到当前显卡或驱动不支持 OpenGL 2.0 / 着色器。";
+    private static final String OPENGL_WARNING_LINE2 = "主菜单特效已自动降级，点击这里查看最低配置与驱动建议。";
     private int field_92024_r;
     private int field_92023_s;
     private int field_92022_t;
@@ -92,33 +93,10 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
     private boolean field_183502_L;
     private GuiScreen field_183503_M;
     private MainMenuSession dwgxSession;
-    private MainMenuSplashShader splashShader;
-    private static final float FLAPPY_PIPE_WIDTH = 26.0F;
-    private static final float FLAPPY_PIPE_BOTTOM = 39.0F;
-    private static final float FLAPPY_VERT_PIPE_DISTANCE = 55.0F;
-    private static final float FLAPPY_PIPE_MIN = 20.0F;
-    private static final float FLAPPY_PIPE_MAX = 70.0F;
-    private static final float FLAPPY_PIPE_PER_CYCLE = 8.0F;
-    private static final float FLAPPY_HORZ_PIPE_DISTANCE = 100.0F;
-    private static final float FLAPPY_BIRD_X = 105.0F;
-    private static final float FLAPPY_BIRD_WIDTH = 14.0F;
-    private static final float FLAPPY_BIRD_HEIGHT = 12.0F;
-    private static final float FLAPPY_START_Y = 110.0F;
-    private static final float FLAPPY_GRAVITY = -180.0F;
-    private static final float FLAPPY_FLAP_VELOCITY = 78.0F;
-    private float flappyTick;
-    private float flappyBirdY = FLAPPY_START_Y;
-    private float flappyVelocity;
-    private float flappyWingFrame;
-    private boolean flappyAlive = true;
-    private int flappyScore;
-    private int flappyBestScore;
-    private long flappyLastUpdateMs;
-    private boolean flappyJumpQueued;
+    private final MainMenuBackgroundRuntime backgroundRuntime = new MainMenuBackgroundRuntime(UiExtensionManager.createMainMenuBackgroundScene());
 
     public GuiMainMenu()
     {
-        this.openGLWarning2 = field_96138_a;
         this.field_183502_L = false;
         this.splashText = "missingno";
         BufferedReader bufferedreader = null;
@@ -173,11 +151,13 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
 
         this.updateCounter = RANDOM.nextFloat();
         this.openGLWarning1 = "";
+        this.openGLWarning2 = field_96138_a;
+        this.openGLWarningLink = "";
 
         if (!GLContext.getCapabilities().OpenGL20 && !OpenGlHelper.areShadersSupported())
         {
-            this.openGLWarning1 = "当前显卡或驱动对 OpenGL / 着色器支持不足，主菜单特效可能受限。";
-            this.openGLWarning2 = "点击这里查看官方最低配置和驱动建议。";
+            this.openGLWarning1 = OPENGL_WARNING_LINE1;
+            this.openGLWarning2 = OPENGL_WARNING_LINE2;
             this.openGLWarningLink = "https://help.mojang.com/customer/portal/articles/325948?ref=game";
         }
     }
@@ -214,9 +194,8 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
      */
     protected void keyTyped(char typedChar, int keyCode) throws IOException
     {
-        if (keyCode == Keyboard.KEY_SPACE)
+        if (this.backgroundRuntime.handleKeyInput(typedChar, keyCode, UiExtensionManager.isMainMenuBackgroundShaderEnabled()))
         {
-            this.queueFlappyJump();
             return;
         }
 
@@ -295,11 +274,7 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
         }
 
         this.dwgxSession.setScreenSize(this.width, this.height);
-
-        if (this.flappyLastUpdateMs == 0L)
-        {
-            this.resetFlappyGame();
-        }
+        this.backgroundRuntime.initializeScene();
     }
 
     /**
@@ -592,9 +567,9 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
      */
     public void drawScreen(int mouseX, int mouseY, float partialTicks)
     {
-        this.updateFlappyGame();
+        this.backgroundRuntime.tickScene(UiExtensionManager.isMainMenuBackgroundShaderEnabled());
         GlStateManager.disableAlpha();
-        boolean shaderBackgroundRendered = this.renderShaderBackground();
+        boolean shaderBackgroundRendered = this.renderBackgroundScene();
 
         if (!shaderBackgroundRendered)
         {
@@ -632,7 +607,7 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
         float f = 1.8F - MathHelper.abs(MathHelper.sin((float)(Minecraft.getSystemTime() % 1000L) / 1000.0F * (float)Math.PI * 2.0F) * 0.1F);
         f = f * 100.0F / (float)(this.fontRendererObj.getStringWidth(this.splashText) + 32);
         GlStateManager.scale(f, f, f);
-        boolean shaderActive = UiExtensionManager.isSplashShaderEnabled() && this.getSplashShader().begin(-256);
+        boolean shaderActive = UiExtensionManager.isSplashShaderEnabled() && this.getMainMenuShader().begin(-256);
 
         try
         {
@@ -642,7 +617,7 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
         {
             if (shaderActive)
             {
-                this.splashShader.end();
+                this.getMainMenuShader().end();
             }
         }
 
@@ -657,7 +632,7 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
         this.drawString(this.fontRendererObj, s, 2, this.height - 10, -1);
         String s1 = "Copyright Mojang AB. Do not distribute!";
         this.drawString(this.fontRendererObj, s1, this.width - this.fontRendererObj.getStringWidth(s1) - 2, this.height - 10, -1);
-        this.drawFlappyHint();
+        this.drawBackgroundSceneHint();
 
         if (this.openGLWarning1 != null && this.openGLWarning1.length() > 0)
         {
@@ -679,257 +654,26 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
         }
     }
 
-    private boolean renderShaderBackground()
+    private boolean renderBackgroundScene()
     {
-        if (!UiExtensionManager.isMainMenuBackgroundShaderEnabled())
-        {
-            return false;
-        }
-
-        MainMenuSplashShader shader = this.getSplashShader();
-        shader.setFlappyState(this.flappyTick, this.flappyBirdY, this.flappyWingFrame, this.flappyAlive, true);
-        boolean shaderActive = shader.begin(16777215);
-
-        if (!shaderActive)
-        {
-            return false;
-        }
-
-        try
-        {
-            this.mc.getTextureManager().bindTexture(Gui.optionsBackground);
-            GlStateManager.disableCull();
-            GlStateManager.disableDepth();
-            GlStateManager.depthMask(false);
-            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
-            Tessellator tessellator = Tessellator.getInstance();
-            WorldRenderer worldrenderer = tessellator.getWorldRenderer();
-            worldrenderer.begin(7, DefaultVertexFormats.POSITION_TEX_COLOR);
-            worldrenderer.pos(0.0D, (double)this.height, (double)this.zLevel).tex(0.0D, 1.0D).color(255, 255, 255, 255).endVertex();
-            worldrenderer.pos((double)this.width, (double)this.height, (double)this.zLevel).tex(1.0D, 1.0D).color(255, 255, 255, 255).endVertex();
-            worldrenderer.pos((double)this.width, 0.0D, (double)this.zLevel).tex(1.0D, 0.0D).color(255, 255, 255, 255).endVertex();
-            worldrenderer.pos(0.0D, 0.0D, (double)this.zLevel).tex(0.0D, 0.0D).color(255, 255, 255, 255).endVertex();
-            tessellator.draw();
-            return true;
-        }
-        catch (Throwable throwable)
-        {
-            logger.warn("Main menu shader background render failed. Falling back to skybox.", throwable);
-            return false;
-        }
-        finally
-        {
-            shader.end();
-            GlStateManager.depthMask(true);
-            GlStateManager.enableDepth();
-            GlStateManager.enableCull();
-            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
-        }
+        return this.backgroundRuntime.renderSceneBackground(
+            this.mc,
+            this.width,
+            this.height,
+            this.zLevel,
+            UiExtensionManager.isMainMenuBackgroundShaderEnabled(),
+            logger
+        );
     }
 
-    private void updateFlappyGame()
+    private void drawBackgroundSceneHint()
     {
-        if (!UiExtensionManager.isMainMenuBackgroundShaderEnabled())
+        String status = this.backgroundRuntime.getOverlayHint(UiExtensionManager.isMainMenuBackgroundShaderEnabled());
+
+        if (status != null)
         {
-            this.flappyLastUpdateMs = System.currentTimeMillis();
-            return;
+            this.drawString(this.fontRendererObj, status, 6, 6, 16777215);
         }
-
-        long now = System.currentTimeMillis();
-
-        if (this.flappyLastUpdateMs == 0L)
-        {
-            this.flappyLastUpdateMs = now;
-            return;
-        }
-
-        float dt = (float)(now - this.flappyLastUpdateMs) / 1000.0F;
-        this.flappyLastUpdateMs = now;
-
-        if (dt <= 0.0F)
-        {
-            return;
-        }
-
-        if (dt > 0.05F)
-        {
-            dt = 0.05F;
-        }
-
-        this.flappyWingFrame += dt * 12.0F;
-
-        if (this.flappyJumpQueued)
-        {
-            this.flappyJumpQueued = false;
-
-            if (!this.flappyAlive)
-            {
-                this.resetFlappyGame();
-                return;
-            }
-
-            this.flappyVelocity = FLAPPY_FLAP_VELOCITY;
-        }
-
-        if (!this.flappyAlive)
-        {
-            return;
-        }
-
-        this.flappyTick += dt * 60.0F;
-        this.flappyVelocity += FLAPPY_GRAVITY * dt;
-        this.flappyBirdY += this.flappyVelocity * dt;
-
-        float levelHeight = this.getFlappyLevelHeight();
-
-        if (this.flappyBirdY <= FLAPPY_PIPE_BOTTOM)
-        {
-            this.flappyBirdY = FLAPPY_PIPE_BOTTOM;
-            this.markFlappyFailed();
-            return;
-        }
-
-        if (this.flappyBirdY + FLAPPY_BIRD_HEIGHT >= levelHeight - 1.0F)
-        {
-            this.flappyBirdY = levelHeight - FLAPPY_BIRD_HEIGHT - 1.0F;
-            this.markFlappyFailed();
-            return;
-        }
-
-        if (this.isFlappyPipeCollision())
-        {
-            this.markFlappyFailed();
-            return;
-        }
-
-        this.flappyScore = Math.max(0, (int)Math.floor((this.flappyTick + FLAPPY_BIRD_X) / FLAPPY_HORZ_PIPE_DISTANCE));
-        this.flappyBestScore = Math.max(this.flappyBestScore, this.flappyScore);
-    }
-
-    private boolean isFlappyPipeCollision()
-    {
-        float cycleLength = FLAPPY_HORZ_PIPE_DISTANCE * FLAPPY_PIPE_PER_CYCLE;
-        float offset = this.flappyTick % cycleLength;
-        float xPos = -offset;
-        float birdLeft = FLAPPY_BIRD_X;
-        float birdRight = FLAPPY_BIRD_X + FLAPPY_BIRD_WIDTH;
-        float birdBottom = this.flappyBirdY;
-        float birdTop = this.flappyBirdY + FLAPPY_BIRD_HEIGHT;
-
-        for (int i = 0; i < 12; ++i)
-        {
-            float pipeLeft = xPos;
-            float pipeRight = xPos + FLAPPY_PIPE_WIDTH;
-
-            if (birdRight >= pipeLeft && birdLeft <= pipeRight)
-            {
-                float bottomHeight = this.getFlappyBottomPipeHeight(i);
-                float gapBottom = FLAPPY_PIPE_BOTTOM + bottomHeight;
-                float gapTop = gapBottom + FLAPPY_VERT_PIPE_DISTANCE;
-
-                if (birdBottom < gapBottom || birdTop > gapTop)
-                {
-                    return true;
-                }
-            }
-
-            xPos += FLAPPY_HORZ_PIPE_DISTANCE;
-        }
-
-        return false;
-    }
-
-    private float getFlappyBottomPipeHeight(int index)
-    {
-        float center = (FLAPPY_PIPE_MAX + FLAPPY_PIPE_MIN) / 2.0F;
-        float halfTop = (center + FLAPPY_PIPE_MAX) / 2.0F;
-        float halfBottom = (center + FLAPPY_PIPE_MIN) / 2.0F;
-        int cycle = index % 8;
-
-        if (cycle == 1 || cycle == 3)
-        {
-            return halfTop;
-        }
-
-        if (cycle == 2)
-        {
-            return FLAPPY_PIPE_MAX;
-        }
-
-        if (cycle == 5 || cycle == 7)
-        {
-            return halfBottom;
-        }
-
-        if (cycle == 6)
-        {
-            return FLAPPY_PIPE_MIN;
-        }
-
-        return center;
-    }
-
-    private float getFlappyLevelHeight()
-    {
-        float y = (float)Math.max(1, Display.getHeight()) / 2.0F;
-
-        if (y >= 320.0F)
-        {
-            y /= 2.0F;
-        }
-
-        if (y < 100.0F)
-        {
-            y *= 2.0F;
-        }
-
-        return y;
-    }
-
-    private void markFlappyFailed()
-    {
-        if (!this.flappyAlive)
-        {
-            return;
-        }
-
-        this.flappyAlive = false;
-        this.flappyBestScore = Math.max(this.flappyBestScore, this.flappyScore);
-    }
-
-    private void resetFlappyGame()
-    {
-        this.flappyTick = 0.0F;
-        this.flappyBirdY = FLAPPY_START_Y;
-        this.flappyVelocity = 0.0F;
-        this.flappyWingFrame = 0.0F;
-        this.flappyAlive = true;
-        this.flappyScore = 0;
-        this.flappyJumpQueued = false;
-        this.flappyLastUpdateMs = System.currentTimeMillis();
-    }
-
-    private void queueFlappyJump()
-    {
-        if (!UiExtensionManager.isMainMenuBackgroundShaderEnabled())
-        {
-            return;
-        }
-
-        this.flappyJumpQueued = true;
-    }
-
-    private void drawFlappyHint()
-    {
-        if (!UiExtensionManager.isMainMenuBackgroundShaderEnabled())
-        {
-            return;
-        }
-
-        String status = this.flappyAlive
-            ? "空格跳跃  分数: " + this.flappyScore + "  最高: " + this.flappyBestScore
-            : "失败了，按空格重新开始  本次: " + this.flappyScore + "  最高: " + this.flappyBestScore;
-        this.drawString(this.fontRendererObj, status, 6, 6, 16777215);
     }
 
     /**
@@ -975,11 +719,7 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
      */
     public void onGuiClosed()
     {
-        if (this.splashShader != null)
-        {
-            this.splashShader.close();
-            this.splashShader = null;
-        }
+        this.backgroundRuntime.close();
 
         if (this.field_183503_M != null)
         {
@@ -987,14 +727,9 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
         }
     }
 
-    private MainMenuSplashShader getSplashShader()
+    private MainMenuSplashShader getMainMenuShader()
     {
-        if (this.splashShader == null)
-        {
-            this.splashShader = new MainMenuSplashShader();
-        }
-
-        return this.splashShader;
+        return this.backgroundRuntime.getOrCreateShader();
     }
 }
 

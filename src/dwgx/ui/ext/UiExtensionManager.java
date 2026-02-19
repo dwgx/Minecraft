@@ -29,6 +29,11 @@ public final class UiExtensionManager
         LoadingScreenRenderer create(Minecraft mc);
     }
 
+    public interface MainMenuBackgroundSceneFactory
+    {
+        MainMenuBackgroundScene create();
+    }
+
     private static final Logger LOGGER = LogManager.getLogger(UiExtensionManager.class);
     private static final String PROP_MAINMENU_REPLACE = "dwgx.ui.mainmenu.replace";
     private static final String PROP_LOADING_REPLACE = "dwgx.ui.loading.replace";
@@ -48,12 +53,20 @@ public final class UiExtensionManager
             return new DwgxLoadingScreenRenderer(mc);
         }
     };
+    private static final MainMenuBackgroundSceneFactory DEFAULT_MAIN_MENU_BACKGROUND_SCENE_FACTORY = new MainMenuBackgroundSceneFactory()
+    {
+        public MainMenuBackgroundScene create()
+        {
+            return new FlappyBirdBackgroundScene();
+        }
+    };
     private static volatile boolean mainMenuReplaceEnabled = readBooleanProperty(PROP_MAINMENU_REPLACE, true);
     private static volatile boolean loadingReplaceEnabled = readBooleanProperty(PROP_LOADING_REPLACE, true);
     private static volatile boolean splashShaderEnabled = readBooleanProperty(PROP_SPLASH_SHADER, true);
     private static volatile boolean backgroundShaderEnabled = readBooleanProperty(PROP_BACKGROUND_SHADER, true);
     private static volatile MainMenuFactory mainMenuFactory = DEFAULT_MAIN_MENU_FACTORY;
     private static volatile LoadingScreenFactory loadingFactory = DEFAULT_LOADING_FACTORY;
+    private static volatile MainMenuBackgroundSceneFactory mainMenuBackgroundSceneFactory = DEFAULT_MAIN_MENU_BACKGROUND_SCENE_FACTORY;
 
     private UiExtensionManager()
     {
@@ -94,6 +107,11 @@ public final class UiExtensionManager
         return backgroundShaderEnabled;
     }
 
+    public static MainMenuBackgroundScene createMainMenuBackgroundScene()
+    {
+        return createMainMenuBackgroundSceneSafely(mainMenuBackgroundSceneFactory);
+    }
+
     public static void setMainMenuReplaceEnabled(boolean enabled)
     {
         mainMenuReplaceEnabled = enabled;
@@ -124,10 +142,16 @@ public final class UiExtensionManager
         loadingFactory = factory == null ? DEFAULT_LOADING_FACTORY : factory;
     }
 
+    public static void setMainMenuBackgroundSceneFactory(MainMenuBackgroundSceneFactory factory)
+    {
+        mainMenuBackgroundSceneFactory = factory == null ? DEFAULT_MAIN_MENU_BACKGROUND_SCENE_FACTORY : factory;
+    }
+
     public static void resetFactories()
     {
         mainMenuFactory = DEFAULT_MAIN_MENU_FACTORY;
         loadingFactory = DEFAULT_LOADING_FACTORY;
+        mainMenuBackgroundSceneFactory = DEFAULT_MAIN_MENU_BACKGROUND_SCENE_FACTORY;
     }
 
     private static GuiScreen createMainMenuSafely(MainMenuFactory factory)
@@ -155,6 +179,20 @@ public final class UiExtensionManager
         {
             LOGGER.warn("Loading screen factory failed, falling back to LoadingScreenRenderer.", throwable);
             return new LoadingScreenRenderer(mc);
+        }
+    }
+
+    private static MainMenuBackgroundScene createMainMenuBackgroundSceneSafely(MainMenuBackgroundSceneFactory factory)
+    {
+        try
+        {
+            MainMenuBackgroundScene scene = factory == null ? null : factory.create();
+            return scene == null ? new FlappyBirdBackgroundScene() : scene;
+        }
+        catch (Throwable throwable)
+        {
+            LOGGER.warn("Main menu background scene factory failed, falling back to FlappyBirdBackgroundScene.", throwable);
+            return new FlappyBirdBackgroundScene();
         }
     }
 

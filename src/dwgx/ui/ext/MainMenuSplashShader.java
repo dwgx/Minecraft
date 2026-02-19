@@ -11,10 +11,16 @@ import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GLContext;
 
 /**
- * 主菜单 Flappy 着色器程序，可用于背景和 splash 文字渲染。
+ * 主菜单 Shader 程序，复用于 Splash 文本和背景渲染。
  */
 public final class MainMenuSplashShader
 {
+    public enum TextureAlphaMode
+    {
+        USE_SOURCE_ALPHA,
+        IGNORE_SOURCE_ALPHA
+    }
+
     private static final Logger LOGGER = LogManager.getLogger(MainMenuSplashShader.class);
     private static final String VERTEX_SOURCE =
         "#version 120\n" +
@@ -30,24 +36,28 @@ public final class MainMenuSplashShader
         "uniform sampler2D uTex;\n" +
         "uniform float uTime;\n" +
         "uniform vec3 uBaseColor;\n" +
+        "uniform float uUseTexAlpha;\n" +
         "varying vec2 vTexCoord;\n" +
         "varying vec4 vColor;\n" +
         "void main() {\n" +
         "    vec4 texel = texture2D(uTex, vTexCoord);\n" +
         "    float wave = 0.5 + 0.5 * sin(vTexCoord.x * 16.0 + vTexCoord.y * 6.0 + uTime * 3.0);\n" +
         "    vec3 pulse = mix(uBaseColor * 0.62, vec3(1.0), wave);\n" +
-        "    vec4 outColor = vec4(pulse, 1.0) * texel * vColor;\n" +
-        "    if (outColor.a <= 0.001) {\n" +
+        "    float texMode = uUseTexAlpha > 0.5 ? 1.0 : 0.0;\n" +
+        "    if (texMode > 0.5 && texel.a <= 0.001) {\n" +
         "        discard;\n" +
         "    }\n" +
+        "    vec3 texRgb = texMode > 0.5 ? texel.rgb : vec3(1.0);\n" +
+        "    float texAlpha = texMode > 0.5 ? texel.a : 1.0;\n" +
+        "    vec4 outColor = vec4(pulse * texRgb, texAlpha) * vColor;\n" +
         "    gl_FragColor = outColor;\n" +
         "}\n";
-    private static final String FRAGMENT_SOURCE = flappybird_frag.source();
+    private static final String FRAGMENT_SOURCE = FlappyBirdBackgroundScene.fragmentShaderSource();
 
     private int programId;
     private int vertexShaderId;
     private int fragmentShaderId;
-    private int uniformTex = -1;
+    private int uniformTexture = -1;
     private int uniformTime = -1;
     private int uniformResolution = -1;
     private int uniformBaseColor = -1;
@@ -56,6 +66,7 @@ public final class MainMenuSplashShader
     private int uniformBirdFrame = -1;
     private int uniformBirdAlive = -1;
     private int uniformControlEnabled = -1;
+    private int uniformUseTexAlpha = -1;
     private boolean failed;
     private boolean active;
     private long startAtMs = System.currentTimeMillis();
@@ -76,6 +87,16 @@ public final class MainMenuSplashShader
 
     public boolean begin(int baseColor)
     {
+        return this.begin(baseColor, TextureAlphaMode.USE_SOURCE_ALPHA);
+    }
+
+    public boolean begin(int baseColor, boolean useTextureAlpha)
+    {
+        return this.begin(baseColor, useTextureAlpha ? TextureAlphaMode.USE_SOURCE_ALPHA : TextureAlphaMode.IGNORE_SOURCE_ALPHA);
+    }
+
+    public boolean begin(int baseColor, TextureAlphaMode alphaMode)
+    {
         if (!isShaderPathAvailable())
         {
             return false;
@@ -86,10 +107,15 @@ public final class MainMenuSplashShader
             return false;
         }
 
+        TextureAlphaMode resolvedMode = alphaMode == null ? TextureAlphaMode.USE_SOURCE_ALPHA : alphaMode;
+
         try
         {
+            OpenGlHelper.setActiveTexture(OpenGlHelper.defaultTexUnit);
+            OpenGlHelper.setClientActiveTexture(OpenGlHelper.defaultTexUnit);
             OpenGlHelper.glUseProgram(this.programId);
-            OpenGlHelper.glUniform1i(this.uniformTex, 0);
+            OpenGlHelper.glUniform1i(this.uniformTexture, 0);
+            this.setUniform1f(this.uniformUseTexAlpha, resolvedMode == TextureAlphaMode.USE_SOURCE_ALPHA ? 1.0F : 0.0F);
             this.setUniform1f(this.uniformTime, (float)(System.currentTimeMillis() - this.startAtMs) / 1000.0F);
             this.setUniform2f(this.uniformResolution, (float)Math.max(1, Display.getWidth()), (float)Math.max(1, Display.getHeight()));
             this.setUniform1f(this.uniformGameTick, this.flappyGameTick);
@@ -109,7 +135,7 @@ public final class MainMenuSplashShader
         {
             this.active = false;
             OpenGlHelper.glUseProgram(0);
-            this.markFailed("Failed to activate splash shader program.", throwable);
+            this.markFailed("主菜单着色器激活失败。", throwable);
             return false;
         }
     }
@@ -146,13 +172,14 @@ public final class MainMenuSplashShader
         try
         {
             this.vertexShaderId = this.compileShader(OpenGlHelper.GL_VERTEX_SHADER, VERTEX_SOURCE);
+
             try
             {
                 this.fragmentShaderId = this.compileShader(OpenGlHelper.GL_FRAGMENT_SHADER, FRAGMENT_SOURCE);
             }
             catch (Throwable primaryError)
             {
-                LOGGER.warn("Primary splash fragment shader failed; using fallback fragment shader.", primaryError);
+                LOGGER.warn("主片段着色器编译失败，已回退到内置片段着色器：{}", primaryError.getMessage());
                 this.fragmentShaderId = this.compileShader(OpenGlHelper.GL_FRAGMENT_SHADER, FALLBACK_FRAGMENT_SOURCE);
             }
 
@@ -167,8 +194,9 @@ public final class MainMenuSplashShader
                 throw new IllegalStateException("Program link failed: " + info);
             }
 
-            this.uniformTex = OpenGlHelper.glGetUniformLocation(this.programId, "uTex");
+            this.uniformTexture = OpenGlHelper.glGetUniformLocation(this.programId, "uTex");
             this.uniformTime = OpenGlHelper.glGetUniformLocation(this.programId, "iTime");
+
             if (this.uniformTime < 0)
             {
                 this.uniformTime = OpenGlHelper.glGetUniformLocation(this.programId, "uTime");
@@ -181,12 +209,13 @@ public final class MainMenuSplashShader
             this.uniformBirdFrame = OpenGlHelper.glGetUniformLocation(this.programId, "uBirdFrame");
             this.uniformBirdAlive = OpenGlHelper.glGetUniformLocation(this.programId, "uBirdAlive");
             this.uniformControlEnabled = OpenGlHelper.glGetUniformLocation(this.programId, "uControlEnabled");
+            this.uniformUseTexAlpha = OpenGlHelper.glGetUniformLocation(this.programId, "uUseTexAlpha");
             this.startAtMs = System.currentTimeMillis();
             return true;
         }
         catch (Throwable throwable)
         {
-            this.markFailed("Splash shader initialization failed.", throwable);
+            this.markFailed("主菜单着色器初始化失败。", throwable);
             this.deleteProgram();
             return false;
         }
@@ -229,7 +258,7 @@ public final class MainMenuSplashShader
             this.programId = 0;
         }
 
-        this.uniformTex = -1;
+        this.uniformTexture = -1;
         this.uniformTime = -1;
         this.uniformResolution = -1;
         this.uniformBaseColor = -1;
@@ -238,6 +267,7 @@ public final class MainMenuSplashShader
         this.uniformBirdFrame = -1;
         this.uniformBirdAlive = -1;
         this.uniformControlEnabled = -1;
+        this.uniformUseTexAlpha = -1;
     }
 
     private void markFailed(String message, Throwable throwable)
