@@ -575,19 +575,34 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         float ratio = UiMotion.clamp01((value - min) / Math.max(0.0001F, max - min));
         float targetRatio = dragging ? NanoSliderController.mouseRatio((float)this.mouseX, track.x, track.w) : ratio;
         String key = this.sliderAnimKey(sliderKey);
-        float displayRatio = NanoSliderController.resolveDisplayRatio("hud.editor.slider." + key, targetRatio, dragging, animProfile);
+        float displayRatio = NanoSliderController.resolveDisplayRatio("hud.editor.slider." + key + ".track", targetRatio, dragging, animProfile);
+        float fillRatio = NanoSliderController.resolveFillRatio("hud.editor.slider." + key, targetRatio, dragging, animProfile);
+        float knobRatio = NanoSliderController.resolveKnobRatio("hud.editor.slider." + key, targetRatio, dragging, animProfile);
         float focus = NanoSliderController.resolveFocus("hud.editor.slider.focus." + key, hovered, dragging, animProfile);
+        float glowRatio = NanoSliderController.resolveGlow("hud.editor.slider.glow." + key, hovered, dragging, animProfile);
 
         NanoUi.drawLeftText(vg, stack, bold, track.x, track.y - scaled(8.0F, scale), scaled(11.5F, scale), theme.textArgb(), label);
         this.drawSliderValueInput(vg, stack, regular, theme, valueRect, track, sliderKey, value, scale, hovered);
 
         NanoUi.drawSurface(vg, stack, track.x, track.y, track.w, track.h, theme.controlRadius(), theme.controlArgb(), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 98));
-        NanoUi.drawSurface(vg, stack, track.x + 1.0F, track.y + 1.0F, Math.max(0.0F, (track.w - 2.0F) * displayRatio), Math.max(0.0F, track.h - 2.0F), Math.max(2.0F, theme.controlRadius() - 1.0F), this.mixArgb(theme.controlActiveArgb(), theme.accentArgb(), 0.74F), 0);
-
-        float handleX = track.x + track.w * displayRatio;
-        float knobSize = 8.0F + 2.5F * focus + (dragging ? 1.2F : 0.0F);
+        float rawHandleX = track.x + track.w * knobRatio;
+        float knobSize = 8.0F + 2.0F * focus + 1.8F * glowRatio + (dragging ? 1.3F : 0.0F);
+        float handleX = UiMotion.clamp(rawHandleX, track.x + knobSize * 0.5F, track.x + track.w - knobSize * 0.5F);
         float knobX = handleX - knobSize * 0.5F;
         float knobY = track.y + (track.h - knobSize) * 0.5F;
+        float trackInnerX = track.x + 1.0F;
+        float trackInnerW = Math.max(0.0F, track.w - 2.0F);
+        float knobLeadX = handleX - knobSize * 0.5F;
+        float fillTargetEnd = trackInnerX + trackInnerW * fillRatio;
+        float fillEnd = Math.min(fillTargetEnd, knobLeadX);
+        float fillW = Math.max(0.0F, fillEnd - trackInnerX);
+        NanoUi.drawSurface(vg, stack, trackInnerX, track.y + 1.0F, fillW, Math.max(0.0F, track.h - 2.0F), Math.max(2.0F, theme.controlRadius() - 1.0F), this.mixArgb(theme.controlActiveArgb(), theme.accentArgb(), 0.74F), 0);
+        float lineGlowTargetEnd = trackInnerX + trackInnerW * displayRatio;
+        float lineGlowEnd = Math.min(lineGlowTargetEnd, knobLeadX);
+        float lineGlowW = Math.max(0.0F, lineGlowEnd - trackInnerX);
+        NanoUi.drawSurface(vg, stack, trackInnerX, track.y + 1.0F, lineGlowW, Math.max(0.0F, track.h - 2.0F), Math.max(2.0F, theme.controlRadius() - 1.5F), NanoRenderUtils.withAlpha(theme.accentSoftArgb(), 34 + Math.round(glowRatio * 58.0F)), 0);
+        float glow = knobSize + 1.8F * focus + 2.2F * glowRatio;
+        NanoUi.drawSurface(vg, stack, handleX - glow * 0.5F, track.y + (track.h - glow) * 0.5F, glow, glow, glow * 0.5F, NanoRenderUtils.withAlpha(0xFFF5F9FF, 46 + Math.round((focus * 0.48F + glowRatio * 0.52F) * 74.0F)), 0);
         NanoUi.drawSurface(vg, stack, knobX, knobY, knobSize, knobSize, knobSize * 0.5F, this.mixArgb(theme.accentArgb(), 0xFFF8FBFF, 0.55F), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 110));
     }
 
@@ -602,14 +617,15 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         boolean fieldHovered = valueRect.contains(this.mouseX, this.mouseY);
         boolean active = sliderKey.equals(this.activeSliderInputKey) && this.numberInput.isFocused();
         String animKey = "hud.editor.slider.input." + sliderKey;
+        ClickGuiModule clickGui = this.resolveClickGuiModule();
+        UiAnimProfile animProfile = UiAnimProfiles.inputProfile(clickGui, this.resolveAnimationProfile(clickGui));
 
         if (active)
         {
-            this.numberInput.draw(vg, stack, font, theme, valueRect.x, valueRect.y, valueRect.w, valueRect.h, scale, scaled(10.2F, scale), this.numberInputBuffer.get(), this.tr("clickgui.input.number.placeholder", "Input..."), hoveredTrack || fieldHovered, true, animKey);
+            this.numberInput.draw(vg, stack, font, theme, valueRect.x, valueRect.y, valueRect.w, valueRect.h, scale, scaled(10.2F, scale), this.numberInputBuffer.get(), this.tr("clickgui.input.number.placeholder", "Input..."), hoveredTrack || fieldHovered, true, animKey, animProfile);
             return;
         }
 
-        UiAnimProfile animProfile = this.resolveAnimationProfile(this.resolveClickGuiModule());
         float focus = UiAnimationBus.animateControl(animKey + ".idle.focus", fieldHovered ? 1.0F : 0.0F, animProfile);
         int fill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.38F + focus * 0.32F));
         int border = this.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 92), NanoRenderUtils.withAlpha(theme.accentArgb(), 142), UiMotion.clamp01(focus * 0.72F));

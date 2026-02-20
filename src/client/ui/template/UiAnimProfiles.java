@@ -100,4 +100,51 @@ public final class UiAnimProfiles
             resolved.type()
         );
     }
+
+    public static float pageSpeed(ClickGuiModule clickGui, UiAnimProfile profile)
+    {
+        UiAnimProfile resolved = profile == null ? UiAnimProfile.defaults() : profile;
+        float speed = clickGui == null ? resolved.windowSpeed() : clickGui.getPageAnimationSpeed();
+        return UiMotion.clamp(speed, 0.05F, 1.0F);
+    }
+
+    public static float listSpeed(ClickGuiModule clickGui, UiAnimProfile profile)
+    {
+        UiAnimProfile resolved = profile == null ? UiAnimProfile.defaults() : profile;
+        float speed = clickGui == null ? resolved.controlSpeed() : clickGui.getListAnimationSpeed();
+        return UiMotion.clamp(speed, 0.05F, 1.0F);
+    }
+
+    public static float selectionSpeed(ClickGuiModule clickGui, UiAnimProfile profile)
+    {
+        UiAnimProfile resolved = profile == null ? UiAnimProfile.defaults() : profile;
+        float speed = clickGui == null ? resolved.controlSpeed() : clickGui.getSelectionAnimationSpeed();
+        return UiMotion.clamp(speed, 0.05F, 1.0F);
+    }
+
+    public static UiAnimProfile inputProfile(ClickGuiModule clickGui, UiAnimProfile profile)
+    {
+        UiAnimProfile resolved = profile == null ? UiAnimProfile.defaults() : profile;
+
+        if (clickGui == null)
+        {
+            return new UiAnimProfile(
+                resolved.isEnabled(),
+                resolved.windowSpeed(),
+                resolved.controlSpeed(),
+                resolved.sliderSpeed(),
+                resolved.smooth(),
+                resolved.type()
+            );
+        }
+
+        return new UiAnimProfile(
+            resolved.isEnabled(),
+            resolved.windowSpeed(),
+            clickGui.getInputAnimationSpeed(),
+            resolved.sliderSpeed(),
+            clickGui.getInputAnimationSmooth(),
+            clickGui.getInputAnimationType()
+        );
+    }
 }

@@ -431,22 +431,36 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         float ratio = (value - min) / Math.max(0.0001F, max - min);
         ratio = UiMotion.clamp01(ratio);
         float visualTarget = dragging ? this.sliderRatioFromMouse(this.mouseX, track) : ratio;
-        float displayRatio = NanoSliderController.resolveDisplayRatio("uiscale.slider." + sliderKey, visualTarget, dragging, animProfile);
+        float displayRatio = NanoSliderController.resolveDisplayRatio("uiscale.slider." + sliderKey + ".track", visualTarget, dragging, animProfile);
+        float fillRatio = NanoSliderController.resolveFillRatio("uiscale.slider." + sliderKey, visualTarget, dragging, animProfile);
+        float knobRatio = NanoSliderController.resolveKnobRatio("uiscale.slider." + sliderKey, visualTarget, dragging, animProfile);
         float focus = NanoSliderController.resolveFocus("uiscale.slider.focus." + sliderKey, hovered, dragging, animProfile);
+        float glowRatio = NanoSliderController.resolveGlow("uiscale.slider.glow." + sliderKey, hovered, dragging, animProfile);
         NanoUi.drawLeftText(vg, stack, bold, track.x, track.y - scaled(11.0F, k), scaled(14.5F, k), theme.textArgb(), label);
         this.drawSliderValueInput(vg, stack, regular, theme, valueRect, track, sliderKey, value, k, hovered);
         int trackFill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.44F + focus * 0.30F));
         float trackRadius = Math.min(track.h * 0.5F, theme.controlRadius());
         NanoUi.drawSurface(vg, stack, track.x, track.y, track.w, track.h, trackRadius, trackFill, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 112));
-        NanoUi.drawSurface(vg, stack, track.x + scaled(1.0F, k), track.y + scaled(1.0F, k), Math.max(0.0F, (track.w - scaled(2.0F, k)) * displayRatio), track.h - scaled(2.0F, k), Math.max(scaled(1.8F, k), trackRadius - scaled(1.4F, k)), this.mixArgb(theme.controlActiveArgb(), theme.accentArgb(), 0.74F), 0);
-        float handleX = track.x + displayRatio * track.w;
-        float knobSize = scaled(7.5F, k) + scaled(2.5F, k) * focus + (dragging ? scaled(1.4F, k) : 0.0F);
+        float rawHandleX = track.x + knobRatio * track.w;
+        float knobSize = scaled(7.2F, k) + scaled(2.0F, k) * focus + scaled(1.6F, k) * glowRatio + (dragging ? scaled(1.5F, k) : 0.0F);
+        float handleX = UiMotion.clamp(rawHandleX, track.x + knobSize * 0.5F, track.x + track.w - knobSize * 0.5F);
         float knobX = handleX - knobSize * 0.5F;
         float knobY = track.y + (track.h - knobSize) * 0.5F;
+        float trackInnerX = track.x + scaled(1.0F, k);
+        float trackInnerW = Math.max(0.0F, track.w - scaled(2.0F, k));
+        float knobLeadX = handleX - knobSize * 0.5F;
+        float fillTargetEnd = trackInnerX + trackInnerW * fillRatio;
+        float fillEnd = Math.min(fillTargetEnd, knobLeadX);
+        float fillW = Math.max(0.0F, fillEnd - trackInnerX);
+        NanoUi.drawSurface(vg, stack, trackInnerX, track.y + scaled(1.0F, k), fillW, track.h - scaled(2.0F, k), Math.max(scaled(1.8F, k), trackRadius - scaled(1.4F, k)), this.mixArgb(theme.controlActiveArgb(), theme.accentArgb(), 0.74F), 0);
+        float lineGlowTargetEnd = trackInnerX + trackInnerW * displayRatio;
+        float lineGlowEnd = Math.min(lineGlowTargetEnd, knobLeadX);
+        float lineGlowW = Math.max(0.0F, lineGlowEnd - trackInnerX);
+        NanoUi.drawSurface(vg, stack, trackInnerX, track.y + scaled(1.0F, k), lineGlowW, track.h - scaled(2.0F, k), Math.max(scaled(1.2F, k), trackRadius - scaled(2.0F, k)), NanoRenderUtils.withAlpha(theme.accentSoftArgb(), 38 + Math.round(glowRatio * 62.0F)), 0);
+        float glow = knobSize + scaled(2.1F, k) * focus + scaled(2.4F, k) * glowRatio;
+        NanoUi.drawSurface(vg, stack, handleX - glow * 0.5F, track.y + (track.h - glow) * 0.5F, glow, glow, glow * 0.5F, NanoRenderUtils.withAlpha(0xFFF5F9FF, 50 + Math.round((focus * 0.5F + glowRatio * 0.5F) * 78.0F)), 0);
         int knobColor = this.mixArgb(theme.accentArgb(), 0xFFF8FBFF, UiMotion.clamp01(0.40F + focus * 0.52F));
         NanoUi.drawSurface(vg, stack, knobX, knobY, knobSize, knobSize, knobSize * 0.5F, knobColor, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 110));
-        float glow = knobSize + scaled(2.0F, k) * focus;
-        NanoUi.drawSurface(vg, stack, handleX - glow * 0.5F, track.y + (track.h - glow) * 0.5F, glow, glow, glow * 0.5F, NanoRenderUtils.withAlpha(0xFFF5F9FF, 62 + Math.round(focus * 92.0F)), 0);
 
         if (showHint && k >= 0.72F)
         {
@@ -465,14 +479,15 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         boolean fieldHovered = valueRect.contains(this.mouseX, this.mouseY);
         boolean active = sliderKey.equals(this.activeSliderInputKey) && this.numberInput.isFocused();
         String animKey = "uiscale.slider.input." + sliderKey;
+        ClickGuiModule clickGui = this.resolveClickGuiModule();
+        UiAnimProfile animProfile = UiAnimProfiles.inputProfile(clickGui, UiAnimProfiles.uiScaleProfile(clickGui));
 
         if (active)
         {
-            this.numberInput.draw(vg, stack, font, theme, valueRect.x, valueRect.y, valueRect.w, valueRect.h, scale, scaled(10.2F, scale), this.numberInputBuffer.get(), this.tr("clickgui.input.number.placeholder", "Input..."), hoveredTrack || fieldHovered, true, animKey);
+            this.numberInput.draw(vg, stack, font, theme, valueRect.x, valueRect.y, valueRect.w, valueRect.h, scale, scaled(10.2F, scale), this.numberInputBuffer.get(), this.tr("clickgui.input.number.placeholder", "Input..."), hoveredTrack || fieldHovered, true, animKey, animProfile);
             return;
         }
 
-        UiAnimProfile animProfile = UiAnimProfiles.uiScaleProfile(this.resolveClickGuiModule());
         float focus = UiAnimationBus.animateControl(animKey + ".idle.focus", fieldHovered ? 1.0F : 0.0F, animProfile);
         int fill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.38F + focus * 0.32F));
         int border = this.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 92), NanoRenderUtils.withAlpha(theme.accentArgb(), 142), UiMotion.clamp01(focus * 0.72F));

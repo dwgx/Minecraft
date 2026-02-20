@@ -823,22 +823,35 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         boolean dragging = this.draggingSettingSlider == setting;
         Rect dragTrack = dragging ? this.resolveSliderDragTrack(track) : track;
         float visualTarget = dragging ? NanoSliderController.mouseRatio((float)this.mouseX, dragTrack.x, dragTrack.w) : ratio;
-        float displayRatio = NanoSliderController.resolveDisplayRatio(key, visualTarget, dragging, animProfile);
+        float displayRatio = NanoSliderController.resolveDisplayRatio(key + ".track", visualTarget, dragging, animProfile);
+        float fillRatio = NanoSliderController.resolveFillRatio(key, visualTarget, dragging, animProfile);
+        float knobRatio = NanoSliderController.resolveKnobRatio(key, visualTarget, dragging, animProfile);
         float focus = NanoSliderController.resolveFocus(key + ".focus", hovered, dragging, animProfile);
+        float glowRatio = NanoSliderController.resolveGlow(key + ".glow", hovered, dragging, animProfile);
         int trackFill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.44F + focus * 0.30F));
         float trackRadius = Math.min(track.h * 0.5F, this.stableControlRadius(k));
         NanoUi.drawSurface(vg, stack, track.x, track.y, track.w, track.h, trackRadius, trackFill, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 114));
-        float fillW = Math.max(0.0F, (track.w - scaled(2.0F, k)) * displayRatio);
-        int activeFill = this.mixArgb(theme.controlActiveArgb(), theme.accentArgb(), 0.74F);
-        NanoUi.drawSurface(vg, stack, track.x + scaled(1.0F, k), track.y + scaled(1.0F, k), fillW, track.h - scaled(2.0F, k), Math.max(scaled(1.6F, k), trackRadius - scaled(1.6F, k)), activeFill, 0);
-        float handleX = track.x + displayRatio * track.w;
-        float knobSize = scaled(5.8F, k) + scaled(1.6F, k) * focus + (dragging ? scaled(0.9F, k) : 0.0F);
+        float rawHandleX = track.x + knobRatio * track.w;
+        float knobSize = scaled(5.8F, k) + scaled(1.4F, k) * focus + scaled(1.0F, k) * glowRatio + (dragging ? scaled(1.1F, k) : 0.0F);
+        float handleX = UiMotion.clamp(rawHandleX, track.x + knobSize * 0.5F, track.x + track.w - knobSize * 0.5F);
         float knobX = handleX - knobSize * 0.5F;
         float knobY = track.y + (track.h - knobSize) * 0.5F;
+        float trackInnerX = track.x + scaled(1.0F, k);
+        float trackInnerW = Math.max(0.0F, track.w - scaled(2.0F, k));
+        float knobLeadX = handleX - knobSize * 0.5F;
+        float fillTargetEnd = trackInnerX + trackInnerW * fillRatio;
+        float fillEnd = Math.min(fillTargetEnd, knobLeadX);
+        float fillW = Math.max(0.0F, fillEnd - trackInnerX);
+        int activeFill = this.mixArgb(theme.controlActiveArgb(), theme.accentArgb(), 0.74F);
+        NanoUi.drawSurface(vg, stack, trackInnerX, track.y + scaled(1.0F, k), fillW, track.h - scaled(2.0F, k), Math.max(scaled(1.6F, k), trackRadius - scaled(1.6F, k)), activeFill, 0);
+        float lineGlowTargetEnd = trackInnerX + trackInnerW * displayRatio;
+        float lineGlowEnd = Math.min(lineGlowTargetEnd, knobLeadX);
+        float lineGlowW = Math.max(0.0F, lineGlowEnd - trackInnerX);
+        NanoUi.drawSurface(vg, stack, trackInnerX, track.y + scaled(1.0F, k), lineGlowW, track.h - scaled(2.0F, k), Math.max(scaled(1.2F, k), trackRadius - scaled(2.2F, k)), NanoRenderUtils.withAlpha(theme.accentSoftArgb(), 40 + Math.round(glowRatio * 56.0F)), 0);
+        float glow = knobSize + scaled(1.2F, k) * focus + scaled(1.8F, k) * glowRatio;
+        NanoUi.drawSurface(vg, stack, handleX - glow * 0.5F, track.y + (track.h - glow) * 0.5F, glow, glow, glow * 0.5F, NanoRenderUtils.withAlpha(0xFFF5F9FF, 48 + Math.round((focus * 0.52F + glowRatio * 0.48F) * 74.0F)), 0);
         int knobColor = this.mixArgb(theme.accentArgb(), 0xFFF8FBFF, UiMotion.clamp01(0.40F + focus * 0.52F));
         NanoUi.drawSurface(vg, stack, knobX, knobY, knobSize, knobSize, knobSize * 0.5F, knobColor, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 110));
-        float glow = knobSize + scaled(1.0F, k) * focus;
-        NanoUi.drawSurface(vg, stack, handleX - glow * 0.5F, track.y + (track.h - glow) * 0.5F, glow, glow, glow * 0.5F, NanoRenderUtils.withAlpha(0xFFF5F9FF, 62 + Math.round(focus * 92.0F)), 0);
         this.drawNumberValueInput(vg, stack, valueRect, row, setting, hovered, theme, k, font, "client.settings.number." + setting.getKey());
     }
 
@@ -851,14 +864,15 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
         boolean fieldHovered = valueRect.contains(this.mouseX, this.mouseY);
         boolean active = this.activeNumberSetting == setting && this.numberInput.isFocused();
+        ClickGuiModule clickGui = this.resolveClickGuiModule();
+        UiAnimProfile animProfile = this.resolveInputAnimationProfile(clickGui, this.resolveAnimationProfile(clickGui));
 
         if (active)
         {
-            this.numberInput.draw(vg, stack, font, theme, valueRect.x, valueRect.y, valueRect.w, valueRect.h, scale, scaled(10.2F, scale), this.numberInputBuffer.get(), this.tr("clickgui.input.number.placeholder", "Input..."), hoveredRow || fieldHovered, true, animKey);
+            this.numberInput.draw(vg, stack, font, theme, valueRect.x, valueRect.y, valueRect.w, valueRect.h, scale, scaled(10.2F, scale), this.numberInputBuffer.get(), this.tr("clickgui.input.number.placeholder", "Input..."), hoveredRow || fieldHovered, true, animKey, animProfile);
             return;
         }
 
-        UiAnimProfile animProfile = this.resolveAnimationProfile(this.resolveClickGuiModule());
         float focus = UiAnimationBus.animateControl(animKey + ".idle.focus", fieldHovered ? 1.0F : 0.0F, animProfile);
         int fill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.38F + focus * 0.32F));
         int border = this.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 92), NanoRenderUtils.withAlpha(theme.accentArgb(), 142), UiMotion.clamp01(focus * 0.72F));
@@ -1328,7 +1342,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
         if (this.section == SettingsSection.ANIMATION)
         {
-            if ("ui_anim_type".equals(key))
+            if ("ui_anim_type".equals(key) || "ui_input_anim_type".equals(key))
             {
                 return this.tr("client.settings.group.controls", "Controls");
             }
@@ -1338,12 +1352,18 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
                 return this.tr("client.settings.group.global", "Global");
             }
 
-            if (key.startsWith("ui_control_") || key.startsWith("ui_slider_"))
+            if (key.startsWith("ui_control_") || key.startsWith("ui_slider_") || key.startsWith("ui_input_"))
             {
                 return this.tr("client.settings.group.controls", "Controls");
             }
 
-            if (key.startsWith("ui_open_") || key.startsWith("ui_close_") || key.startsWith("ui_switch_") || key.startsWith("ui_back_"))
+            if (key.startsWith("ui_page_")
+                || key.startsWith("ui_list_")
+                || key.startsWith("ui_selection_")
+                || key.startsWith("ui_open_")
+                || key.startsWith("ui_close_")
+                || key.startsWith("ui_switch_")
+                || key.startsWith("ui_back_"))
             {
                 return this.tr("client.settings.group.page_transition", "Page Transition");
             }
@@ -1548,7 +1568,17 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
             return false;
         }
 
-        return key.startsWith("ui_anim_") || key.startsWith("ui_control_") || key.startsWith("ui_slider_") || key.startsWith("ui_open_") || key.startsWith("ui_close_") || key.startsWith("ui_switch_") || key.startsWith("ui_back_");
+        return key.startsWith("ui_anim_")
+            || key.startsWith("ui_control_")
+            || key.startsWith("ui_slider_")
+            || key.startsWith("ui_page_")
+            || key.startsWith("ui_list_")
+            || key.startsWith("ui_selection_")
+            || key.startsWith("ui_input_")
+            || key.startsWith("ui_open_")
+            || key.startsWith("ui_close_")
+            || key.startsWith("ui_switch_")
+            || key.startsWith("ui_back_");
     }
 
     private Rect settingRowRect(Layout l, int visibleIndex, float scrollOffset)
@@ -2256,6 +2286,11 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
     private UiAnimProfile resolveAnimationProfile(ClickGuiModule clickGui)
     {
         return UiAnimProfiles.settingsProfile(clickGui);
+    }
+
+    private UiAnimProfile resolveInputAnimationProfile(ClickGuiModule clickGui, UiAnimProfile profile)
+    {
+        return UiAnimProfiles.inputProfile(clickGui, profile);
     }
 
     private UiAnimProfile resolveWindowAnimationProfile(ClickGuiModule clickGui)

@@ -31,13 +31,23 @@ public final class ClickGuiModule extends Module
     private final FloatSetting controlAnimationSpeed;
     private final BoolSetting sliderAnimationEnabled;
     private final FloatSetting sliderAnimationSpeed;
+    private final FloatSetting pageAnimationSpeed;
+    private final FloatSetting listAnimationSpeed;
+    private final FloatSetting selectionAnimationSpeed;
+    private final FloatSetting inputAnimationSpeed;
+    private final FloatSetting inputAnimationSmooth;
     private final EnumSetting<UiAnimation.Type> controlAnimationType;
+    private final EnumSetting<UiAnimation.Type> inputAnimationType;
     private final EnumSetting<UiAnimation.Type> guiOpenAnimationType;
     private final EnumSetting<UiAnimation.Type> guiCloseAnimationType;
     private final EnumSetting<UiAnimation.Type> guiSwitchAnimationType;
     private final EnumSetting<UiAnimation.Type> guiBackAnimationType;
     private final IntSetting lastCategoryOrdinal;
     private final IntSetting lastModuleIndex;
+    private final IntSetting lastCategoryScroll;
+    private final IntSetting lastModuleScroll;
+    private final IntSetting lastSettingScroll;
+    private final IntSetting lastCompatSettingScroll;
     private final FloatSetting settingCenterScale;
     private final FloatSetting settingCenterAnchorX;
     private final FloatSetting settingCenterAnchorY;
@@ -64,13 +74,23 @@ public final class ClickGuiModule extends Module
         this.controlAnimationSpeed = this.addSetting(new FloatSetting("ui_control_anim_speed", "Control Anim Speed", "Toggle/button transition speed", 0.58F, 0.05F, 1.0F, 0.01F));
         this.sliderAnimationEnabled = this.addSetting(new BoolSetting("ui_slider_anim_enabled", "Slider Anim Enable", "Enable slider interpolation animation", true));
         this.sliderAnimationSpeed = this.addSetting(new FloatSetting("ui_slider_anim_speed", "Slider Anim Speed", "Slider follow transition speed", 0.62F, 0.05F, 1.0F, 0.01F));
+        this.pageAnimationSpeed = this.addSetting(new FloatSetting("ui_page_anim_speed", "Page Anim Speed", "Page browsing transition speed", 0.62F, 0.05F, 1.0F, 0.01F));
+        this.listAnimationSpeed = this.addSetting(new FloatSetting("ui_list_anim_speed", "List Anim Speed", "List item enter/exit transition speed", 0.66F, 0.05F, 1.0F, 0.01F));
+        this.selectionAnimationSpeed = this.addSetting(new FloatSetting("ui_selection_anim_speed", "Selection Anim Speed", "Selection frame transition speed", 0.68F, 0.05F, 1.0F, 0.01F));
+        this.inputAnimationSpeed = this.addSetting(new FloatSetting("ui_input_anim_speed", "Input Anim Speed", "Text input transition speed", 0.64F, 0.05F, 1.0F, 0.01F));
+        this.inputAnimationSmooth = this.addSetting(new FloatSetting("ui_input_anim_smooth", "Input Anim Smooth", "Text input transition smoothing", 0.70F, 0.0F, 1.0F, 0.01F));
         this.controlAnimationType = this.addSetting(new EnumSetting<UiAnimation.Type>("ui_anim_type", "Control Anim Type", "Toggle/slider animation type", UiAnimation.Type.class, UiAnimation.Type.EASE_OUT));
+        this.inputAnimationType = this.addSetting(new EnumSetting<UiAnimation.Type>("ui_input_anim_type", "Input Anim Type", "Text input animation type", UiAnimation.Type.class, UiAnimation.Type.EASE_OUT));
         this.guiOpenAnimationType = this.addSetting(new EnumSetting<UiAnimation.Type>("ui_open_anim_type", "GUI Open Anim", "Animation used when GUI opens", UiAnimation.Type.class, UiAnimation.Type.EASE_OUT));
         this.guiCloseAnimationType = this.addSetting(new EnumSetting<UiAnimation.Type>("ui_close_anim_type", "GUI Close Anim", "Animation used when GUI closes", UiAnimation.Type.class, UiAnimation.Type.EASE_IN_OUT));
         this.guiSwitchAnimationType = this.addSetting(new EnumSetting<UiAnimation.Type>("ui_switch_anim_type", "GUI Switch Anim", "Animation used when switching GUI pages", UiAnimation.Type.class, UiAnimation.Type.EASE_IN_OUT));
         this.guiBackAnimationType = this.addSetting(new EnumSetting<UiAnimation.Type>("ui_back_anim_type", "GUI Back Anim", "Animation used when going back", UiAnimation.Type.class, UiAnimation.Type.EASE_OUT));
         this.lastCategoryOrdinal = this.addSetting(new IntSetting("last_category_ordinal", "Last Category", "Last selected category ordinal", 0, -1, 128, 1));
         this.lastModuleIndex = this.addSetting(new IntSetting("last_module_index", "Last Module Index", "Last selected module index in category", 0, 0, 512, 1));
+        this.lastCategoryScroll = this.addSetting(new IntSetting("last_category_scroll", "Last Category Scroll", "Internal: category scroll position", 0, 0, 512, 1));
+        this.lastModuleScroll = this.addSetting(new IntSetting("last_module_scroll", "Last Module Scroll", "Internal: module scroll position", 0, 0, 1024, 1));
+        this.lastSettingScroll = this.addSetting(new IntSetting("last_setting_scroll", "Last Setting Scroll", "Internal: module setting scroll position", 0, 0, 2048, 1));
+        this.lastCompatSettingScroll = this.addSetting(new IntSetting("last_compat_setting_scroll", "Last Compat Setting Scroll", "Internal: Setting page scroll position", 0, 0, 2048, 1));
         this.settingCenterScale = this.addSetting(new FloatSetting("setting_center_scale", "Setting Center Scale", "Internal: Setting Center window scale", 1.0F, 0.70F, 1.40F, 0.01F));
         this.settingCenterAnchorX = this.addSetting(new FloatSetting("setting_center_anchor_x", "Setting Center Anchor X", "Internal: Setting Center anchor X", 0.5F, 0.0F, 1.0F, 0.001F));
         this.settingCenterAnchorY = this.addSetting(new FloatSetting("setting_center_anchor_y", "Setting Center Anchor Y", "Internal: Setting Center anchor Y", 0.5F, 0.0F, 1.0F, 0.001F));
@@ -84,6 +104,34 @@ public final class ClickGuiModule extends Module
             }
         });
         this.lastModuleIndex.visibleWhen(new Visibility()
+        {
+            public boolean isVisible()
+            {
+                return false;
+            }
+        });
+        this.lastCategoryScroll.visibleWhen(new Visibility()
+        {
+            public boolean isVisible()
+            {
+                return false;
+            }
+        });
+        this.lastModuleScroll.visibleWhen(new Visibility()
+        {
+            public boolean isVisible()
+            {
+                return false;
+            }
+        });
+        this.lastSettingScroll.visibleWhen(new Visibility()
+        {
+            public boolean isVisible()
+            {
+                return false;
+            }
+        });
+        this.lastCompatSettingScroll.visibleWhen(new Visibility()
         {
             public boolean isVisible()
             {
@@ -123,7 +171,13 @@ public final class ClickGuiModule extends Module
         animation.add(this.controlAnimationSpeed);
         animation.add(this.sliderAnimationEnabled);
         animation.add(this.sliderAnimationSpeed);
+        animation.add(this.pageAnimationSpeed);
+        animation.add(this.listAnimationSpeed);
+        animation.add(this.selectionAnimationSpeed);
+        animation.add(this.inputAnimationSpeed);
+        animation.add(this.inputAnimationSmooth);
         animation.add(this.controlAnimationType);
+        animation.add(this.inputAnimationType);
         animation.add(this.guiOpenAnimationType);
         animation.add(this.guiCloseAnimationType);
         animation.add(this.guiSwitchAnimationType);
@@ -233,6 +287,31 @@ public final class ClickGuiModule extends Module
         return this.sliderAnimationSpeed.get().floatValue();
     }
 
+    public float getPageAnimationSpeed()
+    {
+        return this.pageAnimationSpeed.get().floatValue();
+    }
+
+    public float getListAnimationSpeed()
+    {
+        return this.listAnimationSpeed.get().floatValue();
+    }
+
+    public float getSelectionAnimationSpeed()
+    {
+        return this.selectionAnimationSpeed.get().floatValue();
+    }
+
+    public float getInputAnimationSpeed()
+    {
+        return this.inputAnimationSpeed.get().floatValue();
+    }
+
+    public float getInputAnimationSmooth()
+    {
+        return this.inputAnimationSmooth.get().floatValue();
+    }
+
     public boolean isSliderAnimationEnabled()
     {
         return this.sliderAnimationEnabled.isEnabled();
@@ -246,6 +325,11 @@ public final class ClickGuiModule extends Module
     public UiAnimation.Type getControlAnimationType()
     {
         return this.controlAnimationType.get();
+    }
+
+    public UiAnimation.Type getInputAnimationType()
+    {
+        return this.inputAnimationType.get();
     }
 
     public void setControlAnimationType(UiAnimation.Type type)
@@ -358,5 +442,45 @@ public final class ClickGuiModule extends Module
     public void setLastModuleIndex(int index)
     {
         this.lastModuleIndex.set(Integer.valueOf(index));
+    }
+
+    public int getLastCategoryScroll()
+    {
+        return this.lastCategoryScroll.get().intValue();
+    }
+
+    public void setLastCategoryScroll(int scroll)
+    {
+        this.lastCategoryScroll.set(Integer.valueOf(Math.max(0, scroll)));
+    }
+
+    public int getLastModuleScroll()
+    {
+        return this.lastModuleScroll.get().intValue();
+    }
+
+    public void setLastModuleScroll(int scroll)
+    {
+        this.lastModuleScroll.set(Integer.valueOf(Math.max(0, scroll)));
+    }
+
+    public int getLastSettingScroll()
+    {
+        return this.lastSettingScroll.get().intValue();
+    }
+
+    public void setLastSettingScroll(int scroll)
+    {
+        this.lastSettingScroll.set(Integer.valueOf(Math.max(0, scroll)));
+    }
+
+    public int getLastCompatSettingScroll()
+    {
+        return this.lastCompatSettingScroll.get().intValue();
+    }
+
+    public void setLastCompatSettingScroll(int scroll)
+    {
+        this.lastCompatSettingScroll.set(Integer.valueOf(Math.max(0, scroll)));
     }
 }

@@ -187,19 +187,24 @@ public final class NanoTextInput
         return false;
     }
 
-    public void draw(long vg, MemoryStack stack, int fontId, NanoTheme theme, float x, float y, float w, float h, float scale, float textSize, String text, String placeholder, boolean hovered, boolean active, String animKey)
+    public void draw(long vg, MemoryStack stack, int fontId, NanoTheme theme, float x, float y, float w, float h, float scale, float textSize, String text, String placeholder, boolean hovered, boolean active, String animKey, UiAnimProfile animProfile)
     {
         String value = safe(text);
         float k = UiMotion.clamp(scale, 0.35F, 1.85F);
         boolean focusedVisual = this.focused && active;
-        float focus = UiAnimationBus.animate(animKey + ".focus", focusedVisual ? 1.0F : 0.0F, 0.58F, 0.62F, UiAnimation.Type.EASE_OUT, true);
-        float hoverRatio = UiAnimationBus.animate(animKey + ".hover", hovered ? 1.0F : 0.0F, 0.58F, 0.62F, UiAnimation.Type.EASE_OUT, true);
-        int fill = mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.42F + hoverRatio * 0.26F + focus * 0.22F));
-        int border = mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 92), NanoRenderUtils.withAlpha(theme.accentArgb(), 168), UiMotion.clamp01(focus * 0.85F));
+        UiAnimProfile profile = animProfile == null ? UiAnimProfile.defaults() : animProfile;
+        float focus = UiControlAnimations.focus(animKey, focusedVisual, profile);
+        float hoverRatio = UiControlAnimations.hover(animKey, hovered, profile);
+        float engageSpeed = UiMotion.clamp(profile.controlSpeed() * 1.12F + 0.06F, 0.05F, 1.0F);
+        float presenceSpeed = UiMotion.clamp(profile.controlSpeed() + 0.05F, 0.05F, 1.0F);
+        float engage = UiControlAnimations.value(animKey + ".engage", focusedVisual ? 1.0F : 0.0F, profile, engageSpeed);
+        float presence = UiControlAnimations.value(animKey + ".presence", focusedVisual || hovered || !value.isEmpty() ? 1.0F : 0.0F, profile, presenceSpeed);
+        int fill = mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.34F + hoverRatio * 0.20F + focus * 0.18F + engage * 0.16F + presence * 0.12F));
+        int border = mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 92), NanoRenderUtils.withAlpha(theme.accentArgb(), 182), UiMotion.clamp01(engage * 0.72F + focus * 0.20F));
         float radius = Math.min(h * 0.5F, Math.max(2.0F, theme.controlRadius()));
         NanoUi.drawSurface(vg, stack, x, y, w, h, radius, fill, border);
 
-        float innerPad = Math.max(5.0F, 6.0F * k);
+        float innerPad = Math.max(5.0F, 6.0F * k) + engage * Math.max(0.3F, 0.55F * k);
         float innerX = x + innerPad;
         float innerW = Math.max(4.0F, w - innerPad * 2.0F);
         this.ensureCursorInRange(value.length());
@@ -217,17 +222,20 @@ public final class NanoTextInput
 
             if (selW > 0.0F)
             {
-                NanoUi.drawSurface(vg, stack, selStart, y + 2.0F, selW, Math.max(1.0F, h - 4.0F), Math.min(2.0F, radius), NanoRenderUtils.withAlpha(theme.accentSoftArgb(), 156), 0);
+                int selectionColor = NanoRenderUtils.withAlpha(theme.accentSoftArgb(), 120 + Math.round(engage * 58.0F));
+                NanoUi.drawSurface(vg, stack, selStart, y + 2.0F, selW, Math.max(1.0F, h - 4.0F), Math.min(2.0F, radius), selectionColor, 0);
             }
         }
 
         if (value.isEmpty())
         {
-            NanoUi.drawLeftText(vg, stack, fontId, innerX, baselineY, textSize, NanoRenderUtils.withAlpha(theme.textWeakArgb(), 164), safe(placeholder));
+            int placeholderColor = mixArgb(NanoRenderUtils.withAlpha(theme.textWeakArgb(), 140), NanoRenderUtils.withAlpha(theme.textWeakArgb(), 192), UiMotion.clamp01(hoverRatio * 0.45F + engage * 0.38F));
+            NanoUi.drawLeftText(vg, stack, fontId, innerX, baselineY, textSize, placeholderColor, safe(placeholder));
         }
         else
         {
-            NanoUi.drawLeftText(vg, stack, fontId, innerX - this.scrollX, baselineY, textSize, theme.textArgb(), value);
+            int valueColor = mixArgb(theme.textWeakArgb(), theme.textArgb(), UiMotion.clamp01(0.54F + presence * 0.30F + engage * 0.16F));
+            NanoUi.drawLeftText(vg, stack, fontId, innerX - this.scrollX, baselineY, textSize, valueColor, value);
         }
 
         if (focusedVisual && this.isCaretVisible())
@@ -235,7 +243,10 @@ public final class NanoTextInput
             float caretX = innerX + NanoRenderUtils.textWidth(vg, fontId, textSize, value.substring(0, this.cursor)) - this.scrollX;
             float caretTop = y + Math.max(1.8F, h * 0.20F);
             float caretH = Math.max(2.0F, h - (caretTop - y) * 2.0F);
-            NanoUi.drawSurface(vg, stack, caretX, caretTop, 1.1F, caretH, 0.55F, NanoRenderUtils.withAlpha(theme.textArgb(), 230), 0);
+            float caretPulse = UiControlAnimations.value(animKey + ".caret", focusedVisual ? 1.0F : 0.0F, profile, UiMotion.clamp(profile.controlSpeed() * 1.22F + 0.08F, 0.05F, 1.0F));
+            float caretWidth = 1.05F + caretPulse * 0.30F;
+            int caretColor = mixArgb(NanoRenderUtils.withAlpha(theme.textWeakArgb(), 182), NanoRenderUtils.withAlpha(theme.accentArgb(), 236), UiMotion.clamp01(caretPulse * 0.84F + focus * 0.16F));
+            NanoUi.drawSurface(vg, stack, caretX, caretTop, caretWidth, caretH, caretWidth * 0.5F, caretColor, 0);
         }
 
         NanoUi.endClip(vg);
