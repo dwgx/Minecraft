@@ -18,6 +18,8 @@ import client.render.DisplayMetrics;
 import client.render.NanoRuntime;
 import client.render.NanoVGContext;
 import client.render.RenderContext2D;
+import client.ui.NanoRenderableScreen;
+import client.ui.template.UiAnimationBus;
 import dwgx.ui.ext.UiExtensionManager;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -352,6 +354,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     private int nanoFrameFailureCount;
     private long resizePresentBoostUntilMs;
     private boolean windowResizedThisFrame;
+    private boolean displayActiveLastFrame = true;
 
     /**
      * The BlockRenderDispatcher instance that will be used based off gamesettings
@@ -1116,10 +1119,27 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         long i = System.nanoTime();
         this.mcProfiler.startSection("root");
         this.windowResizedThisFrame = false;
+        UiAnimationBus.beginFrame();
 
         Display.processMessages();
         this.checkWindowResize();
         this.markResizePresentBoostIfRequested("frame-start");
+        boolean displayActive = Display.isActive();
+
+        if (displayActive && !this.displayActiveLastFrame)
+        {
+            Display.syncDimensions();
+            this.checkWindowResize();
+            this.windowResizedThisFrame = true;
+            this.resizePresentBoostUntilMs = Math.max(this.resizePresentBoostUntilMs, System.currentTimeMillis() + RESIZE_PRESENT_BOOST_MS);
+
+            if (RESIZE_DEBUG)
+            {
+                logger.info("[resize-debug] display focus regained, forcing present boost");
+            }
+        }
+
+        this.displayActiveLastFrame = displayActive;
 
         if (Display.isCreated() && Display.isCloseRequested())
         {
@@ -1213,6 +1233,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         // Window size may change in the middle of a frame (maximize/restore drag).
         // Present using the current backbuffer size to avoid uncovered black areas.
         Display.syncDimensions();
+        this.checkWindowResize();
         int presentDisplayWidth = Math.max(1, Display.getWidth());
         int presentDisplayHeight = Math.max(1, Display.getHeight());
         this.framebufferMc.framebufferRender(presentDisplayWidth, presentDisplayHeight);
@@ -1241,7 +1262,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         GlStateManager.popMatrix();
         this.mcProfiler.startSection("root");
         this.updateDisplay();
-        if (!this.disableYield)
+        if (!this.disableYield && !(this.currentScreen instanceof NanoRenderableScreen))
         {
             Thread.yield();
         }
@@ -1305,16 +1326,35 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     protected void checkWindowResize()
     {
         Display.syncDimensions();
+        boolean displayActive = Display.isActive();
+        boolean resizeEvent = Display.wasResized();
+        int oldWidth = this.displayWidth;
+        int oldHeight = this.displayHeight;
+        int currentWidth = Math.max(1, Display.getWidth());
+        int currentHeight = Math.max(1, Display.getHeight());
 
-        if (Display.wasResized())
+        if (currentWidth != oldWidth || currentHeight != oldHeight)
+        {
+            resizeEvent = true;
+        }
+
+        if (!displayActive)
+        {
+            if (resizeEvent && RESIZE_DEBUG)
+            {
+                this.logResizeState("checkWindowResize:defer-inactive");
+            }
+
+            return;
+        }
+
+        if (resizeEvent)
         {
             this.logResizeState("checkWindowResize:event");
-            int i = this.displayWidth;
-            int j = this.displayHeight;
-            this.displayWidth = Math.max(1, Display.getWidth());
-            this.displayHeight = Math.max(1, Display.getHeight());
+            this.displayWidth = currentWidth;
+            this.displayHeight = currentHeight;
 
-            if (this.displayWidth != i || this.displayHeight != j)
+            if (this.displayWidth != oldWidth || this.displayHeight != oldHeight)
             {
                 this.windowResizedThisFrame = true;
                 this.resizePresentBoostUntilMs = System.currentTimeMillis() + RESIZE_PRESENT_BOOST_MS;
@@ -1334,6 +1374,16 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             return;
         }
 
+        if (!Display.isActive())
+        {
+            if (RESIZE_DEBUG)
+            {
+                logger.info("[resize-debug] skip present boost while inactive ({})", stage);
+            }
+
+            return;
+        }
+
         this.windowResizedThisFrame = true;
         this.resizePresentBoostUntilMs = Math.max(this.resizePresentBoostUntilMs, System.currentTimeMillis() + RESIZE_PRESENT_BOOST_MS);
 
@@ -1347,6 +1397,14 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     {
         if (this.theWorld == null && this.currentScreen != null)
         {
+            if (this.currentScreen instanceof NanoRenderableScreen)
+            {
+                int configured = this.gameSettings == null ? 0 : this.gameSettings.limitFramerate;
+                int maxLimit = (int)GameSettings.Options.FRAMERATE_LIMIT.getValueMax();
+                int safeConfigured = configured <= 0 ? maxLimit : configured;
+                return Math.max(90, safeConfigured);
+            }
+
             if (System.currentTimeMillis() < this.resizePresentBoostUntilMs)
             {
                 return (int)GameSettings.Options.FRAMERATE_LIMIT.getValueMax();
@@ -3484,6 +3542,8 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     {
         NanoFrameScope scope = new NanoFrameScope();
         scope.context = this.nanoVGContext;
+        int frameWidth = metrics == null ? this.displayWidth : Math.max(1, metrics.getFramebufferWidth());
+        int frameHeight = metrics == null ? this.displayHeight : Math.max(1, metrics.getFramebufferHeight());
 
         boolean frameRequested = this.theWorld != null || this.currentScreen instanceof client.ui.NanoRenderableScreen;
 
@@ -3498,11 +3558,11 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             return scope;
         }
 
-        if (this.displayWidth <= 0 || this.displayHeight <= 0)
+        if (frameWidth <= 0 || frameHeight <= 0)
         {
             if (RESIZE_DEBUG)
             {
-                logger.info("[resize-debug] skip NanoVG frame due invalid size {}x{}", Integer.valueOf(this.displayWidth), Integer.valueOf(this.displayHeight));
+                logger.info("[resize-debug] skip NanoVG frame due invalid size {}x{}", Integer.valueOf(frameWidth), Integer.valueOf(frameHeight));
             }
 
             scope.context = null;
@@ -3523,7 +3583,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
             GL11.glDisable(GL11.GL_SCISSOR_TEST);
             GL11.glDisable(GL11.GL_STENCIL_TEST);
-            GL11.glViewport(0, 0, this.displayWidth, this.displayHeight);
+            GL11.glViewport(0, 0, frameWidth, frameHeight);
             scope.context.beginFrame(metrics);
             scope.frameStarted = scope.context.isFrameActive();
 

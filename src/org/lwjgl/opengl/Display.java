@@ -65,6 +65,9 @@ public final class Display {
     private static boolean hasWindowedPlacement;
     private static long lastSyncNanos = System.nanoTime();
     private static boolean refreshRequested;
+    private static final long SYNC_SLEEP_MARGIN_NANOS = 2000000L;
+    private static final long SYNC_YIELD_MARGIN_NANOS = 200000L;
+    private static final long SYNC_RESET_LAG_MULTIPLIER = 4L;
 
     private Display() {}
 
@@ -155,7 +158,15 @@ public final class Display {
             });
             GLFW.glfwSetScrollCallback(window, scrollCallback);
 
-            windowFocusCallback = GLFWWindowFocusCallback.create((win, focused) -> Mouse.onWindowFocusChanged(focused));
+            windowFocusCallback = GLFWWindowFocusCallback.create((win, focused) -> {
+                Mouse.onWindowFocusChanged(focused);
+
+                if (focused) {
+                    refreshDimensions();
+                    markRefreshRequested("window-focus-callback");
+                    lastSyncNanos = System.nanoTime();
+                }
+            });
             GLFW.glfwSetWindowFocusCallback(window, windowFocusCallback);
 
             windowSizeCallback = GLFWWindowSizeCallback.create((win, newWindowWidth, newWindowHeight) -> {
@@ -470,9 +481,12 @@ public final class Display {
     public static void update() {
         if (!isCreated()) return;
 
-        // Keep swap in the present path. Skipping swaps while dragging/maximizing
-        // causes visible black flashes on Windows.
-        if (GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_ICONIFIED) != GLFW.GLFW_TRUE) {
+        int iconified = GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_ICONIFIED);
+        int focused = GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_FOCUSED);
+
+        // Rendering while unfocused/backgrounded can produce compositor flicker
+        // on Windows with rapid resize/restore events. Only present when focused.
+        if (iconified != GLFW.GLFW_TRUE && focused == GLFW.GLFW_TRUE) {
             GLFW.glfwSwapBuffers(window);
         }
         refreshDimensions();
@@ -495,21 +509,52 @@ public final class Display {
 
         long frameTime = 1000000000L / fps;
         long now = System.nanoTime();
+
+        if (now < lastSyncNanos - frameTime * SYNC_RESET_LAG_MULTIPLIER) {
+            lastSyncNanos = now;
+        }
+
         long target = lastSyncNanos + frameTime;
 
-        if (target > now) {
-            long sleepNanos = target - now;
+        if (target <= now) {
+            lastSyncNanos = now;
+            return;
+        }
+
+        while (target - now > SYNC_SLEEP_MARGIN_NANOS) {
+            long sleepNanos = target - now - SYNC_YIELD_MARGIN_NANOS;
+
+            if (sleepNanos <= 0L) {
+                break;
+            }
+
             long sleepMillis = sleepNanos / 1000000L;
             int sleepNanoRemainder = (int)(sleepNanos % 1000000L);
+
+            if (sleepMillis <= 0L && sleepNanoRemainder <= 0) {
+                break;
+            }
+
             try {
-                Thread.sleep(sleepMillis, sleepNanoRemainder);
+                Thread.sleep(Math.max(0L, sleepMillis), Math.max(0, sleepNanoRemainder));
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
+                break;
             }
+
             now = System.nanoTime();
         }
 
-        lastSyncNanos = Math.max(target, now);
+        while (target - now > SYNC_YIELD_MARGIN_NANOS) {
+            Thread.yield();
+            now = System.nanoTime();
+        }
+
+        while (now < target) {
+            now = System.nanoTime();
+        }
+
+        lastSyncNanos = target;
     }
 
     public static boolean wasResized() {
