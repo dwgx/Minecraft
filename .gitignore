@@ -4,6 +4,7 @@
 /target/
 /run/assets/
 /run/
+/\.codex_tmp/
 /sources.txt
 /temp.out
 /docs/knowledge-base/

@@ -2,6 +2,7 @@ package client.ui.template;
 
 import client.module.impl.client.ClickGuiModule;
 import client.module.impl.client.UiScaleEditModule;
+import dwgx.foundation.animation.AnimationDomain;
 
 /**
  * Shared animation profile builders used by Nano UI surfaces.
@@ -73,25 +74,18 @@ public final class UiAnimProfiles
 
     public static float composeWindowSpeed(float profileSpeed, float globalSpeed)
     {
-        float profile = UiMotion.clamp(profileSpeed, 0.05F, 1.0F);
-        float global = UiMotion.clamp(globalSpeed, 0.05F, 1.0F);
-        return UiMotion.clamp(profile * (0.55F + global), 0.05F, 1.0F);
+        return AnimationDomain.composeWindowSpeed(profileSpeed, globalSpeed);
     }
 
     public static float boostInteractionSpeed(float speed, boolean interacting)
     {
-        if (!interacting)
-        {
-            return UiMotion.clamp(speed, 0.05F, 1.0F);
-        }
-
-        return UiMotion.clamp(speed * 1.22F + 0.06F, 0.05F, 1.0F);
+        return AnimationDomain.boostInteractionSpeed(speed, interacting);
     }
 
     public static float scrollSpeed(UiAnimProfile profile)
     {
         UiAnimProfile resolved = profile == null ? UiAnimProfile.defaults() : profile;
-        return UiMotion.clamp(resolved.controlSpeed() * 0.95F + 0.10F, 0.05F, 1.0F);
+        return AnimationDomain.scrollSpeed(resolved.controlSpeed());
     }
 
     public static UiAnimProfile withWindowSpeed(UiAnimProfile profile, float speed)

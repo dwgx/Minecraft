@@ -3185,64 +3185,6 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         return new Rect(((float)this.width - width) * 0.5F, ((float)this.height - height) * 0.5F, width, height);
     }
 
-    private UiWindowState.ResizeMode resolveResizeMode(Rect windowRect, int mouseX, int mouseY, float edge)
-    {
-        float e = Math.max(3.0F, edge);
-        boolean nearLeft = Math.abs((float)mouseX - windowRect.x) <= e;
-        boolean nearRight = Math.abs((float)mouseX - windowRect.x2()) <= e;
-        boolean nearTop = Math.abs((float)mouseY - windowRect.y) <= e;
-        boolean nearBottom = Math.abs((float)mouseY - windowRect.y2()) <= e;
-        boolean insideX = (float)mouseX >= windowRect.x - e && (float)mouseX <= windowRect.x2() + e;
-        boolean insideY = (float)mouseY >= windowRect.y - e && (float)mouseY <= windowRect.y2() + e;
-
-        if (!insideX || !insideY)
-        {
-            return null;
-        }
-
-        if (nearLeft && nearTop)
-        {
-            return UiWindowState.ResizeMode.TOP_LEFT;
-        }
-
-        if (nearRight && nearTop)
-        {
-            return UiWindowState.ResizeMode.TOP_RIGHT;
-        }
-
-        if (nearLeft && nearBottom)
-        {
-            return UiWindowState.ResizeMode.BOTTOM_LEFT;
-        }
-
-        if (nearRight && nearBottom)
-        {
-            return UiWindowState.ResizeMode.BOTTOM_RIGHT;
-        }
-
-        if (nearLeft)
-        {
-            return UiWindowState.ResizeMode.LEFT;
-        }
-
-        if (nearRight)
-        {
-            return UiWindowState.ResizeMode.RIGHT;
-        }
-
-        if (nearTop)
-        {
-            return UiWindowState.ResizeMode.TOP;
-        }
-
-        if (nearBottom)
-        {
-            return UiWindowState.ResizeMode.BOTTOM;
-        }
-
-        return null;
-    }
-
     private float stableWindowRadius(float scale)
     {
         float cornerScale = this.cornerRadiusScale();

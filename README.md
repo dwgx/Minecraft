@@ -67,5 +67,27 @@ This codebase includes modernized compatibility/runtime code (for LWJGL 3 integr
 - Keep `lib/` limited to the vanilla 1.8.9 jars already present.
 - Match upstream behaviour; avoid gameplay changes in this repository.
 
+## Static checks
+
+Run the full local gate:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/check-all.ps1
+```
+
+Individual checks:
+
+- `scripts/check-encoding.ps1`
+- `scripts/check-render-rules.ps1`
+- `scripts/check-checkstyle.ps1`
+- `scripts/check-spotbugs.ps1`
+- `scripts/check-refactor-guards.ps1`
+
+## Refactor policy docs
+
+- `docs/refactor-contract.md`
+- `docs/config-identity-freeze.md`
+- `docs/net-org-patch-manifest.md`
+
 ---
 Maintainer: (fill in your name)

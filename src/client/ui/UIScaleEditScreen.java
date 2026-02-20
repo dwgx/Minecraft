@@ -7,6 +7,7 @@ import client.module.impl.client.ClickGuiModule;
 import client.module.impl.client.UiScaleEditModule;
 import client.render.RenderContext2D;
 import client.setting.StringSetting;
+import client.ui.state.WindowResizeResolver;
 import client.ui.template.NanoSliderController;
 import client.ui.template.NanoTextInput;
 import client.ui.template.UiAnimProfile;
@@ -163,7 +164,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
 
         if (mouseButton == 0)
         {
-            UiWindowState.ResizeMode resizeMode = this.resolveResizeMode(l.window, mouseX, mouseY, scaled(8.0F, l.scale));
+            UiWindowState.ResizeMode resizeMode = WindowResizeResolver.resolve(l.window.x, l.window.y, l.window.w, l.window.h, mouseX, mouseY, scaled(8.0F, l.scale));
 
             if (resizeMode != null)
             {
@@ -1223,64 +1224,6 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         float h = scaled(18.0F, k);
         float y = track.y - h - scaled(4.0F, k);
         return new Rect(track.x2() - w, y, w, h);
-    }
-
-    private UiWindowState.ResizeMode resolveResizeMode(Rect windowRect, int mouseX, int mouseY, float edge)
-    {
-        float e = Math.max(3.0F, edge);
-        boolean nearLeft = Math.abs((float)mouseX - windowRect.x) <= e;
-        boolean nearRight = Math.abs((float)mouseX - windowRect.x2()) <= e;
-        boolean nearTop = Math.abs((float)mouseY - windowRect.y) <= e;
-        boolean nearBottom = Math.abs((float)mouseY - windowRect.y2()) <= e;
-        boolean insideX = (float)mouseX >= windowRect.x - e && (float)mouseX <= windowRect.x2() + e;
-        boolean insideY = (float)mouseY >= windowRect.y - e && (float)mouseY <= windowRect.y2() + e;
-
-        if (!insideX || !insideY)
-        {
-            return null;
-        }
-
-        if (nearLeft && nearTop)
-        {
-            return UiWindowState.ResizeMode.TOP_LEFT;
-        }
-
-        if (nearRight && nearTop)
-        {
-            return UiWindowState.ResizeMode.TOP_RIGHT;
-        }
-
-        if (nearLeft && nearBottom)
-        {
-            return UiWindowState.ResizeMode.BOTTOM_LEFT;
-        }
-
-        if (nearRight && nearBottom)
-        {
-            return UiWindowState.ResizeMode.BOTTOM_RIGHT;
-        }
-
-        if (nearLeft)
-        {
-            return UiWindowState.ResizeMode.LEFT;
-        }
-
-        if (nearRight)
-        {
-            return UiWindowState.ResizeMode.RIGHT;
-        }
-
-        if (nearTop)
-        {
-            return UiWindowState.ResizeMode.TOP;
-        }
-
-        if (nearBottom)
-        {
-            return UiWindowState.ResizeMode.BOTTOM;
-        }
-
-        return null;
     }
 
     private static final class Layout

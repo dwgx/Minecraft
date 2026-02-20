@@ -14,6 +14,7 @@ import client.setting.IntSetting;
 import client.setting.NumberSetting;
 import client.setting.Setting;
 import client.setting.StringSetting;
+import client.ui.state.WindowResizeResolver;
 import client.ui.template.NanoSliderController;
 import client.ui.template.NanoTextInput;
 import client.ui.template.UiAnimProfile;
@@ -213,7 +214,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
         if (mouseButton == 0)
         {
-            UiWindowState.ResizeMode resizeMode = this.resolveResizeMode(l.window, mouseX, mouseY, scaled(8.0F, l.scale));
+            UiWindowState.ResizeMode resizeMode = WindowResizeResolver.resolve(l.window.x, l.window.y, l.window.w, l.window.h, mouseX, mouseY, scaled(8.0F, l.scale));
 
             if (resizeMode != null)
             {
@@ -2433,64 +2434,6 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         }
 
         return new Layout(windowRect, header, headerDrag, backButton, settingsCard, infoCard, debugCard, debugResetTheme, debugResetAnimation, debugFlushAnimation, themeTab, animationTab, resetSectionButton, settingsRows, resizeHandle, pickerCard, pickerSv, pickerHue, pickerAlpha, pickerPreview, hasPicker, k);
-    }
-
-    private UiWindowState.ResizeMode resolveResizeMode(Rect windowRect, int mouseX, int mouseY, float edge)
-    {
-        float e = Math.max(3.0F, edge);
-        boolean nearLeft = Math.abs((float)mouseX - windowRect.x) <= e;
-        boolean nearRight = Math.abs((float)mouseX - windowRect.x2()) <= e;
-        boolean nearTop = Math.abs((float)mouseY - windowRect.y) <= e;
-        boolean nearBottom = Math.abs((float)mouseY - windowRect.y2()) <= e;
-        boolean insideX = (float)mouseX >= windowRect.x - e && (float)mouseX <= windowRect.x2() + e;
-        boolean insideY = (float)mouseY >= windowRect.y - e && (float)mouseY <= windowRect.y2() + e;
-
-        if (!insideX || !insideY)
-        {
-            return null;
-        }
-
-        if (nearLeft && nearTop)
-        {
-            return UiWindowState.ResizeMode.TOP_LEFT;
-        }
-
-        if (nearRight && nearTop)
-        {
-            return UiWindowState.ResizeMode.TOP_RIGHT;
-        }
-
-        if (nearLeft && nearBottom)
-        {
-            return UiWindowState.ResizeMode.BOTTOM_LEFT;
-        }
-
-        if (nearRight && nearBottom)
-        {
-            return UiWindowState.ResizeMode.BOTTOM_RIGHT;
-        }
-
-        if (nearLeft)
-        {
-            return UiWindowState.ResizeMode.LEFT;
-        }
-
-        if (nearRight)
-        {
-            return UiWindowState.ResizeMode.RIGHT;
-        }
-
-        if (nearTop)
-        {
-            return UiWindowState.ResizeMode.TOP;
-        }
-
-        if (nearBottom)
-        {
-            return UiWindowState.ResizeMode.BOTTOM;
-        }
-
-        return null;
     }
 
     private float stableWindowRadius(float scale)

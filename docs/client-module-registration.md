@@ -27,6 +27,7 @@ Current config files:
 - `client.json`
 - `modules.json`
 - `hud.json`
+- `docs/config-identity-freeze.generated.md` (source-derived compatibility snapshot)
 
 `ConfigManager` deserializes by module ID and setting key; changing identifiers without migration breaks user configs.
 
@@ -36,6 +37,7 @@ Current config files:
 2. Add a single `modules.register(new YourModule())` line in `ModuleRegistry`.
 3. Keep the new module ID unique and stable.
 4. Verify config load/save still works (`modules.json` round-trip).
+5. Regenerate freeze snapshot: `scripts/generate-config-freeze.ps1`.
 
 ## Adding a new HUD element
 

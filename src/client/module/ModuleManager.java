@@ -1,5 +1,6 @@
 package client.module;
 
+import client.bridge.MinecraftBridge;
 import client.event.KeyEvent;
 import client.render.RenderContext2D;
 import client.setting.KeybindSetting;
@@ -9,7 +10,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import net.minecraft.client.Minecraft;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -119,9 +119,7 @@ public final class ModuleManager implements ModuleStateListener
 
     public void onKey(KeyEvent event)
     {
-        Minecraft mc = Minecraft.getMinecraft();
-
-        if (mc != null && mc.currentScreen != null)
+        if (MinecraftBridge.shared().isScreenOpen())
         {
             return;
         }

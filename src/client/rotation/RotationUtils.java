@@ -1,5 +1,6 @@
 package client.rotation;
 
+import dwgx.foundation.rotation.RotationDomain;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.entity.Entity;
 import net.minecraft.network.play.client.C03PacketPlayer;
@@ -9,9 +10,6 @@ import net.minecraft.util.Vec3;
 
 public final class RotationUtils
 {
-    private static final float MIN_PITCH = -89.9F;
-    private static final float MAX_PITCH = 89.9F;
-
     private RotationUtils()
     {
     }
@@ -89,12 +87,12 @@ public final class RotationUtils
 
     public static float yawDelta(float currentYaw, float targetYaw)
     {
-        return MathHelper.wrapAngleTo180_float(targetYaw - currentYaw);
+        return RotationDomain.yawDelta(currentYaw, targetYaw);
     }
 
     public static float pitchDelta(float currentPitch, float targetPitch)
     {
-        return targetPitch - currentPitch;
+        return RotationDomain.pitchDelta(currentPitch, targetPitch);
     }
 
     public static boolean isAligned(EntityPlayerSP player, float targetYaw, float targetPitch, float tolerance)
@@ -160,7 +158,7 @@ public final class RotationUtils
 
     public static float clampPitch(float pitch)
     {
-        return MathHelper.clamp_float(pitch, MIN_PITCH, MAX_PITCH);
+        return RotationDomain.clampPitch(pitch);
     }
 
     public static final class Rotation

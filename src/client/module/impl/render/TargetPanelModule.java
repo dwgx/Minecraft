@@ -1,5 +1,6 @@
 package client.module.impl.render;
 
+import client.bridge.MinecraftBridge;
 import client.core.ClientBootstrap;
 import client.module.Category;
 import client.module.Module;
@@ -10,6 +11,7 @@ import client.render.RenderContext2D;
 import client.setting.BoolSetting;
 import client.setting.FloatSetting;
 import client.setting.SettingGroup;
+import dwgx.foundation.render.ColorMath;
 import dwgx.nano.NanoFontBook;
 import dwgx.nano.NanoPalette;
 import dwgx.nano.NanoRenderUtils;
@@ -19,7 +21,6 @@ import client.ui.template.UiAnimProfile;
 import client.ui.template.UiAnimProfiles;
 import client.ui.template.UiAnimationBus;
 import client.ui.template.UiMotion;
-import net.minecraft.client.Minecraft;
 import net.minecraft.entity.EntityLivingBase;
 import org.lwjgl.system.MemoryStack;
 import java.util.Locale;
@@ -167,8 +168,8 @@ public final class TargetPanelModule extends Module
 
                 if (filled > 0.1F)
                 {
-                    int healthy = this.mixArgb(theme.dangerArgb(), theme.successArgb(), UiMotion.clamp01(visualHealth));
-                    int head = this.mixArgb(theme.accentArgb(), healthy, 0.55F);
+                    int healthy = ColorMath.mixArgb(theme.dangerArgb(), theme.successArgb(), UiMotion.clamp01(visualHealth));
+                    int head = ColorMath.mixArgb(theme.accentArgb(), healthy, 0.55F);
                     NanoRenderUtils.fillRoundedRectGradient(vg, stack, barX, barY, filled, barH, 3.5F, NanoRenderUtils.mulAlpha(head, alpha), NanoRenderUtils.mulAlpha(healthy, alpha), false);
                 }
             }
@@ -181,8 +182,7 @@ public final class TargetPanelModule extends Module
         this.cachedTargetName = name == null || name.trim().isEmpty() ? "target" : name;
         this.cachedHealth = Math.max(0.0F, target.getHealth() + target.getAbsorptionAmount());
         this.cachedHealthCap = Math.max(1.0F, target.getMaxHealth() + target.getAbsorptionAmount());
-        Minecraft mc = Minecraft.getMinecraft();
-        this.cachedDistance = mc == null || mc.thePlayer == null ? 0.0F : mc.thePlayer.getDistanceToEntity(target);
+        this.cachedDistance = MinecraftBridge.shared().hasPlayer() ? MinecraftBridge.shared().localPlayer().getDistanceToEntity(target) : 0.0F;
     }
 
     private float healthRatio()
@@ -219,21 +219,6 @@ public final class TargetPanelModule extends Module
 
         int backdrop = clickGui.isBackdropEnabled() ? Math.min(64, clickGui.getBackdropAlpha()) : 0;
         return NanoThemes.create(clickGui.getPalette(), clickGui.getPanelAlpha(), backdrop, clickGui.getCornerRadius(), accent);
-    }
-
-    private int mixArgb(int from, int to, float t)
-    {
-        float k = UiMotion.clamp01(t);
-        int a = this.lerpChannel((from >>> 24) & 255, (to >>> 24) & 255, k);
-        int r = this.lerpChannel((from >>> 16) & 255, (to >>> 16) & 255, k);
-        int g = this.lerpChannel((from >>> 8) & 255, (to >>> 8) & 255, k);
-        int b = this.lerpChannel(from & 255, to & 255, k);
-        return (a & 255) << 24 | (r & 255) << 16 | (g & 255) << 8 | b & 255;
-    }
-
-    private int lerpChannel(int from, int to, float t)
-    {
-        return NanoRenderUtils.clamp255(Math.round((float)from + (float)(to - from) * UiMotion.clamp01(t)));
     }
 
     private EntityLivingBase resolveTarget()
