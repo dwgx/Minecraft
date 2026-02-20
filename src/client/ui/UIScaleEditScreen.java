@@ -9,6 +9,8 @@ import client.render.RenderContext2D;
 import client.setting.StringSetting;
 import client.ui.template.NanoSliderController;
 import client.ui.template.NanoTextInput;
+import client.ui.template.UiAnimProfile;
+import client.ui.template.UiAnimProfiles;
 import client.ui.template.UiMotion;
 import client.ui.template.UiAnimation;
 import client.ui.template.UiAnimationBus;
@@ -371,9 +373,8 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
             this.syncProfileFromWindow();
         }
 
-        float globalSpeed = clickGui == null ? 0.56F : clickGui.getGlobalAnimationSpeed();
-        float animSpeed = UiMotion.clamp(this.module.getMotionSpeed(target) * (0.55F + globalSpeed), 0.05F, 1.0F);
-        this.window.tick(animSpeed, this.resolveAnimationType(clickGui), this.resolveAnimationSmooth(clickGui), this.resolveAnimationEnabled(clickGui));
+        UiAnimProfile windowAnim = this.resolveAnimationProfile(clickGui, target);
+        this.window.tick(windowAnim);
         NanoTheme theme = this.applyThemeTransition(this.resolveTheme(), this.transitionVisual());
         NanoFontBook.ensureLoaded(vg);
         int regular = NanoFontBook.uiRegular();
@@ -424,29 +425,13 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
     private void drawSlider(long vg, MemoryStack stack, int regular, int bold, NanoTheme theme, Rect track, Rect valueRect, String sliderKey, String label, float value, float min, float max, String hint, boolean showHint, boolean dragging, boolean hovered)
     {
         ClickGuiModule clickGui = this.resolveClickGuiModule();
+        UiAnimProfile animProfile = this.resolveAnimationProfile(clickGui, this.module.getEditTarget());
         float k = UiMotion.clamp(track.h / 8.0F, 0.35F, 1.85F);
         float ratio = (value - min) / Math.max(0.0001F, max - min);
         ratio = UiMotion.clamp01(ratio);
         float visualTarget = dragging ? this.sliderRatioFromMouse(this.mouseX, track) : ratio;
-        boolean sliderAnimEnabled = this.resolveSliderAnimationEnabled(clickGui);
-        float displayRatio = NanoSliderController.resolveDisplayRatio(
-            "uiscale.slider." + sliderKey,
-            visualTarget,
-            dragging,
-            sliderAnimEnabled,
-            clickGui == null ? 0.62F : clickGui.getSliderAnimationSpeed(),
-            this.resolveAnimationSmooth(clickGui),
-            this.resolveAnimationType(clickGui)
-        );
-        float focus = NanoSliderController.resolveFocus(
-            "uiscale.slider.focus." + sliderKey,
-            hovered,
-            dragging,
-            clickGui == null ? 0.58F : clickGui.getControlAnimationSpeed(),
-            this.resolveAnimationSmooth(clickGui),
-            this.resolveAnimationType(clickGui),
-            this.resolveAnimationEnabled(clickGui)
-        );
+        float displayRatio = NanoSliderController.resolveDisplayRatio("uiscale.slider." + sliderKey, visualTarget, dragging, animProfile);
+        float focus = NanoSliderController.resolveFocus("uiscale.slider.focus." + sliderKey, hovered, dragging, animProfile);
         NanoUi.drawLeftText(vg, stack, bold, track.x, track.y - scaled(11.0F, k), scaled(14.5F, k), theme.textArgb(), label);
         this.drawSliderValueInput(vg, stack, regular, theme, valueRect, track, sliderKey, value, k, hovered);
         int trackFill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.44F + focus * 0.30F));
@@ -486,7 +471,8 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
             return;
         }
 
-        float focus = UiAnimationBus.animate(animKey + ".idle.focus", fieldHovered ? 1.0F : 0.0F, 0.58F, 0.62F, UiAnimation.Type.EASE_OUT, true);
+        UiAnimProfile animProfile = UiAnimProfiles.uiScaleProfile(this.resolveClickGuiModule());
+        float focus = UiAnimationBus.animateControl(animKey + ".idle.focus", fieldHovered ? 1.0F : 0.0F, animProfile);
         int fill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.38F + focus * 0.32F));
         int border = this.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 92), NanoRenderUtils.withAlpha(theme.accentArgb(), 142), UiMotion.clamp01(focus * 0.72F));
         float radius = Math.min(valueRect.h * 0.5F, Math.max(2.0F, theme.controlRadius()));
@@ -948,7 +934,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         float dt = this.transitionLastNanos == 0L ? (1.0F / 60.0F) : (float)((double)(now - this.transitionLastNanos) * 1.0E-9D);
         this.transitionLastNanos = now;
         float speed = clickGui == null ? 0.56F : clickGui.getGlobalAnimationSpeed();
-        float smooth = this.resolveAnimationSmooth(clickGui);
+        float smooth = UiAnimProfiles.uiScaleProfile(clickGui).smooth();
         UiAnimation.Type type = this.resolveTransitionType(clickGui);
 
         if (this.transitioningOut)
@@ -1129,24 +1115,16 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         return i18n == null ? fallback : i18n.translateOrDefault(key, fallback, args);
     }
 
-    private boolean resolveAnimationEnabled(ClickGuiModule clickGui)
+    private UiAnimProfile resolveAnimationProfile(ClickGuiModule clickGui, UiScaleEditModule.UiTarget target)
     {
-        return clickGui == null || clickGui.isGlobalAnimationEnabled();
-    }
-
-    private boolean resolveSliderAnimationEnabled(ClickGuiModule clickGui)
-    {
-        return clickGui == null || clickGui.isGlobalAnimationEnabled() && clickGui.isSliderAnimationEnabled();
-    }
-
-    private float resolveAnimationSmooth(ClickGuiModule clickGui)
-    {
-        return clickGui == null ? 0.62F : clickGui.getGlobalAnimationSmooth();
-    }
-
-    private UiAnimation.Type resolveAnimationType(ClickGuiModule clickGui)
-    {
-        return clickGui == null ? UiAnimation.Type.EASE_OUT : clickGui.getControlAnimationType();
+        boolean interacting = this.window.isInteracting()
+            || this.draggingScale
+            || this.draggingMotion
+            || this.draggingAnchorX
+            || this.draggingAnchorY
+            || this.draggingAnimSpeed
+            || this.draggingAnimSmooth;
+        return UiAnimProfiles.uiScaleWindowProfile(clickGui, this.module, target, interacting);
     }
 
     private int mixArgb(int from, int to, float t)

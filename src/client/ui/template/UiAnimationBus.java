@@ -16,6 +16,35 @@ public final class UiAnimationBus
     {
     }
 
+    public static float animate(String key, float target, UiAnimProfile profile)
+    {
+        return animateWindow(key, target, profile);
+    }
+
+    public static float animateWindow(String key, float target, UiAnimProfile profile)
+    {
+        UiAnimProfile resolved = resolveProfile(profile);
+        return animate(key, target, resolved.windowSpeed(), resolved.smooth(), resolved.type(), resolved.isEnabled());
+    }
+
+    public static float animateControl(String key, float target, UiAnimProfile profile)
+    {
+        UiAnimProfile resolved = resolveProfile(profile);
+        return animate(key, target, resolved.controlSpeed(), resolved.smooth(), resolved.type(), resolved.isEnabled());
+    }
+
+    public static float animateSlider(String key, float target, UiAnimProfile profile)
+    {
+        UiAnimProfile resolved = resolveProfile(profile);
+        return animate(key, target, resolved.sliderSpeed(), resolved.smooth(), resolved.type(), resolved.isEnabled());
+    }
+
+    public static float animateWithSpeed(String key, float target, UiAnimProfile profile, float speed)
+    {
+        UiAnimProfile resolved = resolveProfile(profile);
+        return animate(key, target, UiMotion.clamp(speed, 0.05F, 1.0F), resolved.smooth(), resolved.type(), resolved.isEnabled());
+    }
+
     public static float animate(String key, float target, float speed, float smooth, UiAnimation.Type type, boolean enabled)
     {
         if (key == null || key.isEmpty())
@@ -78,5 +107,10 @@ public final class UiAnimationBus
     {
         private float value;
         private long lastNanos;
+    }
+
+    private static UiAnimProfile resolveProfile(UiAnimProfile profile)
+    {
+        return profile == null ? UiAnimProfile.defaults() : profile;
     }
 }

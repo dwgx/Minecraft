@@ -4,16 +4,25 @@ import client.core.ClientBootstrap;
 import client.module.Category;
 import client.module.Module;
 import client.module.impl.combat.KillAuraModule;
+import client.module.impl.client.ClickGuiModule;
 import client.render.DisplayMetrics;
 import client.render.RenderContext2D;
 import client.setting.BoolSetting;
 import client.setting.FloatSetting;
 import client.setting.SettingGroup;
 import dwgx.nano.NanoFontBook;
+import dwgx.nano.NanoPalette;
 import dwgx.nano.NanoRenderUtils;
+import dwgx.nano.NanoTheme;
+import dwgx.nano.NanoThemes;
+import client.ui.template.UiAnimProfile;
+import client.ui.template.UiAnimProfiles;
+import client.ui.template.UiAnimationBus;
+import client.ui.template.UiMotion;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.EntityLivingBase;
 import org.lwjgl.system.MemoryStack;
+import java.util.Locale;
 
 import static org.lwjgl.nanovg.NanoVG.NVG_ALIGN_LEFT;
 import static org.lwjgl.nanovg.NanoVG.NVG_ALIGN_MIDDLE;
@@ -25,13 +34,20 @@ import static org.lwjgl.system.MemoryStack.stackPush;
  */
 public final class TargetPanelModule extends Module
 {
+    private static final String ANIM_PREFIX = "hud.target_panel.";
+    private static final String CHANNEL_VISIBLE = ANIM_PREFIX + "visible";
+    private static final String CHANNEL_HEALTH = ANIM_PREFIX + "health";
+
     private final FloatSetting posX;
     private final FloatSetting posY;
     private final FloatSetting width;
     private final FloatSetting height;
     private final BoolSetting showDistance;
     private final BoolSetting showHealthBar;
-    private float animatedHealth = -1.0F;
+    private String cachedTargetName = "target";
+    private float cachedHealth = 0.0F;
+    private float cachedHealthCap = 20.0F;
+    private float cachedDistance = 0.0F;
 
     public TargetPanelModule()
     {
@@ -53,7 +69,11 @@ public final class TargetPanelModule extends Module
 
     public void onDisable()
     {
-        this.animatedHealth = -1.0F;
+        this.cachedTargetName = "target";
+        this.cachedHealth = 0.0F;
+        this.cachedHealthCap = 20.0F;
+        this.cachedDistance = 0.0F;
+        UiAnimationBus.clearPrefix(ANIM_PREFIX);
     }
 
     public void onRender2D(RenderContext2D context)
@@ -64,13 +84,25 @@ public final class TargetPanelModule extends Module
         }
 
         EntityLivingBase target = this.resolveTarget();
+        boolean activeTarget = target != null && !target.isDead && target.getHealth() > 0.0F;
 
-        if (target == null || target.isDead || target.getHealth() <= 0.0F)
+        if (activeTarget)
         {
-            this.animatedHealth = -1.0F;
+            this.cacheTargetState(target);
+        }
+
+        ClickGuiModule clickGui = this.resolveClickGuiModule();
+        UiAnimProfile animProfile = UiAnimProfiles.hudProfile(clickGui);
+        float visibilitySpeed = UiMotion.clamp(animProfile.controlSpeed() * 0.92F + 0.10F, 0.05F, 1.0F);
+        float visibility = UiAnimationBus.animateWithSpeed(CHANNEL_VISIBLE, activeTarget ? 1.0F : 0.0F, animProfile, visibilitySpeed);
+
+        if (!activeTarget && visibility <= 0.01F)
+        {
             return;
         }
 
+        float healthRatio = this.healthRatio();
+        float visualHealth = UiAnimationBus.animateSlider(CHANNEL_HEALTH, healthRatio, animProfile);
         DisplayMetrics metrics = context.getMetrics();
         float screenW = metrics == null ? 0.0F : (float)metrics.getWindowWidth();
         float screenH = metrics == null ? 0.0F : (float)metrics.getWindowHeight();
@@ -89,55 +121,119 @@ public final class TargetPanelModule extends Module
             y = Math.min(Math.max(0.0F, y), Math.max(0.0F, screenH - panelH));
         }
 
+        float visible = UiMotion.clamp01(visibility);
+        float alpha = UiMotion.clamp(0.18F + visible * 0.82F, 0.0F, 1.0F);
+        float lift = (1.0F - visible) * 8.0F;
+        float drawY = y + lift;
+        NanoTheme theme = this.resolveTheme(clickGui);
         long vg = context.getNanoVG().getHandle();
         NanoFontBook.ensureLoaded(vg);
         int regular = NanoFontBook.uiRegular();
         int bold = NanoFontBook.uiBold();
-        float health = Math.max(0.0F, target.getHealth() + target.getAbsorptionAmount());
-        float healthCap = Math.max(1.0F, target.getMaxHealth() + target.getAbsorptionAmount());
-        float ratio = Math.max(0.0F, Math.min(1.0F, health / healthCap));
-
-        if (this.animatedHealth < 0.0F)
-        {
-            this.animatedHealth = ratio;
-        }
-        else
-        {
-            this.animatedHealth += (ratio - this.animatedHealth) * 0.35F;
-        }
+        String hpText = String.format(Locale.ROOT, "%.1f / %.1f", Float.valueOf(this.cachedHealth), Float.valueOf(this.cachedHealthCap));
+        String hpPercent = String.format(Locale.ROOT, "%.0f%%", Float.valueOf(healthRatio * 100.0F));
+        String stateText = activeTarget ? "LOCKED" : "LOST";
 
         try (MemoryStack stack = stackPush())
         {
-            NanoRenderUtils.drawPanel(vg, stack, x, y, panelW, panelH, 9.0F, 0xD61A1D24, 0x882E3440, 1.0F, 92);
+            float radius = NanoRenderUtils.stableRadius(10.0F, panelW, panelH);
+            int cardTop = NanoRenderUtils.mulAlpha(theme.cardArgb(), alpha);
+            int cardBottom = NanoRenderUtils.mulAlpha(theme.cardAltArgb(), alpha);
+            int border = NanoRenderUtils.mulAlpha(theme.windowBorderArgb(), alpha);
+            NanoRenderUtils.drawPanel(vg, stack, x, drawY, panelW, panelH, radius, cardTop, border, 1.0F, Math.round(96.0F * alpha));
+            NanoRenderUtils.fillRoundedRectGradient(vg, stack, x, drawY, panelW, panelH * 0.52F, radius, cardTop, cardBottom, true);
+            NanoRenderUtils.fillRoundedRect(vg, x + 6.0F, drawY + 6.0F, 3.0F, panelH - 12.0F, 1.5F, NanoRenderUtils.argb(stack, NanoRenderUtils.mulAlpha(theme.accentArgb(), alpha * 0.92F)));
 
-            String name = target.getName() == null ? "target" : target.getName();
-            String hpText = String.format("%.1f / %.1f", Float.valueOf(health), Float.valueOf(healthCap));
-            NanoRenderUtils.drawLabel(vg, stack, bold, x + 10.0F, y + 15.0F, 14.0F, name, 238, 241, 248, 235, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
-            NanoRenderUtils.drawLabel(vg, stack, regular, x + panelW - 10.0F, y + 15.0F, 12.0F, hpText, 170, 184, 202, 230, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
+            NanoRenderUtils.drawLabel(vg, stack, bold, x + 14.0F, drawY + 15.0F, 14.2F, this.cachedTargetName, 236, 241, 248, Math.round(236.0F * alpha), NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+            NanoRenderUtils.drawLabel(vg, stack, regular, x + panelW - 10.0F, drawY + 14.8F, 11.8F, hpText, 173, 189, 207, Math.round(228.0F * alpha), NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
+            NanoRenderUtils.drawLabel(vg, stack, regular, x + 14.0F, drawY + 29.0F, 10.6F, stateText, 133, 152, 173, Math.round(206.0F * alpha), NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+            NanoRenderUtils.drawLabel(vg, stack, bold, x + panelW - 10.0F, drawY + 29.0F, 11.2F, hpPercent, 202, 219, 236, Math.round(220.0F * alpha), NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
 
             if (this.showDistance.isEnabled())
             {
-                Minecraft mc = Minecraft.getMinecraft();
-                float distance = mc == null || mc.thePlayer == null ? 0.0F : mc.thePlayer.getDistanceToEntity(target);
-                String distText = String.format("Dist %.2f", Float.valueOf(distance));
-                NanoRenderUtils.drawLabel(vg, stack, regular, x + 10.0F, y + panelH - 12.0F, 11.5F, distText, 126, 211, 255, 220, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+                String distText = String.format(Locale.ROOT, "Dist %.2f", Float.valueOf(this.cachedDistance));
+                NanoRenderUtils.drawLabel(vg, stack, regular, x + 14.0F, drawY + panelH - 11.5F, 10.8F, distText, 136, 210, 255, Math.round(220.0F * alpha), NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
             }
 
             if (this.showHealthBar.isEnabled())
             {
-                float barX = x + 10.0F;
-                float barY = y + panelH - 24.0F;
-                float barW = Math.max(14.0F, panelW - 20.0F);
-                float barH = 8.0F;
-                float filled = barW * Math.max(0.0F, Math.min(1.0F, this.animatedHealth));
-                NanoRenderUtils.fillRoundedRect(vg, barX, barY, barW, barH, 4.0F, NanoRenderUtils.argb(stack, 0xA42B313D));
+                float barX = x + 14.0F;
+                float barW = Math.max(24.0F, panelW - 28.0F);
+                float barY = drawY + panelH - 22.0F;
+                float barH = 7.0F;
+                float filled = barW * UiMotion.clamp01(visualHealth);
+                int barBg = NanoRenderUtils.mulAlpha(theme.controlArgb(), alpha * 0.92F);
+                NanoRenderUtils.fillRoundedRect(vg, barX, barY, barW, barH, 3.5F, NanoRenderUtils.argb(stack, barBg));
 
-                if (filled > 0.5F)
+                if (filled > 0.1F)
                 {
-                    NanoRenderUtils.fillRoundedRectGradient(vg, stack, barX, barY, filled, barH, 4.0F, 0xFF3DB7FF, 0xFF35F2A2, false);
+                    int healthy = this.mixArgb(theme.dangerArgb(), theme.successArgb(), UiMotion.clamp01(visualHealth));
+                    int head = this.mixArgb(theme.accentArgb(), healthy, 0.55F);
+                    NanoRenderUtils.fillRoundedRectGradient(vg, stack, barX, barY, filled, barH, 3.5F, NanoRenderUtils.mulAlpha(head, alpha), NanoRenderUtils.mulAlpha(healthy, alpha), false);
                 }
             }
         }
+    }
+
+    private void cacheTargetState(EntityLivingBase target)
+    {
+        String name = target.getName();
+        this.cachedTargetName = name == null || name.trim().isEmpty() ? "target" : name;
+        this.cachedHealth = Math.max(0.0F, target.getHealth() + target.getAbsorptionAmount());
+        this.cachedHealthCap = Math.max(1.0F, target.getMaxHealth() + target.getAbsorptionAmount());
+        Minecraft mc = Minecraft.getMinecraft();
+        this.cachedDistance = mc == null || mc.thePlayer == null ? 0.0F : mc.thePlayer.getDistanceToEntity(target);
+    }
+
+    private float healthRatio()
+    {
+        return UiMotion.clamp01(this.cachedHealth / Math.max(1.0F, this.cachedHealthCap));
+    }
+
+    private ClickGuiModule resolveClickGuiModule()
+    {
+        ClientBootstrap bootstrap = ClientBootstrap.instance();
+
+        if (bootstrap == null || bootstrap.getModules() == null)
+        {
+            return null;
+        }
+
+        client.module.Module module = bootstrap.getModules().getById("click_gui");
+        return module instanceof ClickGuiModule ? (ClickGuiModule)module : null;
+    }
+
+    private NanoTheme resolveTheme(ClickGuiModule clickGui)
+    {
+        if (clickGui == null)
+        {
+            return NanoThemes.create(NanoPalette.COBALT, 220, 40, 10.0F, null);
+        }
+
+        Integer accent = null;
+
+        if (clickGui.isAccentOverrideEnabled() && clickGui.getAccentOverride() != null)
+        {
+            accent = Integer.valueOf(clickGui.getAccentOverride().toArgb());
+        }
+
+        int backdrop = clickGui.isBackdropEnabled() ? Math.min(64, clickGui.getBackdropAlpha()) : 0;
+        return NanoThemes.create(clickGui.getPalette(), clickGui.getPanelAlpha(), backdrop, clickGui.getCornerRadius(), accent);
+    }
+
+    private int mixArgb(int from, int to, float t)
+    {
+        float k = UiMotion.clamp01(t);
+        int a = this.lerpChannel((from >>> 24) & 255, (to >>> 24) & 255, k);
+        int r = this.lerpChannel((from >>> 16) & 255, (to >>> 16) & 255, k);
+        int g = this.lerpChannel((from >>> 8) & 255, (to >>> 8) & 255, k);
+        int b = this.lerpChannel(from & 255, to & 255, k);
+        return (a & 255) << 24 | (r & 255) << 16 | (g & 255) << 8 | b & 255;
+    }
+
+    private int lerpChannel(int from, int to, float t)
+    {
+        return NanoRenderUtils.clamp255(Math.round((float)from + (float)(to - from) * UiMotion.clamp01(t)));
     }
 
     private EntityLivingBase resolveTarget()

@@ -89,6 +89,12 @@ public final class UiWindowState
         this.tick(speed, UiAnimation.Type.EASE_OUT, 0.60F, true);
     }
 
+    public void tick(UiAnimProfile profile)
+    {
+        UiAnimProfile resolved = profile == null ? UiAnimProfile.defaults() : profile;
+        this.tick(resolved.windowSpeed(), resolved.type(), resolved.smooth(), resolved.isEnabled());
+    }
+
     public void tick(float speed, UiAnimation.Type animationType, float smooth, boolean enabled)
     {
         if (!this.initialized)

@@ -29,8 +29,20 @@ public final class NanoSliderController
         return animationEnabled ? animated : target;
     }
 
+    public static float resolveDisplayRatio(String channelKey, float targetRatio, boolean dragging, UiAnimProfile profile)
+    {
+        UiAnimProfile resolved = profile == null ? UiAnimProfile.defaults() : profile;
+        return resolveDisplayRatio(channelKey, targetRatio, dragging, resolved.isEnabled(), resolved.sliderSpeed(), resolved.smooth(), resolved.type());
+    }
+
     public static float resolveFocus(String channelKey, boolean hovered, boolean dragging, float speed, float smooth, UiAnimation.Type type, boolean animationEnabled)
     {
         return UiAnimationBus.animate(channelKey, hovered || dragging ? 1.0F : 0.0F, speed, smooth, type, animationEnabled);
+    }
+
+    public static float resolveFocus(String channelKey, boolean hovered, boolean dragging, UiAnimProfile profile)
+    {
+        UiAnimProfile resolved = profile == null ? UiAnimProfile.defaults() : profile;
+        return resolveFocus(channelKey, hovered, dragging, resolved.controlSpeed(), resolved.smooth(), resolved.type(), resolved.isEnabled());
     }
 }

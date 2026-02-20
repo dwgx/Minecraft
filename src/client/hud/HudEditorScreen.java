@@ -8,7 +8,8 @@ import client.setting.StringSetting;
 import client.ui.NanoRenderableScreen;
 import client.ui.template.NanoSliderController;
 import client.ui.template.NanoTextInput;
-import client.ui.template.UiAnimation;
+import client.ui.template.UiAnimProfile;
+import client.ui.template.UiAnimProfiles;
 import client.ui.template.UiAnimationBus;
 import client.ui.template.UiMotion;
 import dwgx.nano.NanoFontBook;
@@ -570,14 +571,12 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
     {
         float scale = UiMotion.clamp(track.h / 6.0F, 0.35F, 1.85F);
         ClickGuiModule clickGui = this.resolveClickGuiModule();
+        UiAnimProfile animProfile = this.resolveAnimationProfile(clickGui);
         float ratio = UiMotion.clamp01((value - min) / Math.max(0.0001F, max - min));
         float targetRatio = dragging ? NanoSliderController.mouseRatio((float)this.mouseX, track.x, track.w) : ratio;
         String key = this.sliderAnimKey(sliderKey);
-        boolean sliderAnimEnabled = clickGui == null || clickGui.isGlobalAnimationEnabled() && clickGui.isSliderAnimationEnabled();
-        UiAnimation.Type animType = clickGui == null ? UiAnimation.Type.EASE_OUT : clickGui.getControlAnimationType();
-        float smooth = clickGui == null ? 0.64F : clickGui.getGlobalAnimationSmooth();
-        float displayRatio = NanoSliderController.resolveDisplayRatio("hud.editor.slider." + key, targetRatio, dragging, sliderAnimEnabled, clickGui == null ? 0.64F : clickGui.getSliderAnimationSpeed(), smooth, animType);
-        float focus = NanoSliderController.resolveFocus("hud.editor.slider.focus." + key, hovered, dragging, clickGui == null ? 0.58F : clickGui.getControlAnimationSpeed(), smooth, animType, clickGui == null || clickGui.isGlobalAnimationEnabled());
+        float displayRatio = NanoSliderController.resolveDisplayRatio("hud.editor.slider." + key, targetRatio, dragging, animProfile);
+        float focus = NanoSliderController.resolveFocus("hud.editor.slider.focus." + key, hovered, dragging, animProfile);
 
         NanoUi.drawLeftText(vg, stack, bold, track.x, track.y - scaled(8.0F, scale), scaled(11.5F, scale), theme.textArgb(), label);
         this.drawSliderValueInput(vg, stack, regular, theme, valueRect, track, sliderKey, value, scale, hovered);
@@ -610,7 +609,8 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
             return;
         }
 
-        float focus = UiAnimationBus.animate(animKey + ".idle.focus", fieldHovered ? 1.0F : 0.0F, 0.58F, 0.62F, UiAnimation.Type.EASE_OUT, true);
+        UiAnimProfile animProfile = this.resolveAnimationProfile(this.resolveClickGuiModule());
+        float focus = UiAnimationBus.animateControl(animKey + ".idle.focus", fieldHovered ? 1.0F : 0.0F, animProfile);
         int fill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.38F + focus * 0.32F));
         int border = this.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 92), NanoRenderUtils.withAlpha(theme.accentArgb(), 142), UiMotion.clamp01(focus * 0.72F));
         float radius = Math.min(valueRect.h * 0.5F, Math.max(2.0F, theme.controlRadius()));
@@ -869,6 +869,11 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
     {
         Module module = ClientBootstrap.instance().getModules().getById("click_gui");
         return module instanceof ClickGuiModule ? (ClickGuiModule)module : null;
+    }
+
+    private UiAnimProfile resolveAnimationProfile(ClickGuiModule clickGui)
+    {
+        return UiAnimProfiles.hudProfile(clickGui);
     }
 
     private String sliderAnimKey(String sliderKey)
