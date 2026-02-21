@@ -1,155 +1,22 @@
 package dwgx.ui.ext;
 
+import java.nio.charset.StandardCharsets;
+import javax.xml.bind.DatatypeConverter;
+
 /**
- * Built-in CRT terminal shader adapted from user supplied Shadertoy-style code.
- *
- * This keeps "External GLSL" usable even when no local file path is configured.
+ * Built-in CRT terminal shader converted from user supplied Shadertoy-style source.
  */
 public final class BuiltinMainMenuGlslShader
 {
+    private static final String SOURCE_B64 = \"I3ZlcnNpb24gMTIwCgp1bmlmb3JtIHNhbXBsZXIyRCB1VGV4Owp1bmlmb3JtIGZsb2F0IHVUaW1lOwp1bmlmb3JtIHZlYzIgdVJlc29sdXRpb247CnZhcnlpbmcgdmVjMiB2VGV4Q29vcmQ7CnZhcnlpbmcgdmVjNCB2Q29sb3I7CgojZGVmaW5lIGlUaW1lIHVUaW1lCiNkZWZpbmUgaVJlc29sdXRpb24gdmVjMyh1UmVzb2x1dGlvbiwgMS4wKQojZGVmaW5lIGlNb3VzZSB2ZWM0KDAuMCkKI2RlZmluZSBpQ2hhbm5lbDAgdVRleAoKI2RlZmluZSBMSUdIVFNfT04gKHNpbihmcmFjdChpVGltZS8yMy4wKSsyLjc0KSArIDAuMDUqYWJzKHNpbihpVGltZSoxMDAwLjApKSA8IDAuMCkKI2RlZmluZSBXSURUSCAwLjQ4CiNkZWZpbmUgSEVJR0hUIDAuMwojZGVmaW5lIENVUlZFIDMuMAojZGVmaW5lIFNNT09USCAwLjAwNAojZGVmaW5lIFNISU5FIDAuNjYKI2RlZmluZSBCRVpFTF9DT0wgdmVjNCgwLjgsIDAuOCwgMC42LCAwLjApCiNkZWZpbmUgUkVGTEVDVElPTl9CTFVSX0lURVJBVElPTlMgNQojZGVmaW5lIFJFRkxFQ1RJT05fQkxVUl9TSVpFIDAuMDQKCiNkZWZpbmUgRk9OVF9TSVpFIHZlYzIoMTAuMCwyMC4wKQojZGVmaW5lIFJPV0NPTFMgdmVjMig4MC4wLCAyNC4wKQojZGVmaW5lIFBIT1NQSE9SX0NPTCB2ZWM0KDAuMiwgMS4wLCAwLjIsIDAuMCkKCmZsb2F0IHJhbmQodmVjMiBjbykKewogICAgcmV0dXJuIGZyYWN0KHNpbihkb3QoY28ueHkgLHZlYzIoMTIuOTg5OCw3OC4yMzMpKSkgKiA0Mzc1OC41NDUzKTsKfQoKdmVjMiBDdXJ2ZWRTdXJmYWNlKHZlYzIgdXYsIGZsb2F0IHIpCnsKICAgIHJldHVybiByICogdXYgLyBzcXJ0KG1heCgwLjAwMDEsIHIgKiByIC0gZG90KHV2LCB1dikpKTsKfQoKdmVjMiBjcnRDdXJ2ZSh2ZWMyIHV2LCBmbG9hdCByLCBib29sIGNvbnRlbnQsIGJvb2wgc2hpbmUpCnsKICAgIHIgPSBDVVJWRSAqIHI7CiAgICB1diA9ICh1diAvIGlSZXNvbHV0aW9uLnh5IC0gMC41KSAvIHZlYzIoaVJlc29sdXRpb24ueS9pUmVzb2x1dGlvbi54LCAxLjApICogMi4wOwogICAgdXYgPSBDdXJ2ZWRTdXJmYWNlKHV2LCByKTsKICAgIGlmKGNvbnRlbnQpIHV2ICo9IDAuNSAvIHZlYzIoV0lEVEgsIEhFSUdIVCk7CiAgICB1diA9ICh1diAvIDIuMCkgKyAwLjU7CiAgICByZXR1cm4gdXY7Cn0KCmZsb2F0IHJvdW5kU3F1YXJlKHZlYzIgcCwgdmVjMiBiLCBmbG9hdCByKQp7CiAgICByZXR1cm4gbGVuZ3RoKG1heChhYnMocCktYiwwLjApKS1yOwp9CgpmbG9hdCBzdGRSUyh2ZWMyIHV2LCBmbG9hdCByKQp7CiAgICByZXR1cm4gcm91bmRTcXVhcmUodXYgLSAwLjUsIHZlYzIoV0lEVEgsIEhFSUdIVCkgKyByLCAwLjA1KTsKfQoKdmVjMiBib3JkZXJSZWZsZWN0KHZlYzIgcCwgZmxvYXQgcikKewogICAgZmxvYXQgZXBzID0gMC4wMDAxOwogICAgdmVjMiBlcHN4ID0gdmVjMihlcHMsMC4wKTsKICAgIHZlYzIgZXBzeSA9IHZlYzIoMC4wLGVwcyk7CiAgICB2ZWMyIGIgPSAoMS4wK3ZlYzIocixyKSkqIDAuNTsKICAgIHIgLz0gMy4wOwogICAgcCAtPSAwLjU7CiAgICB2ZWMyIG5vcm1hbCA9IHZlYzIocm91bmRTcXVhcmUocC1lcHN4LGIsciktcm91bmRTcXVhcmUocCtlcHN4LGIsciksCiAgICAgICAgICAgICAgICAgICAgICAgcm91bmRTcXVhcmUocC1lcHN5LGIsciktcm91bmRTcXVhcmUocCtlcHN5LGIscikpL2VwczsKICAgIGZsb2F0IGQgPSByb3VuZFNxdWFyZShwLCBiLCByKTsKICAgIHAgKz0gMC41OwogICAgcmV0dXJuIHAgKyBkKm5vcm1hbDsKfQoKZmxvYXQgc29tZVBsYXNtYSh2ZWMyIHV2KQp7CiAgICB1diAvPSBpUmVzb2x1dGlvbi54eTsKICAgIHV2ICo9IFJPV0NPTFM7CiAgICB1diA9IGNlaWwodXYpOwogICAgdXYgLz0gUk9XQ09MUzsKCiAgICBmbG9hdCBjb2xvciA9IDAuMDsKICAgIGNvbG9yICs9IDAuNypzaW4oMC41KnV2LnggKyBpVGltZS81LjApOwogICAgY29sb3IgKz0gMy4wKnNpbigxLjYqdXYueSArIGlUaW1lLzUuMCk7CiAgICBjb2xvciArPSAxLjAqc2luKDEwLjAqKHV2LnkgKiBzaW4oaVRpbWUvMi4wKSArIHV2LnggKiBjb3MoaVRpbWUvNS4wKSkgKyBpVGltZS8yLjApOwogICAgZmxvYXQgY3ggPSB1di54ICsgMC41KnNpbihpVGltZS8yLjApOwogICAgZmxvYXQgY3kgPSB1di55ICsgMC41KmNvcyhpVGltZS80LjApOwogICAgY29sb3IgKz0gMC40KnNpbihzcXJ0KDEwMC4wKmN4KmN4ICsgMTAwLjAqY3kqY3kgKyAxLjApICsgaVRpbWUpOwogICAgY29sb3IgKz0gMC45KnNpbihzcXJ0KDc1LjAqY3gqY3ggKyAyNS4wKmN5KmN5ICsgMS4wKSArIGlUaW1lKTsKICAgIGNvbG9yICs9IC0xLjQqc2luKHNxcnQoMjU2LjAqY3gqY3ggKyAyNS4wKmN5KmN5ICsgMS4wKSArIGlUaW1lKTsKICAgIGNvbG9yICs9IDAuMyAqIHNpbigwLjUqdXYueSArIHV2LnggKyBzaW4oaVRpbWUpKTsKICAgIHJldHVybiAxNy4wKigwLjUrMC40OTkqc2luKGNvbG9yKSkqKDAuNytzaW4oaVRpbWUpKjAuMyk7Cn0KCmZsb2F0IHRleHRMaW5lcyh2ZWMyIHV2RykKewogICAgZmxvYXQgd3QgPSA1LjAgKiAoaVRpbWUgKyAwLjUqc2luKGlUaW1lKjEuNCkgKyAwLjIqc2luKGlUaW1lKjIuOSkpOwogICAgdmVjMiB1dkd0ID0gdXZHICsgdmVjMigwLjAsIGZsb29yKHd0KSk7CiAgICBmbG9hdCBsbCA9IHJhbmQodmVjMih1dkd0LnksIC0xLjApKSAqIFJPV0NPTFMueDsKCiAgICBpZiAodXZHLnkgPiBST1dDT0xTLnkgLSAyLjApewogICAgICAgIGlmIChjZWlsKHV2Ry54KSA9PSBmbG9vcihtaW4obGwsIGZyYWN0KHd0KSpST1dDT0xTLngpKSkKICAgICAgICAgICAgcmV0dXJuIDIuMDsKICAgICAgICBpZiAoY2VpbCh1dkcueCkgPiBmbG9vcihtaW4obGwsIGZyYWN0KHd0KSpST1dDT0xTLngpKSkKICAgICAgICAgICAgcmV0dXJuIDAuMDsKICAgIH0KICAgIGlmICh1dkd0LnggPiA1LjAgJiYgcmFuZCh1dkd0KSA8IDAuMDc1KQogICAgICAgIHJldHVybiAwLjA7CiAgICBpZiAobWF4KDUuMCwgdXZHdC54KSA+IGxsKQogICAgICAgIHJldHVybiAwLjA7CgogICAgcmV0dXJuIHJhbmQodXZHdCkqMTUuMCArIDIuMDsKfQoKZmxvYXQgcm91bmRMaW5lKHZlYzIgcCwgdmVjMiBhLCB2ZWMyIGIpCnsKICAgIGIgLT0gYSArIHZlYzIoMS4wLDAuMCk7CiAgICBwIC09IGE7CiAgICBmbG9hdCBmID0gbGVuZ3RoKHAtY2xhbXAoZG90KHAsYikvbWF4KDAuMDAwMSxkb3QoYixiKSksMC4wLDEuMCkqYik7CiAgICBpZiAoaVJlc29sdXRpb24ueSA8IDMyMC4wKQogICAgICAgIHJldHVybiBzbW9vdGhzdGVwKDEuMCwgMC45LCBmKTsKICAgIGVsc2UgaWYgKGlSZXNvbHV0aW9uLnkgPCA3MjAuMCkKICAgICAgICByZXR1cm4gc21vb3Roc3RlcCgwLjc1LCAwLjUsIGYpOwogICAgZWxzZQogICAgICAgIHJldHVybiBzbW9vdGhzdGVwKDEuMCwgMC4wLCBmKTsKfQoKI2RlZmluZSBsKHksYSxiKSByb3VuZExpbmUocCwgdmVjMihmbG9hdChhKSwgZmxvYXQoeSkpLCB2ZWMyKGZsb2F0KGIpLCBmbG9hdCh5KSkpCgpmbG9hdCB2dDIyMEZvbnQodmVjMiBwLCBmbG9hdCBjKQp7CiAgICBpZiAoYyA8IDEuMCkgcmV0dXJuIDAuMDsKICAgIGlmKHAueSA+IDE2LjApewogICAgICAgIGlmKGMgPiAyLjApIHJldHVybiAwLjA7CiAgICAgICAgaWYoYyA+IDEuMCkgcmV0dXJuIGwoMTcsMSw5KTsKICAgIH0KICAgIGlmKHAueSA+IDE0LjApewogICAgICAgIGlmKGMgPiAxNi4wKSByZXR1cm4gbCgxNSwzLDgpOwogICAgICAgIGlmKGMgPiAxNS4wKSByZXR1cm4gbCgxNSwxLDgpOwogICAgICAgIGlmKGMgPiAxNC4wKSByZXR1cm4gbCgxNSwxLDMpKyBsKDE1LDcsOSk7CiAgICAgICAgaWYoYyA+IDEzLjApIHJldHVybiBsKDE1LDIsOCk7CiAgICAgICAgaWYoYyA+IDEyLjApIHJldHVybiBsKDE1LDEsOSk7CiAgICAgICAgaWYoYyA+IDExLjApIHJldHVybiBsKDE1LDIsOCk7CiAgICAgICAgaWYoYyA+IDEwLjApIHJldHVybiBsKDE1LDEsMykrIGwoMTUsNiw4KTsKICAgICAgICBpZihjID4gOS4wKSByZXR1cm4gbCgxNSw0LDYpOwogICAgICAgIGlmKGMgPiA4LjApIHJldHVybiBsKDE1LDIsNCkrIGwoMTUsNSw3KTsKICAgICAgICBpZihjID4gNy4wKSByZXR1cm4gbCgxNSwyLDgpOwogICAgICAgIGlmKGMgPiA2LjApIHJldHVybiBsKDE1LDIsOCk7CiAgICAgICAgaWYoYyA+IDUuMCkgcmV0dXJuIGwoMTUsMiw4KTsKICAgICAgICBpZihjID4gNC4wKSByZXR1cm4gbCgxNSwyLDkpOwogICAgICAgIGlmKGMgPiAzLjApIHJldHVybiBsKDE1LDEsOCk7CiAgICAgICAgaWYoYyA+IDIuMCkgcmV0dXJuIGwoMTUsMiw5KTsKICAgIH0KICAgIGlmKHAueSA+IDEyLjApewogICAgICAgIGlmKGMgPiAxNi4wKSByZXR1cm4gbCgxMywyLDQpKyBsKDEzLDcsOSk7CiAgICAgICAgaWYoYyA+IDE1LjApIHJldHVybiBsKDEzLDIsNCkrIGwoMTMsNyw5KTsKICAgICAgICBpZihjID4gMTQuMCkgcmV0dXJuIGwoMTMsMSwzKSsgbCgxMyw3LDkpOwogICAgICAgIGlmKGMgPiAxMy4wKSByZXR1cm4gbCgxMywxLDMpKyBsKDEzLDcsOSk7CiAgICAgICAgaWYoYyA+IDEyLjApIHJldHVybiBsKDEzLDEsMyk7CiAgICAgICAgaWYoYyA+IDExLjApIHJldHVybiBsKDEzLDQsNik7CiAgICAgICAgaWYoYyA+IDEwLjApIHJldHVybiBsKDEzLDIsNCkrIGwoMTMsNSw5KTsKICAgICAgICBpZihjID4gOS4wKSByZXR1cm4gbCgxMywyLDgpOwogICAgICAgIGlmKGMgPiA4LjApIHJldHVybiBsKDEzLDIsNCkrIGwoMTMsNSw3KTsKICAgICAgICBpZihjID4gNy4wKSByZXR1cm4gbCgxMywxLDMpKyBsKDEzLDcsOSk7CiAgICAgICAgaWYoYyA+IDYuMCkgcmV0dXJuIGwoMTMsMSwzKSsgbCgxMyw3LDkpOwogICAgICAgIGlmKGMgPiA1LjApIHJldHVybiBsKDEzLDEsMykrIGwoMTMsNyw5KTsKICAgICAgICBpZihjID4gNC4wKSByZXR1cm4gbCgxMywxLDMpKyBsKDE1LDIsOSk7CiAgICAgICAgaWYoYyA+IDMuMCkgcmV0dXJuIGwoMTMsMSw0KSsgbCgxMyw3LDkpOwogICAgICAgIGlmKGMgPiAyLjApIHJldHVybiBsKDEzLDEsMykrIGwoMTMsNiw5KTsKICAgIH0KICAgIGlmKHAueSA+IDEwLjApewogICAgICAgIGlmKGMgPiAxNi4wKSByZXR1cm4gbCgxMSwxLDMpOwogICAgICAgIGlmKGMgPiAxNS4wKSByZXR1cm4gbCgxMSwyLDQpKyBsKDExLDcsOSk7CiAgICAgICAgaWYoYyA+IDE0LjApIHJldHVybiBsKDExLDEsOSk7CiAgICAgICAgaWYoYyA+IDEzLjApIHJldHVybiBsKDExLDcsOSk7CiAgICAgICAgaWYoYyA+IDEyLjApIHJldHVybiBsKDExLDIsNSk7CiAgICAgICAgaWYoYyA+IDExLjApIHJldHVybiBsKDExLDQsNik7CiAgICAgICAgaWYoYyA+IDEwLjApIHJldHVybiBsKDExLDMsNSkrIGwoMTEsNiw4KTsKICAgICAgICBpZihjID4gOS4wKSByZXR1cm4gbCgxMSw0LDYpKyBsKDExLDcsOSk7CiAgICAgICAgaWYoYyA+IDguMCkgcmV0dXJuIGwoMTEsMSw4KTsKICAgICAgICBpZihjID4gNy4wKSByZXR1cm4gbCgxMSwxLDMpKyBsKDExLDcsOSk7CiAgICAgICAgaWYoYyA+IDYuMCkgcmV0dXJuIGwoMTEsMSwzKSsgbCgxMSw3LDkpOwogICAgICAgIGlmKGMgPiA1LjApIHJldHVybiBsKDExLDEsMykrIGwoMTEsNyw5KTsKICAgICAgICBpZihjID4gNC4wKSByZXR1cm4gbCgxMSwxLDMpOwogICAgICAgIGlmKGMgPiAzLjApIHJldHVybiBsKDExLDEsMykrIGwoMTEsNyw5KTsKICAgICAgICBpZihjID4gMi4wKSByZXR1cm4gbCgxMSwyLDkpOwogICAgfQogICAgaWYocC55ID4gOC4wKXsKICAgICAgICBpZihjID4gMTYuMCkgcmV0dXJuIGwoOSwxLDMpOwogICAgICAgIGlmKGMgPiAxNS4wKSByZXR1cm4gbCg5LDIsOCk7CiAgICAgICAgaWYoYyA+IDE0LjApIHJldHVybiBsKDksMSwzKSsgbCg5LDcsOSk7CiAgICAgICAgaWYoYyA+IDEzLjApIHJldHVybiBsKDksNCw4KTsKICAgICAgICBpZihjID4gMTIuMCkgcmV0dXJuIGwoOSw0LDgpOwogICAgICAgIGlmKGMgPiAxMS4wKSByZXR1cm4gbCg5LDQsNik7CiAgICAgICAgaWYoYyA+IDEwLjApIHJldHVybiBsKDksNCw2KTsKICAgICAgICBpZihjID4gOS4wKSByZXR1cm4gbCg5LDIsOCk7CiAgICAgICAgaWYoYyA+IDguMCkgcmV0dXJuIGwoOSwyLDQpKyBsKDksNSw3KTsKICAgICAgICBpZihjID4gNy4wKSByZXR1cm4gbCg5LDEsMykrIGwoOSw3LDkpOwogICAgICAgIGlmKGMgPiA2LjApIHJldHVybiBsKDksMSwzKSsgbCg5LDcsOSk7CiAgICAgICAgaWYoYyA+IDUuMCkgcmV0dXJuIGwoOSwxLDMpKyBsKDksNyw5KTsKICAgICAgICBpZihjID4gNC4wKSByZXR1cm4gbCg5LDEsMykrIGwoOSw3LDkpOwogICAgICAgIGlmKGMgPiAzLjApIHJldHVybiBsKDksMSw0KSsgbCg5LDcsOSk7CiAgICAgICAgaWYoYyA+IDIuMCkgcmV0dXJuIGwoOSw3LDkpOwogICAgfQogICAgaWYocC55ID4gNi4wKXsKICAgICAgICBpZihjID4gMTYuMCkgcmV0dXJuIGwoNywxLDMpOwogICAgICAgIGlmKGMgPiAxNS4wKSByZXR1cm4gbCg3LDIsNCkrIGwoNyw3LDkpOwogICAgICAgIGlmKGMgPiAxNC4wKSByZXR1cm4gbCg3LDIsNCkrIGwoNyw2LDgpOwogICAgICAgIGlmKGMgPiAxMy4wKSByZXR1cm4gbCg3LDUsNyk7CiAgICAgICAgaWYoYyA+IDEyLjApIHJldHVybiBsKDcsNyw5KTsKICAgICAgICBpZihjID4gMTEuMCkgcmV0dXJuIGwoNywyLDYpOwogICAgICAgIGlmKGMgPiAxMC4wKSByZXR1cm4gbCg3LDIsNCkrIGwoNyw1LDcpOwogICAgICAgIGlmKGMgPiA5LjApIHJldHVybiBsKDcsMSwzKSsgbCg3LDQsNik7CiAgICAgICAgaWYoYyA+IDguMCkgcmV0dXJuIGwoNywxLDgpOwogICAgICAgIGlmKGMgPiA3LjApIHJldHVybiBsKDcsMiw4KTsKICAgICAgICBpZihjID4gNi4wKSByZXR1cm4gbCg3LDIsOCk7CiAgICAgICAgaWYoYyA+IDUuMCkgcmV0dXJuIGwoNywyLDgpOwogICAgICAgIGlmKGMgPiA0LjApIHJldHVybiBsKDcsMiw4KTsKICAgICAgICBpZihjID4gMy4wKSByZXR1cm4gbCg3LDEsOCk7CiAgICAgICAgaWYoYyA+IDIuMCkgcmV0dXJuIGwoNywyLDgpOwogICAgfQogICAgaWYocC55ID4gNC4wKXsKICAgICAgICBpZihjID4gMTYuMCkgcmV0dXJuIGwoNSwyLDQpKyBsKDUsNyw5KTsKICAgICAgICBpZihjID4gMTUuMCkgcmV0dXJuIGwoNSwyLDQpKyBsKDUsNyw5KTsKICAgICAgICBpZihjID4gMTQuMCkgcmV0dXJuIGwoNSwzLDcpOwogICAgICAgIGlmKGMgPiAxMy4wKSByZXR1cm4gbCg1LDYsOCk7CiAgICAgICAgaWYoYyA+IDEyLjApIHJldHVybiBsKDUsMSwzKSsgbCg1LDcsOSk7CiAgICAgICAgaWYoYyA+IDExLjApIHJldHVybiBsKDUsMyw2KTsKICAgICAgICBpZihjID4gMTAuMCkgcmV0dXJuIGwoNSwxLDUpKyBsKDUsNiw4KTsKICAgICAgICBpZihjID4gOS4wKSByZXR1cm4gbCg1LDIsOCk7CiAgICAgICAgaWYoYyA+IDguMCkgcmV0dXJuIGwoNSwyLDQpKyBsKDUsNSw3KTsKICAgICAgICBpZihjID4gNy4wKSByZXR1cm4gMC4wOwogICAgICAgIGlmKGMgPiA2LjApIHJldHVybiAwLjA7CiAgICAgICAgaWYoYyA+IDUuMCkgcmV0dXJuIDAuMDsKICAgICAgICBpZihjID4gNC4wKSByZXR1cm4gMC4wOwogICAgICAgIGlmKGMgPiAzLjApIHJldHVybiBsKDUsMSwzKTsKICAgICAgICBpZihjID4gMi4wKSByZXR1cm4gMC4wOwogICAgfQogICAgaWYocC55ID4gMi4wKXsKICAgICAgICBpZihjID4gMTYuMCkgcmV0dXJuIGwoMywzLDgpOwogICAgICAgIGlmKGMgPiAxNS4wKSByZXR1cm4gbCgzLDEsOCk7CiAgICAgICAgaWYoYyA+IDE0LjApIHJldHVybiBsKDMsNCw2KTsKICAgICAgICBpZihjID4gMTMuMCkgcmV0dXJuIGwoMywxLDkpOwogICAgICAgIGlmKGMgPiAxMi4wKSByZXR1cm4gbCgzLDIsOCk7CiAgICAgICAgaWYoYyA+IDExLjApIHJldHVybiBsKDMsNCw2KTsKICAgICAgICBpZihjID4gMTAuMCkgcmV0dXJuIGwoMywyLDQpKyBsKDMsNyw5KTsKICAgICAgICBpZihjID4gOS4wKSByZXR1cm4gbCgzLDQsNik7CiAgICAgICAgaWYoYyA+IDguMCkgcmV0dXJuIGwoMywyLDQpKyBsKDMsNSw3KTsKICAgICAgICBpZihjID4gNy4wKSByZXR1cm4gbCgzLDIsNCkrIGwoMyw2LDgpOwogICAgICAgIGlmKGMgPiA2LjApIHJldHVybiBsKDMsMSwzKSsgbCgzLDQsNyk7CiAgICAgICAgaWYoYyA+IDUuMCkgcmV0dXJuIGwoMywyLDQpKyBsKDMsNiw4KTsKICAgICAgICBpZihjID4gNC4wKSByZXR1cm4gMC4wOwogICAgICAgIGlmKGMgPiAzLjApIHJldHVybiBsKDMsMSwzKTsKICAgICAgICBpZihjID4gMi4wKSByZXR1cm4gMC4wOwogICAgfQogICAgZWxzZXsKICAgICAgICBpZihjID4gNy4wKSByZXR1cm4gMC4wOwogICAgICAgIGlmKGMgPiA2LjApIHJldHVybiBsKDEsMiw1KSsgbCgxLDYsOCk7CiAgICB9CiAgICByZXR1cm4gMC4wOwp9Cgp2ZWM0IHJlbmRlckJ1ZmZlcih2ZWMyIGZyYWdDb29yZCkKewogICAgZmxvYXQgdmFsID0gMC4wOwoKICAgIHZlYzIgdXYgPSB2ZWMyKGZyYWdDb29yZC54LCBpUmVzb2x1dGlvbi55IC0gZnJhZ0Nvb3JkLnkpOwogICAgdmVjMiB1dlQgPSB2ZWMyKDgwLjAsIDI0LjApICogRk9OVF9TSVpFICogdXYgLyBpUmVzb2x1dGlvbi54eTsKICAgIHZlYzIgdXZHID0gZmxvb3IoUk9XQ09MUyAqIHV2IC8gaVJlc29sdXRpb24ueHkpOwoKICAgIGZsb2F0IHByb2cgPSBzaW4oaVRpbWUqMC41KTsKICAgIGlmKHByb2cgPCAtMC4xKQogICAgICAgIHZhbCA9IHNvbWVQbGFzbWEoZnJhZ0Nvb3JkLnh5KTsKICAgIGVsc2UgaWYocHJvZyA8IDAuMSkKICAgICAgICB2YWwgPSByYW5kKHV2RyAqIGlUaW1lKSAqIDE3LjA7CiAgICBlbHNlCiAgICAgICAgdmFsID0gdGV4dExpbmVzKHV2Ryk7CgogICAgcmV0dXJuIHZ0MjIwRm9udCh1dlQgLSB1dkcgKiBGT05UX1NJWkUsIHZhbCkgKiBQSE9TUEhPUl9DT0w7Cn0KCnZvaWQgbWFpbkltYWdlKG91dCB2ZWM0IGMsIGluIHZlYzIgZnJhZ0Nvb3JkKQp7CiAgICBjID0gdmVjNCgwLjAsIDAuMCwgMC4wLCAwLjApOwoKICAgIHZlYzIgdXZDID0gY3J0Q3VydmUoZnJhZ0Nvb3JkLCAxLjAsIHRydWUsIGZhbHNlKTsKICAgIHZlYzIgdXZTID0gY3J0Q3VydmUoZnJhZ0Nvb3JkLCAxLjAsIGZhbHNlLCBmYWxzZSk7CiAgICB2ZWMyIHV2RSA9IGNydEN1cnZlKGZyYWdDb29yZCwgMS4yNSwgZmFsc2UsIGZhbHNlKTsKCiAgICBpZiAoTElHSFRTX09OKSB7CiAgICAgICAgY29uc3QgZmxvYXQgYW1iaWVudCA9IDAuMzM7CiAgICAgICAgdmVjMiB1dlNoID0gY3J0Q3VydmUoZnJhZ0Nvb3JkLCAxLjAsIGZhbHNlLCB0cnVlKTsKICAgICAgICBjICs9IG1heCgwLjAsIFNISU5FIC0gZGlzdGFuY2UodXZTaCwgdmVjMigwLjUsIDEuMCkpKSAqIHNtb290aHN0ZXAoU01PT1RILzIuMCwgLVNNT09USC8yLjAsIHN0ZFJTKHV2UyArIHZlYzIoMC4wLCAwLjAzKSwgMC4wKSk7CiAgICAgICAgYyArPSBtYXgoMC4wLCBhbWJpZW50IC0gMC41KmRpc3RhbmNlKHV2UywgdmVjMigwLjUsMC41KSkpICogc21vb3Roc3RlcChTTU9PVEgsIC1TTU9PVEgsIHN0ZFJTKHV2UywgMC4wKSk7CgogICAgICAgIHV2U2ggPSBjcnRDdXJ2ZShmcmFnQ29vcmQsIDEuMjUsIGZhbHNlLCB0cnVlKTsKICAgICAgICB2ZWM0IGIgPSB2ZWM0KDAuMCwgMC4wLCAwLjAsIDAuMCk7CiAgICAgICAgZm9yKGludCBpPTA7IGk8MTI7IGkrKykgewogICAgICAgICAgICBiICs9IChjbGFtcChCRVpFTF9DT0wgKyByYW5kKHV2U2grZmxvYXQoaSkpKjAuMDUtMC4wMjUsIDAuMCwgMS4wKSArIHJhbmQodXZFKzEuMCtmbG9hdChpKSkqMC4yNSAqIGNvcygodXZTaC54LTAuNSkqMy4xNDE1KjEuNSkpLzEyLjA7CiAgICAgICAgfQoKICAgICAgICBjb25zdCBmbG9hdCBISFcgPSAwLjUgKiBIRUlHSFQvV0lEVEg7CiAgICAgICAgYyArPSBiLzMuMCooMS4wICsgc21vb3Roc3RlcChISFcgLSAwLjAyNSwgSEhXICsgMC4wMjUsIGFicyhhdGFuKHV2Uy54LTAuNSwgdXZTLnktMC41KSkvMy4xNDE1KQogICAgICAgICAgICArIHNtb290aHN0ZXAoSEhXICsgMC4wMjUsIEhIVyAtIDAuMDI1LCBhYnMoYXRhbih1dlMueC0wLjUsIDAuNS11dlMueSkpLzMuMTQxNSkpCiAgICAgICAgICAgICogc21vb3Roc3RlcCgtU01PT1RILCBTTU9PVEgsIHN0ZFJTKHV2UywgMC4wKSkKICAgICAgICAgICAgKiBzbW9vdGhzdGVwKFNNT09USCwgLVNNT09USCwgc3RkUlModXZFLCAwLjA1KSk7CgogICAgICAgIGMgKz0gKGIgLSAwLjQpCiAgICAgICAgICAgICogc21vb3Roc3RlcCgtU01PT1RIKjIuMCwgU01PT1RIKjIuMCwgcm91bmRTcXVhcmUodXZFLXZlYzIoMC41LCAwLjUwNSksIHZlYzIoV0lEVEgsIEhFSUdIVCkgKyAwLjA1LCAwLjA1KSkKICAgICAgICAgICAgKiBzbW9vdGhzdGVwKFNNT09USCoyLjAsIC1TTU9PVEgqMi4wLCByb3VuZFNxdWFyZSh1dkUtdmVjMigwLjUsIDAuNDk1KSwgdmVjMihXSURUSCwgSEVJR0hUKSArIDAuMDUsIDAuMDUpKTsKCiAgICAgICAgYyArPSBiCiAgICAgICAgICAgICogc21vb3Roc3RlcCgtU01PT1RILCBTTU9PVEgsIHJvdW5kU3F1YXJlKHV2RS12ZWMyKDAuNSwgMC41KSwgdmVjMihXSURUSCwgSEVJR0hUKSArIDAuMDUsIDAuMDUpKQogICAgICAgICAgICAqIHNtb290aHN0ZXAoU01PT1RILCAtU01PT1RILCByb3VuZFNxdWFyZSh1dkUtdmVjMigwLjUsIDAuNSksIHZlYzIoV0lEVEgsIEhFSUdIVCkgKyAwLjE1LCAwLjA1KSk7CgogICAgICAgIGMgKz0gKGIgLSAwLjQpCiAgICAgICAgICAgICogc21vb3Roc3RlcCgtU01PT1RIKjIuMCwgU01PT1RIKjIuMCwgcm91bmRTcXVhcmUodXZFLXZlYzIoMC41LCAwLjQ5NSksIHZlYzIoV0lEVEgsIEhFSUdIVCkgKyAwLjE1LCAwLjA1KSkKICAgICAgICAgICAgKiBzbW9vdGhzdGVwKFNNT09USCoyLjAsIC1TTU9PVEgqMi4wLCByb3VuZFNxdWFyZSh1dkUtdmVjMigwLjUsIDAuNTA1KSwgdmVjMihXSURUSCwgSEVJR0hUKSArIDAuMTUsIDAuMDUpKTsKCiAgICAgICAgYyArPSBtYXgoMC4wLCAoMS4wIC0gMi4wKiBmcmFnQ29vcmQueS9pUmVzb2x1dGlvbi55KSkgKiB2ZWM0KDEuMCwgMS4wLCAxLjAsIDAuMCkKICAgICAgICAgICAgKiBzbW9vdGhzdGVwKC0wLjI1LCAwLjI1LCByb3VuZFNxdWFyZSh1dkMgLSB2ZWMyKDAuNSwgLTAuMiksIHZlYzIoV0lEVEgrMC4yNSwgSEVJR0hULTAuMTUpLCAwLjEpKQogICAgICAgICAgICAqIHNtb290aHN0ZXAoLVNNT09USCoyLjAsIFNNT09USCoyLjAsIHJvdW5kU3F1YXJlKHV2RS12ZWMyKDAuNSwgMC41KSwgdmVjMihXSURUSCwgSEVJR0hUKSArIDAuMTUsIDAuMDUpKTsKICAgIH0KICAgIGVsc2UgewogICAgICAgIGNvbnN0IGZsb2F0IGFtYmllbnQgPSAwLjI7CiAgICAgICAgYyArPSBtYXgoMC4wLCBhbWJpZW50IC0gMC4zKmRpc3RhbmNlKHV2UywgdmVjMigwLjUsMC41KSkpICogc21vb3Roc3RlcChTTU9PVEgsIC1TTU9PVEgsIHN0ZFJTKHV2UywgMC4wKSk7CgogICAgICAgIGMgKz0gQkVaRUxfQ09MICogYW1iaWVudCAqIDAuNwogICAgICAgICAgICAqIHNtb290aHN0ZXAoLVNNT09USCwgU01PT1RILCBzdGRSUyh1dlMsIDAuMCkpCiAgICAgICAgICAgICogc21vb3Roc3RlcChTTU9PVEgsIC1TTU9PVEgsIHN0ZFJTKHV2RSwgMC4wNSkpOwoKICAgICAgICBjIC09IEJFWkVMX0NPTAogICAgICAgICAgICAqIHNtb290aHN0ZXAoLVNNT09USCoyLjAsIFNNT09USCoxMC4wLCBzdGRSUyh1dkUsIDAuMDUpKQogICAgICAgICAgICAqIHNtb290aHN0ZXAoU01PT1RIKjIuMCwgLVNNT09USCoyLjAsIHN0ZFJTKHV2RSwgMC4wNSkpOwoKICAgICAgICBjICs9IEJFWkVMX0NPTCAqIGFtYmllbnQKICAgICAgICAgICAgKiBzbW9vdGhzdGVwKC1TTU9PVEgsIFNNT09USCwgc3RkUlModXZFLCAwLjA1KSkKICAgICAgICAgICAgKiBzbW9vdGhzdGVwKFNNT09USCwgLVNNT09USCwgc3RkUlModXZFLCAwLjE1KSk7CgogICAgICAgIGZvcihpbnQgaSA9IDA7IGkgPCBSRUZMRUNUSU9OX0JMVVJfSVRFUkFUSU9OUzsgaSsrKQogICAgICAgIHsKICAgICAgICAgICAgdmVjMiB1dlIgPSBib3JkZXJSZWZsZWN0KHV2QyArICh2ZWMyKHJhbmQodXZDK2Zsb2F0KGkpKSwgcmFuZCh1dkMrZmxvYXQoaSkrMC4xKSktMC41KSpSRUZMRUNUSU9OX0JMVVJfU0laRSwgMC4wNSk7CiAgICAgICAgICAgIGMgKz0gKFBIT1NQSE9SX0NPTCAtIEJFWkVMX0NPTCphbWJpZW50KSAqIHRleHR1cmUyRChpQ2hhbm5lbDAsIHV2UikgLyBmbG9hdChSRUZMRUNUSU9OX0JMVVJfSVRFUkFUSU9OUykKICAgICAgICAgICAgICAgICogc21vb3Roc3RlcCgtU01PT1RILCBTTU9PVEgsIHN0ZFJTKHV2UywgMC4wKSkKICAgICAgICAgICAgICAgICogc21vb3Roc3RlcChTTU9PVEgsIC1TTU9PVEgsIHN0ZFJTKHV2RSwgMC4wNSkpOwogICAgICAgIH0KCiAgICAgICAgYyArPSAodGV4dHVyZTJEKGlDaGFubmVsMCwgdXZDKSArIHRleHR1cmUyRChpQ2hhbm5lbDAsIHV2QyArIHZlYzIoMC4wMDMsIDAuMDAzKSkgKyB0ZXh0dXJlMkQoaUNoYW5uZWwwLCB1dkMgLSB2ZWMyKDAuMDAzLCAwLjAwMykpKQogICAgICAgICAgICAqIHNtb290aHN0ZXAoMC4wLCAtU01PT1RIKjIwLjAsIHN0ZFJTKHV2UywgLTAuMDIpKSAqIDAuNTsKICAgIH0KCiAgICBpZiAodXZDLnggPiAwLjAgJiYgdXZDLnggPCAxLjAgJiYgdXZDLnkgPiAwLjAgJiYgdXZDLnkgPCAxLjApCiAgICAgICAgYyArPSB0ZXh0dXJlMkQoaUNoYW5uZWwwLCB1dkMpICsgcmVuZGVyQnVmZmVyKGZyYWdDb29yZCk7Cn0KCnZvaWQgbWFpbigpCnsKICAgIHZlYzQgYzsKICAgIG1haW5JbWFnZShjLCBnbF9GcmFnQ29vcmQueHkpOwogICAgZ2xfRnJhZ0NvbG9yID0gYyAqIHZDb2xvcjsKfQ==\";
+
     private BuiltinMainMenuGlslShader()
     {
     }
 
     public static String source()
     {
-        StringBuilder sb = new StringBuilder(8192);
-        sb.append("#version 120\n");
-        sb.append("uniform sampler2D uTex;\n");
-        sb.append("uniform float uTime;\n");
-        sb.append("uniform vec2 uResolution;\n");
-        sb.append("varying vec2 vTexCoord;\n");
-        sb.append("varying vec4 vColor;\n");
-        sb.append("#define iTime uTime\n");
-        sb.append("#define iResolution vec3(uResolution, 1.0)\n");
-        sb.append("#define iChannel0 uTex\n");
-        sb.append("#define WIDTH 0.48\n");
-        sb.append("#define HEIGHT 0.3\n");
-        sb.append("#define CURVE 3.0\n");
-        sb.append("#define SMOOTH 0.004\n");
-        sb.append("#define SHINE 0.66\n");
-        sb.append("#define BEZEL_COL vec4(0.8, 0.8, 0.6, 0.0)\n");
-        sb.append("#define PHOSPHOR_COL vec4(0.2, 1.0, 0.2, 0.0)\n");
-        sb.append("#define REFLECTION_BLUR_ITERATIONS 5\n");
-        sb.append("#define REFLECTION_BLUR_SIZE 0.04\n");
-        sb.append("#define FONT_SIZE vec2(10.0,20.0)\n");
-        sb.append("#define ROWCOLS vec2(80.0,24.0)\n");
-        sb.append("\n");
-        sb.append("float rand(vec2 co){ return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453); }\n");
-        sb.append("\n");
-        sb.append("float roundSquare(vec2 p, vec2 b, float r){ return length(max(abs(p)-b,0.0))-r; }\n");
-        sb.append("float stdRS(vec2 uv, float r){ return roundSquare(uv - 0.5, vec2(WIDTH, HEIGHT) + r, 0.05); }\n");
-        sb.append("vec2 CurvedSurface(vec2 uv, float r){ return r * uv / sqrt(max(0.001, r * r - dot(uv, uv))); }\n");
-        sb.append("\n");
-        sb.append("vec2 crtCurve(vec2 uv, float r, bool content){\n");
-        sb.append("    uv = (uv / uResolution.xy - 0.5) / vec2(uResolution.y/uResolution.x, 1.0) * 2.0;\n");
-        sb.append("    uv = CurvedSurface(uv, CURVE * r);\n");
-        sb.append("    if(content){ uv *= 0.5 / vec2(WIDTH, HEIGHT); }\n");
-        sb.append("    return uv * 0.5 + 0.5;\n");
-        sb.append("}\n");
-        sb.append("\n");
-        sb.append("vec2 borderReflect(vec2 p, float r){\n");
-        sb.append("    float eps = 0.0001;\n");
-        sb.append("    vec2 epsx = vec2(eps,0.0);\n");
-        sb.append("    vec2 epsy = vec2(0.0,eps);\n");
-        sb.append("    vec2 b = (1.0 + vec2(r)) * 0.5;\n");
-        sb.append("    r /= 3.0;\n");
-        sb.append("    p -= 0.5;\n");
-        sb.append("    vec2 n = vec2(roundSquare(p-epsx,b,r)-roundSquare(p+epsx,b,r), roundSquare(p-epsy,b,r)-roundSquare(p+epsy,b,r)) / eps;\n");
-        sb.append("    float d = roundSquare(p, b, r);\n");
-        sb.append("    return p + 0.5 + d * n;\n");
-        sb.append("}\n");
-        sb.append("\n");
-        sb.append("float somePlasma(vec2 uv){\n");
-        sb.append("    uv /= iResolution.xy;\n");
-        sb.append("    uv *= ROWCOLS;\n");
-        sb.append("    uv = ceil(uv) / ROWCOLS;\n");
-        sb.append("    float color = 0.0;\n");
-        sb.append("    color += 0.7*sin(0.5*uv.x + iTime/5.0);\n");
-        sb.append("    color += 3.0*sin(1.6*uv.y + iTime/5.0);\n");
-        sb.append("    color += 1.0*sin(10.0*(uv.y*sin(iTime/2.0) + uv.x*cos(iTime/5.0)) + iTime/2.0);\n");
-        sb.append("    float cx = uv.x + 0.5*sin(iTime/2.0);\n");
-        sb.append("    float cy = uv.y + 0.5*cos(iTime/4.0);\n");
-        sb.append("    color += 0.4*sin(sqrt(100.0*cx*cx + 100.0*cy*cy + 1.0) + iTime);\n");
-        sb.append("    color += 0.9*sin(sqrt(75.0*cx*cx + 25.0*cy*cy + 1.0) + iTime);\n");
-        sb.append("    color += -1.4*sin(sqrt(256.0*cx*cx + 25.0*cy*cy + 1.0) + iTime);\n");
-        sb.append("    color += 0.3*sin(0.5*uv.y + uv.x + sin(iTime));\n");
-        sb.append("    return 17.0*(0.5 + 0.499*sin(color))*(0.7 + sin(iTime)*0.3);\n");
-        sb.append("}\n");
-        sb.append("\n");
-        sb.append("float textLines(vec2 uvG){\n");
-        sb.append("    float wt = 5.0*(iTime + 0.5*sin(iTime*1.4) + 0.2*sin(iTime*2.9));\n");
-        sb.append("    vec2 uvGt = uvG + vec2(0.0, floor(wt));\n");
-        sb.append("    float ll = rand(vec2(uvGt.y, -1.0)) * ROWCOLS.x;\n");
-        sb.append("    if (uvG.y > ROWCOLS.y - 2.0){\n");
-        sb.append("        float p = floor(min(ll, fract(wt)*ROWCOLS.x));\n");
-        sb.append("        if (ceil(uvG.x) == p) return 2.0;\n");
-        sb.append("        if (ceil(uvG.x) > p) return 0.0;\n");
-        sb.append("    }\n");
-        sb.append("    if (uvGt.x > 5.0 && rand(uvGt) < 0.075) return 0.0;\n");
-        sb.append("    if (max(5.0, uvGt.x) > ll) return 0.0;\n");
-        sb.append("    return rand(uvGt)*15.0 + 2.0;\n");
-        sb.append("}\n");
-        sb.append("\n");
-        sb.append("float roundLine(vec2 p, vec2 a, vec2 b){\n");
-        sb.append("    b -= a + vec2(1.0,0.0);\n");
-        sb.append("    p -= a;\n");
-        sb.append("    float f = length(p - clamp(dot(p,b)/max(0.0001, dot(b,b)), 0.0, 1.0)*b);\n");
-        sb.append("    if (uResolution.y < 320.0) return smoothstep(1.0, 0.9, f);\n");
-        sb.append("    if (uResolution.y < 720.0) return smoothstep(0.75, 0.5, f);\n");
-        sb.append("    return smoothstep(1.0, 0.0, f);\n");
-        sb.append("}\n");
-        sb.append("\n");
-        sb.append("float vt220Font(vec2 p, float c){\n");
-        sb.append("    if (c < 1.0) return 0.0;\n");
-        sb.append("    float col = floor(mod(c, 16.0));\n");
-        sb.append("    if (p.y < 2.0 || p.y > 18.0) return 0.0;\n");
-        sb.append("    float s = 0.0;\n");
-        sb.append("    s += roundLine(p, vec2(2.0 + mod(col, 3.0), 3.0), vec2(8.0, 3.0));\n");
-        sb.append("    s += roundLine(p, vec2(1.0, 7.0 + mod(col, 5.0)), vec2(8.0, 7.0 + mod(col, 5.0)));\n");
-        sb.append("    s += roundLine(p, vec2(2.0, 11.0), vec2(9.0 - mod(col, 2.0), 11.0));\n");
-        sb.append("    s += roundLine(p, vec2(2.0 + mod(col, 2.0), 15.0), vec2(8.0, 15.0));\n");
-        sb.append("    return clamp(s, 0.0, 1.0);\n");
-        sb.append("}\n");
-        sb.append("\n");
-        sb.append("vec4 renderBuffer(vec2 fragCoord){\n");
-        sb.append("    vec2 uv = vec2(fragCoord.x, iResolution.y - fragCoord.y);\n");
-        sb.append("    vec2 uvT = vec2(80.0,24.0) * FONT_SIZE * uv / iResolution.xy;\n");
-        sb.append("    vec2 uvG = floor(ROWCOLS * uv / iResolution.xy);\n");
-        sb.append("    float val;\n");
-        sb.append("    float prog = sin(iTime*0.5);\n");
-        sb.append("    if (prog < -0.1) val = somePlasma(fragCoord);\n");
-        sb.append("    else if (prog < 0.1) val = rand(uvG * iTime) * 17.0;\n");
-        sb.append("    else val = textLines(uvG);\n");
-        sb.append("    return vt220Font(uvT - uvG * FONT_SIZE, val) * PHOSPHOR_COL;\n");
-        sb.append("}\n");
-        sb.append("\n");
-        sb.append("void main(){\n");
-        sb.append("    vec2 fc = gl_FragCoord.xy;\n");
-        sb.append("    vec2 uvC = crtCurve(fc, 1.0, true);\n");
-        sb.append("    vec2 uvS = crtCurve(fc, 1.0, false);\n");
-        sb.append("    vec2 uvE = crtCurve(fc, 1.25, false);\n");
-        sb.append("    bool lightsOn = sin(fract(iTime/23.0)+2.74) + 0.05*abs(sin(iTime*1000.0)) < 0.0;\n");
-        sb.append("    vec4 c = vec4(0.0);\n");
-        sb.append("    vec4 src = renderBuffer(fc);\n");
-        sb.append("    if (lightsOn){\n");
-        sb.append("        c += max(0.0, SHINE - distance(uvS, vec2(0.5, 1.0))) * smoothstep(SMOOTH/2.0, -SMOOTH/2.0, stdRS(uvS + vec2(0.0,0.03), 0.0));\n");
-        sb.append("        c += max(0.0, 0.33 - 0.5*distance(uvS, vec2(0.5, 0.5))) * smoothstep(SMOOTH, -SMOOTH, stdRS(uvS, 0.0));\n");
-        sb.append("        vec4 b = BEZEL_COL;\n");
-        sb.append("        c += b * smoothstep(-SMOOTH, SMOOTH, roundSquare(uvE-vec2(0.5), vec2(WIDTH, HEIGHT) + 0.05, 0.05)) * smoothstep(SMOOTH, -SMOOTH, roundSquare(uvE-vec2(0.5), vec2(WIDTH, HEIGHT) + 0.15, 0.05));\n");
-        sb.append("    }else{\n");
-        sb.append("        c += max(0.0, 0.2 - 0.3*distance(uvS, vec2(0.5, 0.5))) * smoothstep(SMOOTH, -SMOOTH, stdRS(uvS, 0.0));\n");
-        sb.append("        c += BEZEL_COL * 0.2 * smoothstep(-SMOOTH, SMOOTH, stdRS(uvE, 0.05)) * smoothstep(SMOOTH, -SMOOTH, stdRS(uvE, 0.15));\n");
-        sb.append("        for (int i = 0; i < REFLECTION_BLUR_ITERATIONS; i++){\n");
-        sb.append("            vec2 uvR = borderReflect(uvC + (vec2(rand(uvC+float(i)), rand(uvC+float(i)+0.1))-0.5)*REFLECTION_BLUR_SIZE, 0.05);\n");
-        sb.append("            c += (PHOSPHOR_COL - BEZEL_COL*0.2) * texture2D(iChannel0, uvR) / float(REFLECTION_BLUR_ITERATIONS) * smoothstep(-SMOOTH, SMOOTH, stdRS(uvS, 0.0)) * smoothstep(SMOOTH, -SMOOTH, stdRS(uvE, 0.05));\n");
-        sb.append("        }\n");
-        sb.append("    }\n");
-        sb.append("    if (uvC.x > 0.0 && uvC.x < 1.0 && uvC.y > 0.0 && uvC.y < 1.0){\n");
-        sb.append("        c += src + texture2D(iChannel0, uvC) * 0.08;\n");
-        sb.append("    }\n");
-        sb.append("    gl_FragColor = c * vColor;\n");
-        sb.append("}\n");
-        return sb.toString();
+        byte[] bytes = DatatypeConverter.parseBase64Binary(SOURCE_B64);
+        return new String(bytes, StandardCharsets.UTF_8);
     }
 }
