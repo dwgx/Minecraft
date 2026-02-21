@@ -74,6 +74,18 @@ public class C03PacketPlayer implements Packet<INetHandlerPlayServer>
         return this.pitch;
     }
 
+    public void setYaw(float yawIn)
+    {
+        this.yaw = yawIn;
+        this.rotating = true;
+    }
+
+    public void setPitch(float pitchIn)
+    {
+        this.pitch = pitchIn;
+        this.rotating = true;
+    }
+
     public boolean isOnGround()
     {
         return this.onGround;

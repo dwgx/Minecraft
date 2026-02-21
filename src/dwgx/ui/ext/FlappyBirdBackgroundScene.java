@@ -33,9 +33,14 @@ public final class FlappyBirdBackgroundScene implements MainMenuBackgroundScene
     private long lastUpdateMs;
     private boolean jumpQueued;
 
-    static String fragmentShaderSource()
+    public String fragmentShaderSource()
     {
         return FlappyBirdFragmentShaderTemplate.source();
+    }
+
+    public MainMenuSplashShader.TextureAlphaMode textureAlphaMode()
+    {
+        return MainMenuSplashShader.TextureAlphaMode.IGNORE_SOURCE_ALPHA;
     }
 
     public void initialize()

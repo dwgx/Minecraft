@@ -77,6 +77,27 @@ public final class UiAnimation
         return UiMotion.snapIfClose(next, target, epsilon);
     }
 
+    public static SpringStep stepSpring(float current, float velocity, float target, float response, float deltaSeconds, float smooth)
+    {
+        float dt = UiMotion.clampDeltaSeconds(deltaSeconds);
+        float smoothClamped = UiMotion.clamp01(smooth);
+        float omega = UiMotion.clamp(response * (0.52F + smoothClamped * 0.78F), 3.0F, 52.0F);
+        float damping = UiMotion.clamp(0.74F + smoothClamped * 0.20F, 0.56F, 0.95F);
+        float force = (target - current) * omega * omega;
+        float nextVelocity = velocity + force * dt;
+        float frameDrag = (float)Math.pow((double)damping, (double)(dt * 60.0F));
+        nextVelocity *= frameDrag;
+        float nextValue = current + nextVelocity * dt;
+        float epsilon = 0.02F + (1.0F - smoothClamped) * 0.02F;
+
+        if (Math.abs(target - nextValue) <= epsilon && Math.abs(nextVelocity) <= 0.02F)
+        {
+            return new SpringStep(target, 0.0F);
+        }
+
+        return new SpringStep(nextValue, nextVelocity);
+    }
+
     private static float applyType(float alpha, Type type, float smooth)
     {
         float t = UiMotion.clamp01(alpha);
@@ -110,5 +131,27 @@ public final class UiAnimation
         }
 
         return 1.0F - 0.5F * (float)Math.pow((double)((1.0F - clamped) * 2.0F), (double)power);
+    }
+
+    public static final class SpringStep
+    {
+        private final float value;
+        private final float velocity;
+
+        public SpringStep(float value, float velocity)
+        {
+            this.value = value;
+            this.velocity = velocity;
+        }
+
+        public float value()
+        {
+            return this.value;
+        }
+
+        public float velocity()
+        {
+            return this.velocity;
+        }
     }
 }

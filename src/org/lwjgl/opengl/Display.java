@@ -35,6 +35,7 @@ public final class Display {
     private static boolean resizable = true;
     private static boolean fullscreen = false;
     private static boolean wasResized = false;
+    private static int refreshBudgetFrames = 0;
     private static int width = 854;
     private static int height = 480;
     private static int windowWidth = 854;
@@ -484,10 +485,16 @@ public final class Display {
         int iconified = GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_ICONIFIED);
         int focused = GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_FOCUSED);
 
-        // Rendering while unfocused/backgrounded can produce compositor flicker
-        // on Windows with rapid resize/restore events. Only present when focused.
-        if (iconified != GLFW.GLFW_TRUE && focused == GLFW.GLFW_TRUE) {
+        // Keep presenting resize/refresh frames even when focus briefly drops during
+        // window edge-drag; otherwise compositor can show stale black frames.
+        boolean hasRefreshWork = refreshRequested || wasResized || refreshBudgetFrames > 0;
+
+        // During resize/refresh keep swapping a few frames even if focus blips false
+        if (iconified != GLFW.GLFW_TRUE && (focused == GLFW.GLFW_TRUE || hasRefreshWork)) {
             GLFW.glfwSwapBuffers(window);
+            if (refreshBudgetFrames > 0) {
+                refreshBudgetFrames--;
+            }
         }
         refreshDimensions();
     }
@@ -725,6 +732,7 @@ public final class Display {
     private static void markRefreshRequested(String stage) {
         wasResized = true;
         refreshRequested = true;
+        refreshBudgetFrames = Math.max(refreshBudgetFrames, 12);
         if (RESIZE_DEBUG) {
             debugResize(stage);
         }

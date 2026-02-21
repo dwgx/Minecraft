@@ -14,7 +14,6 @@ import client.setting.IntSetting;
 import client.setting.NumberSetting;
 import client.setting.Setting;
 import client.setting.StringSetting;
-import client.ui.state.WindowResizeResolver;
 import client.ui.template.NanoSliderController;
 import client.ui.template.NanoTextInput;
 import client.ui.template.UiAnimProfile;
@@ -214,14 +213,6 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
         if (mouseButton == 0)
         {
-            UiWindowState.ResizeMode resizeMode = WindowResizeResolver.resolve(l.window.x, l.window.y, l.window.w, l.window.h, mouseX, mouseY, scaled(8.0F, l.scale));
-
-            if (resizeMode != null)
-            {
-                this.window.startResize((float)mouseX, (float)mouseY, resizeMode);
-                return;
-            }
-
             if (l.backButton.contains(mouseX, mouseY))
             {
                 this.requestTransition(TransitionMode.BACK, this.parentScreen);
@@ -296,12 +287,6 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
             if (l.headerDrag.contains(mouseX, mouseY))
             {
                 this.window.startMove((float)mouseX, (float)mouseY);
-                return;
-            }
-
-            if (l.resizeHandle.contains(mouseX, mouseY))
-            {
-                this.window.startResize((float)mouseX, (float)mouseY);
                 return;
             }
 
@@ -407,12 +392,6 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
             this.pickerFloating = false;
         }
 
-        if (this.window != null && l.window.contains(mouseX, mouseY) && !l.settingsRows.contains(mouseX, mouseY) && (l.pickerCard == null || !l.pickerCard.contains(mouseX, mouseY)))
-        {
-            this.window.startMove((float)mouseX, (float)mouseY);
-            return;
-        }
-
         super.mouseClicked(mouseX, mouseY, mouseButton);
     }
 
@@ -425,11 +404,6 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
         this.mouseX = mouseX;
         this.mouseY = mouseY;
-
-        if (this.window.isInteracting())
-        {
-            this.window.updateInteraction((float)mouseX, (float)mouseY, (float)this.width, (float)this.height, SCREEN_MARGIN);
-        }
 
         Layout l = this.layout();
 
@@ -523,6 +497,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
         this.lastNanoAt = System.currentTimeMillis();
         this.lastNanoVg = vg;
+        this.refreshLiveMousePosition();
         ClickGuiModule clickGui = this.resolveClickGuiModule();
         this.validateActiveColor(clickGui);
         this.validateActiveNumberSetting(clickGui);
@@ -537,7 +512,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
         if (this.window.isInteracting())
         {
-            this.window.updateInteraction((float)this.mouseX, (float)this.mouseY, (float)this.width, (float)this.height, SCREEN_MARGIN);
+            this.window.updateInteraction(this.liveMouseX(), this.liveMouseY(), (float)this.width, (float)this.height, SCREEN_MARGIN);
         }
 
         UiAnimProfile windowAnim = this.resolveWindowAnimationProfile(clickGui);
@@ -2250,6 +2225,36 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
         Module module = this.modules.getById("click_gui");
         return module instanceof ClickGuiModule ? (ClickGuiModule)module : null;
+    }
+
+    private void refreshLiveMousePosition()
+    {
+        this.mouseX = Math.round(this.liveMouseX());
+        this.mouseY = Math.round(this.liveMouseY());
+    }
+
+    private float liveMouseX()
+    {
+        if (this.mc == null)
+        {
+            return (float)this.mouseX;
+        }
+
+        int displayWidth = Math.max(1, this.mc.displayWidth);
+        float raw = (float)Mouse.getX() * (float)this.width / (float)displayWidth;
+        return UiMotion.clamp(raw, 0.0F, Math.max(0.0F, (float)this.width - 1.0F));
+    }
+
+    private float liveMouseY()
+    {
+        if (this.mc == null)
+        {
+            return (float)this.mouseY;
+        }
+
+        int displayHeight = Math.max(1, this.mc.displayHeight);
+        float raw = (float)this.height - (float)Mouse.getY() * (float)this.height / (float)displayHeight - 1.0F;
+        return UiMotion.clamp(raw, 0.0F, Math.max(0.0F, (float)this.height - 1.0F));
     }
 
     private String sectionLabel(SettingsSection section)

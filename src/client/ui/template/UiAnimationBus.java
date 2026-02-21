@@ -2,6 +2,7 @@ package client.ui.template;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -10,10 +11,27 @@ import java.util.Map;
  */
 public final class UiAnimationBus
 {
+    private static final long STALE_CHANNEL_TTL_NANOS = 12000000000L;
+    private static final long PRUNE_INTERVAL_NANOS = 2000000000L;
     private static final Map<String, Channel> CHANNELS = new HashMap<String, Channel>();
+    private static long frameNowNanos;
+    private static long lastPruneAtNanos;
 
     private UiAnimationBus()
     {
+    }
+
+    public static void beginFrame()
+    {
+        long now = System.nanoTime();
+        frameNowNanos = now;
+
+        if (now - lastPruneAtNanos < PRUNE_INTERVAL_NANOS)
+        {
+            return;
+        }
+
+        pruneStaleChannels(now);
     }
 
     public static float animate(String key, float target, UiAnimProfile profile)
@@ -58,7 +76,8 @@ public final class UiAnimationBus
         {
             channel = new Channel();
             channel.value = target;
-            channel.lastNanos = System.nanoTime();
+            channel.lastNanos = currentTimeNanos();
+            channel.lastSeenNanos = channel.lastNanos;
             CHANNELS.put(key, channel);
             return target;
         }
@@ -66,13 +85,15 @@ public final class UiAnimationBus
         if (!enabled)
         {
             channel.value = target;
-            channel.lastNanos = System.nanoTime();
+            channel.lastNanos = currentTimeNanos();
+            channel.lastSeenNanos = channel.lastNanos;
             return target;
         }
 
-        long now = System.nanoTime();
+        long now = currentTimeNanos();
         float dt = channel.lastNanos == 0L ? (1.0F / 60.0F) : (float)((double)(now - channel.lastNanos) * 1.0E-9D);
         channel.lastNanos = now;
+        channel.lastSeenNanos = now;
         float response = UiAnimation.responseFromSpeed(speed, smooth, type, false);
         channel.value = UiAnimation.step(channel.value, target, response, dt, type, smooth);
         return channel.value;
@@ -81,6 +102,8 @@ public final class UiAnimationBus
     public static void clearAll()
     {
         CHANNELS.clear();
+        frameNowNanos = 0L;
+        lastPruneAtNanos = 0L;
     }
 
     public static void clearPrefix(String prefix)
@@ -107,10 +130,41 @@ public final class UiAnimationBus
     {
         private float value;
         private long lastNanos;
+        private long lastSeenNanos;
     }
 
     private static UiAnimProfile resolveProfile(UiAnimProfile profile)
     {
         return profile == null ? UiAnimProfile.defaults() : profile;
+    }
+
+    private static long currentTimeNanos()
+    {
+        return frameNowNanos == 0L ? System.nanoTime() : frameNowNanos;
+    }
+
+    private static void pruneStaleChannels(long now)
+    {
+        lastPruneAtNanos = now;
+        Iterator<Map.Entry<String, Channel>> it = CHANNELS.entrySet().iterator();
+
+        while (it.hasNext())
+        {
+            Map.Entry<String, Channel> entry = it.next();
+            Channel channel = entry.getValue();
+
+            if (channel == null)
+            {
+                it.remove();
+                continue;
+            }
+
+            long idle = now - channel.lastSeenNanos;
+
+            if (idle > STALE_CHANNEL_TTL_NANOS)
+            {
+                it.remove();
+            }
+        }
     }
 }

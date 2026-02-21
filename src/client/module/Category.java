@@ -9,7 +9,8 @@ public enum Category
     HUD,
     WORLD,
     MISC,
-    CLIENT;
+    CLIENT,
+    RENDER;
 
     public String getDisplayName()
     {

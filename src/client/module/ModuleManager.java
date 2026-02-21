@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import net.minecraft.network.Packet;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -158,6 +159,66 @@ public final class ModuleManager implements ModuleStateListener
                 }
             }
         }
+    }
+
+    public boolean onPacketSend(Packet<?> packet)
+    {
+        boolean cancelled = false;
+        List<Module> snapshot = this.getAll();
+
+        for (int i = 0; i < snapshot.size(); ++i)
+        {
+            Module module = snapshot.get(i);
+
+            if (!module.isEnabled())
+            {
+                continue;
+            }
+
+            try
+            {
+                if (module.onPacketSend(packet))
+                {
+                    cancelled = true;
+                }
+            }
+            catch (Throwable throwable)
+            {
+                this.logModuleFailure("onPacketSend", module, throwable);
+            }
+        }
+
+        return cancelled;
+    }
+
+    public boolean onPacketReceive(Packet<?> packet)
+    {
+        boolean cancelled = false;
+        List<Module> snapshot = this.getAll();
+
+        for (int i = 0; i < snapshot.size(); ++i)
+        {
+            Module module = snapshot.get(i);
+
+            if (!module.isEnabled())
+            {
+                continue;
+            }
+
+            try
+            {
+                if (module.onPacketReceive(packet))
+                {
+                    cancelled = true;
+                }
+            }
+            catch (Throwable throwable)
+            {
+                this.logModuleFailure("onPacketReceive", module, throwable);
+            }
+        }
+
+        return cancelled;
     }
 
     public void setStateListener(ModuleStateListener externalStateListener)

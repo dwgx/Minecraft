@@ -424,6 +424,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         try
         {
             this.startGame();
+            
         }
         catch (Throwable throwable)
         {
@@ -1338,14 +1339,14 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             resizeEvent = true;
         }
 
-        if (!displayActive)
+        if (!displayActive && !resizeEvent)
         {
-            if (resizeEvent && RESIZE_DEBUG)
-            {
-                this.logResizeState("checkWindowResize:defer-inactive");
-            }
-
             return;
+        }
+
+        if (!displayActive && resizeEvent && RESIZE_DEBUG)
+        {
+            this.logResizeState("checkWindowResize:inactive-resize");
         }
 
         if (resizeEvent)
@@ -1357,7 +1358,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             if (this.displayWidth != oldWidth || this.displayHeight != oldHeight)
             {
                 this.windowResizedThisFrame = true;
-                this.resizePresentBoostUntilMs = System.currentTimeMillis() + RESIZE_PRESENT_BOOST_MS;
+                this.resizePresentBoostUntilMs = System.currentTimeMillis() + RESIZE_PRESENT_BOOST_MS * 2L;
                 this.resize(this.displayWidth, this.displayHeight);
             }
             else

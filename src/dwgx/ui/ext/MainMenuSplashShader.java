@@ -11,7 +11,8 @@ import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GLContext;
 
 /**
- * 主菜单 Shader 程序，复用于 Splash 文本和背景渲染。
+ * Shared shader program used by main-menu splash text and shader-driven backgrounds.
+ * Supports scene-defined fragment source and Flappy/Atari uniform sets.
  */
 public final class MainMenuSplashShader
 {
@@ -52,7 +53,8 @@ public final class MainMenuSplashShader
         "    vec4 outColor = vec4(pulse * texRgb, texAlpha) * vColor;\n" +
         "    gl_FragColor = outColor;\n" +
         "}\n";
-    private static final String FRAGMENT_SOURCE = FlappyBirdBackgroundScene.fragmentShaderSource();
+
+    private final String fragmentSource;
 
     private int programId;
     private int vertexShaderId;
@@ -61,20 +63,62 @@ public final class MainMenuSplashShader
     private int uniformTime = -1;
     private int uniformResolution = -1;
     private int uniformBaseColor = -1;
+    private int uniformUseTexAlpha = -1;
+
     private int uniformGameTick = -1;
     private int uniformBirdY = -1;
     private int uniformBirdFrame = -1;
     private int uniformBirdAlive = -1;
+
     private int uniformControlEnabled = -1;
-    private int uniformUseTexAlpha = -1;
+    private int uniformAtariPlayer = -1;
+    private int uniformAtariBox = -1;
+    private int uniformAtariTarget = -1;
+    private int uniformAtariRock = -1;
+    private int uniformAtariDoorOpen = -1;
+    private int uniformAtariMode = -1;
+    private int uniformAtariFlash = -1;
+    private int uniformAtariLevel = -1;
+
     private boolean failed;
     private boolean active;
     private long startAtMs = System.currentTimeMillis();
+
     private float flappyGameTick;
     private float flappyBirdY = 110.0F;
     private float flappyBirdFrame;
     private boolean flappyAlive = true;
-    private boolean flappyControlEnabled;
+
+    private float atariPlayerX = -1.0F;
+    private float atariPlayerY = -1.0F;
+    private float atariBoxX = -1.0F;
+    private float atariBoxY = -1.0F;
+    private float atariTargetX = -1.0F;
+    private float atariTargetY = -1.0F;
+    private float atariRockX = -1.0F;
+    private float atariRockY = -1.0F;
+    private float atariDoorOpen;
+    private float atariMode;
+    private float atariFlash;
+    private float atariLevel = 1.0F;
+    private boolean controlEnabled;
+
+    public MainMenuSplashShader()
+    {
+        this(FlappyBirdFragmentShaderTemplate.source());
+    }
+
+    public MainMenuSplashShader(String fragmentSource)
+    {
+        String candidate = fragmentSource;
+
+        if (candidate == null || candidate.trim().isEmpty())
+        {
+            candidate = FALLBACK_FRAGMENT_SOURCE;
+        }
+
+        this.fragmentSource = candidate;
+    }
 
     public void setFlappyState(float gameTick, float birdY, float birdFrame, boolean alive, boolean controlEnabled)
     {
@@ -82,7 +126,38 @@ public final class MainMenuSplashShader
         this.flappyBirdY = birdY;
         this.flappyBirdFrame = birdFrame;
         this.flappyAlive = alive;
-        this.flappyControlEnabled = controlEnabled;
+        this.controlEnabled = controlEnabled;
+    }
+
+    public void setAtariState(
+        float playerX,
+        float playerY,
+        float boxX,
+        float boxY,
+        float targetX,
+        float targetY,
+        float rockX,
+        float rockY,
+        float doorOpen,
+        float mode,
+        float flash,
+        float level,
+        boolean controlEnabled
+    )
+    {
+        this.atariPlayerX = playerX;
+        this.atariPlayerY = playerY;
+        this.atariBoxX = boxX;
+        this.atariBoxY = boxY;
+        this.atariTargetX = targetX;
+        this.atariTargetY = targetY;
+        this.atariRockX = rockX;
+        this.atariRockY = rockY;
+        this.atariDoorOpen = doorOpen;
+        this.atariMode = mode;
+        this.atariFlash = flash;
+        this.atariLevel = level;
+        this.controlEnabled = controlEnabled;
     }
 
     public boolean begin(int baseColor)
@@ -107,7 +182,7 @@ public final class MainMenuSplashShader
             return false;
         }
 
-        TextureAlphaMode resolvedMode = alphaMode == null ? TextureAlphaMode.USE_SOURCE_ALPHA : alphaMode;
+        TextureAlphaMode mode = alphaMode == null ? TextureAlphaMode.USE_SOURCE_ALPHA : alphaMode;
 
         try
         {
@@ -115,14 +190,25 @@ public final class MainMenuSplashShader
             OpenGlHelper.setClientActiveTexture(OpenGlHelper.defaultTexUnit);
             OpenGlHelper.glUseProgram(this.programId);
             OpenGlHelper.glUniform1i(this.uniformTexture, 0);
-            this.setUniform1f(this.uniformUseTexAlpha, resolvedMode == TextureAlphaMode.USE_SOURCE_ALPHA ? 1.0F : 0.0F);
+
+            this.setUniform1f(this.uniformUseTexAlpha, mode == TextureAlphaMode.USE_SOURCE_ALPHA ? 1.0F : 0.0F);
             this.setUniform1f(this.uniformTime, (float)(System.currentTimeMillis() - this.startAtMs) / 1000.0F);
             this.setUniform2f(this.uniformResolution, (float)Math.max(1, Display.getWidth()), (float)Math.max(1, Display.getHeight()));
+
             this.setUniform1f(this.uniformGameTick, this.flappyGameTick);
             this.setUniform1f(this.uniformBirdY, this.flappyBirdY);
             this.setUniform1f(this.uniformBirdFrame, this.flappyBirdFrame);
             this.setUniform1f(this.uniformBirdAlive, this.flappyAlive ? 1.0F : 0.0F);
-            this.setUniform1f(this.uniformControlEnabled, this.flappyControlEnabled ? 1.0F : 0.0F);
+
+            this.setUniform1f(this.uniformControlEnabled, this.controlEnabled ? 1.0F : 0.0F);
+            this.setUniform2f(this.uniformAtariPlayer, this.atariPlayerX, this.atariPlayerY);
+            this.setUniform2f(this.uniformAtariBox, this.atariBoxX, this.atariBoxY);
+            this.setUniform2f(this.uniformAtariTarget, this.atariTargetX, this.atariTargetY);
+            this.setUniform2f(this.uniformAtariRock, this.atariRockX, this.atariRockY);
+            this.setUniform1f(this.uniformAtariDoorOpen, this.atariDoorOpen);
+            this.setUniform1f(this.uniformAtariMode, this.atariMode);
+            this.setUniform1f(this.uniformAtariFlash, this.atariFlash);
+            this.setUniform1f(this.uniformAtariLevel, this.atariLevel);
 
             float r = (float)(baseColor >> 16 & 255) / 255.0F;
             float g = (float)(baseColor >> 8 & 255) / 255.0F;
@@ -135,7 +221,7 @@ public final class MainMenuSplashShader
         {
             this.active = false;
             OpenGlHelper.glUseProgram(0);
-            this.markFailed("主菜单着色器激活失败。", throwable);
+            this.markFailed("Main menu shader activation failed.", throwable);
             return false;
         }
     }
@@ -175,11 +261,11 @@ public final class MainMenuSplashShader
 
             try
             {
-                this.fragmentShaderId = this.compileShader(OpenGlHelper.GL_FRAGMENT_SHADER, FRAGMENT_SOURCE);
+                this.fragmentShaderId = this.compileShader(OpenGlHelper.GL_FRAGMENT_SHADER, this.fragmentSource);
             }
             catch (Throwable primaryError)
             {
-                LOGGER.warn("主片段着色器编译失败，已回退到内置片段着色器：{}", primaryError.getMessage());
+                LOGGER.warn("Primary menu fragment shader failed, switching to fallback: {}", primaryError.getMessage());
                 this.fragmentShaderId = this.compileShader(OpenGlHelper.GL_FRAGMENT_SHADER, FALLBACK_FRAGMENT_SOURCE);
             }
 
@@ -202,20 +288,40 @@ public final class MainMenuSplashShader
                 this.uniformTime = OpenGlHelper.glGetUniformLocation(this.programId, "uTime");
             }
 
+            if (this.uniformTime < 0)
+            {
+                this.uniformTime = OpenGlHelper.glGetUniformLocation(this.programId, "time");
+            }
+
             this.uniformResolution = OpenGlHelper.glGetUniformLocation(this.programId, "iResolution");
+
+            if (this.uniformResolution < 0)
+            {
+                this.uniformResolution = OpenGlHelper.glGetUniformLocation(this.programId, "resolution");
+            }
+
             this.uniformBaseColor = OpenGlHelper.glGetUniformLocation(this.programId, "uBaseColor");
+            this.uniformUseTexAlpha = OpenGlHelper.glGetUniformLocation(this.programId, "uUseTexAlpha");
             this.uniformGameTick = OpenGlHelper.glGetUniformLocation(this.programId, "uGameTick");
             this.uniformBirdY = OpenGlHelper.glGetUniformLocation(this.programId, "uBirdY");
             this.uniformBirdFrame = OpenGlHelper.glGetUniformLocation(this.programId, "uBirdFrame");
             this.uniformBirdAlive = OpenGlHelper.glGetUniformLocation(this.programId, "uBirdAlive");
             this.uniformControlEnabled = OpenGlHelper.glGetUniformLocation(this.programId, "uControlEnabled");
-            this.uniformUseTexAlpha = OpenGlHelper.glGetUniformLocation(this.programId, "uUseTexAlpha");
+            this.uniformAtariPlayer = OpenGlHelper.glGetUniformLocation(this.programId, "uAtariPlayer");
+            this.uniformAtariBox = OpenGlHelper.glGetUniformLocation(this.programId, "uAtariBox");
+            this.uniformAtariTarget = OpenGlHelper.glGetUniformLocation(this.programId, "uAtariTarget");
+            this.uniformAtariRock = OpenGlHelper.glGetUniformLocation(this.programId, "uAtariRock");
+            this.uniformAtariDoorOpen = OpenGlHelper.glGetUniformLocation(this.programId, "uAtariDoorOpen");
+            this.uniformAtariMode = OpenGlHelper.glGetUniformLocation(this.programId, "uAtariMode");
+            this.uniformAtariFlash = OpenGlHelper.glGetUniformLocation(this.programId, "uAtariFlash");
+            this.uniformAtariLevel = OpenGlHelper.glGetUniformLocation(this.programId, "uAtariLevel");
+
             this.startAtMs = System.currentTimeMillis();
             return true;
         }
         catch (Throwable throwable)
         {
-            this.markFailed("主菜单着色器初始化失败。", throwable);
+            this.markFailed("Main menu shader initialization failed.", throwable);
             this.deleteProgram();
             return false;
         }
@@ -262,12 +368,20 @@ public final class MainMenuSplashShader
         this.uniformTime = -1;
         this.uniformResolution = -1;
         this.uniformBaseColor = -1;
+        this.uniformUseTexAlpha = -1;
         this.uniformGameTick = -1;
         this.uniformBirdY = -1;
         this.uniformBirdFrame = -1;
         this.uniformBirdAlive = -1;
         this.uniformControlEnabled = -1;
-        this.uniformUseTexAlpha = -1;
+        this.uniformAtariPlayer = -1;
+        this.uniformAtariBox = -1;
+        this.uniformAtariTarget = -1;
+        this.uniformAtariRock = -1;
+        this.uniformAtariDoorOpen = -1;
+        this.uniformAtariMode = -1;
+        this.uniformAtariFlash = -1;
+        this.uniformAtariLevel = -1;
     }
 
     private void markFailed(String message, Throwable throwable)
@@ -339,6 +453,23 @@ public final class MainMenuSplashShader
         else
         {
             ARBShaderObjects.glUniform3fARB(location, x, y, z);
+        }
+    }
+
+    private void setUniform4f(int location, float x, float y, float z, float w)
+    {
+        if (location < 0)
+        {
+            return;
+        }
+
+        if (GLContext.getCapabilities().OpenGL20)
+        {
+            GL20.glUniform4f(location, x, y, z, w);
+        }
+        else
+        {
+            ARBShaderObjects.glUniform4fARB(location, x, y, z, w);
         }
     }
 }

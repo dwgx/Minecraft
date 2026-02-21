@@ -10,7 +10,7 @@ public final class HudEditModule extends Module
 {
     public HudEditModule()
     {
-        super("hud_edit", "HudEdit", Category.HUD);
+        super("hud_edit", "HudEdit", Category.RENDER);
     }
 
     public void onEnable()

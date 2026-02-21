@@ -26,6 +26,8 @@ import client.ui.template.UiAnimation;
 import client.ui.template.UiAnimationBus;
 import client.ui.template.UiControlAnimations;
 import client.ui.template.UiMotion;
+import client.ui.template.UiSelectionBox;
+import client.ui.template.UiStateToggle;
 import client.ui.template.UiWindowState;
 import dwgx.nano.NanoFontBook;
 import dwgx.nano.NanoPalette;
@@ -1144,29 +1146,23 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
     {
         ClickGuiModule clickGui = this.resolveClickGuiModule();
         UiAnimProfile animProfile = this.resolveAnimationProfile(clickGui);
-        float k = UiMotion.clamp(scale, 0.35F, 1.85F);
-        float targetRatio = enabled ? 1.0F : 0.0F;
-        float ratio = UiAnimationBus.animateControl(animKey, targetRatio, animProfile);
-        float focus = UiAnimationBus.animateControl(animKey + ".focus", hovered ? 1.0F : 0.0F, animProfile);
-        float pillH = Math.min(valueRect.h, scaled(14.0F, k));
-        float pillW = Math.min(valueRect.w, scaled(92.0F, k));
-        float px = valueRect.x2() - pillW;
-        float py = valueRect.y + (valueRect.h - pillH) * 0.5F;
-        float thumbW = pillW * 0.5F - scaled(2.0F, k);
-        float thumbX = px + scaled(1.0F, k) + (pillW - scaled(2.0F, k) - thumbW) * ratio;
-        float thumbY = py + scaled(1.0F, k);
-        float thumbH = pillH - scaled(2.0F, k);
-        float thumbExpand = scaled(1.3F, k) * focus;
-        int base = this.mixArgb(theme.controlArgb(), theme.controlHoverArgb(), UiMotion.clamp01(0.18F + focus * 0.48F));
-        NanoUi.drawSurface(vg, stack, px, py, pillW, pillH, pillH * 0.5F, base, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 98));
-        NanoUi.drawSurface(vg, stack, px + pillW * 0.5F, py + scaled(1.0F, k), scaled(1.0F, k), pillH - scaled(2.0F, k), scaled(0.5F, k), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 74), 0);
-        int thumb = this.mixArgb(this.mixArgb(theme.cardAltArgb(), theme.controlHoverArgb(), 0.48F), theme.controlActiveArgb(), UiMotion.clamp01(ratio));
-        NanoUi.drawSurface(vg, stack, thumbX - thumbExpand * 0.5F, thumbY - thumbExpand * 0.5F, thumbW + thumbExpand, thumbH + thumbExpand, (thumbH + thumbExpand) * 0.5F, thumb, NanoRenderUtils.withAlpha(0xFFFFFFFF, 84));
-        int disableText = this.mixArgb(theme.textArgb(), theme.textMutedArgb(), UiMotion.clamp01(ratio * 0.95F));
-        int enableText = this.mixArgb(theme.textMutedArgb(), theme.textArgb(), UiMotion.clamp01(ratio * 0.95F));
-        float textCenterY = py + pillH * 0.5F + scaled(0.9F, k);
-        NanoUi.drawCenterText(vg, stack, font, px + pillW * 0.25F, textCenterY, scaled(8.2F, k), disableText, this.tr("clickgui.state.disable", "DISABLE"));
-        NanoUi.drawCenterText(vg, stack, font, px + pillW * 0.75F, textCenterY, scaled(8.2F, k), enableText, this.tr("clickgui.state.enable", "ENABLE"));
+        UiStateToggle.draw(
+            vg,
+            stack,
+            valueRect.x,
+            valueRect.y,
+            valueRect.w,
+            valueRect.h,
+            enabled,
+            hovered,
+            theme,
+            animProfile,
+            animKey,
+            font,
+            scale,
+            this.tr("clickgui.state.disable", "DISABLE"),
+            this.tr("clickgui.state.enable", "ENABLE")
+        );
     }
 
     private void drawModuleStatus(long vg, MemoryStack stack, Rect row, Module module, NanoTheme theme, float scale, float alpha, int font)
@@ -2885,28 +2881,14 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
 
     private void drawAnimatedSelectionBox(long vg, MemoryStack stack, String key, Rect target, NanoTheme theme, float scale, UiAnimProfile profile, ClickGuiModule clickGui, float visibility)
     {
-        if (key == null || key.isEmpty())
-        {
-            return;
-        }
-
         float speed = this.resolveSelectionAnimationSpeed(clickGui, profile);
-        float visible = UiControlAnimations.presence(key, target != null && visibility > 0.01F, profile, speed);
-        float alpha = UiMotion.clamp01(visible * UiMotion.clamp01(visibility));
-
-        if (alpha <= 0.001F || target == null)
-        {
-            return;
-        }
-
-        float x = UiAnimationBus.animateWithSpeed(key + ".x", target.x, profile, speed);
-        float y = UiAnimationBus.animateWithSpeed(key + ".y", target.y, profile, speed);
-        float w = UiAnimationBus.animateWithSpeed(key + ".w", target.w, profile, speed);
-        float h = UiAnimationBus.animateWithSpeed(key + ".h", target.h, profile, speed);
-        float radius = Math.min(h * 0.5F, this.stableRowRadius(scale));
-        int fill = NanoRenderUtils.mulAlpha(theme.accentSoftArgb(), alpha * 0.38F);
-        int border = NanoRenderUtils.mulAlpha(theme.accentArgb(), alpha * 0.70F);
-        NanoUi.drawSurface(vg, stack, x, y, w, h, radius, fill, border);
+        boolean hasTarget = target != null;
+        float x = hasTarget ? target.x : 0.0F;
+        float y = hasTarget ? target.y : 0.0F;
+        float w = hasTarget ? target.w : 0.0F;
+        float h = hasTarget ? target.h : 0.0F;
+        float radius = hasTarget ? Math.min(target.h * 0.5F, this.stableRowRadius(scale)) : this.stableRowRadius(scale);
+        UiSelectionBox.draw(vg, stack, key, hasTarget, visibility, x, y, w, h, radius, theme, profile, speed);
     }
 
     private UiAnimProfile resolveWindowAnimationProfile(ClickGuiModule clickGui, UiScaleEditModule uiScale)

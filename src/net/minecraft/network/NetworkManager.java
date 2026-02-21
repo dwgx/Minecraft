@@ -1,5 +1,6 @@
 package net.minecraft.network;
 
+import client.core.ClientBootstrap;
 import com.google.common.collect.Queues;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.bootstrap.Bootstrap;
@@ -150,6 +151,11 @@ public class NetworkManager extends SimpleChannelInboundHandler<Packet>
     {
         if (this.channel.isOpen())
         {
+            if (this.isPacketCancelledByClientHooks(p_channelRead0_2_, false))
+            {
+                return;
+            }
+
             try
             {
                 p_channelRead0_2_.processPacket(this.packetListener);
@@ -174,6 +180,11 @@ public class NetworkManager extends SimpleChannelInboundHandler<Packet>
 
     public void sendPacket(Packet packetIn)
     {
+        if (this.isPacketCancelledByClientHooks(packetIn, true))
+        {
+            return;
+        }
+
         if (this.isChannelOpen())
         {
             this.flushOutboundQueue();
@@ -196,6 +207,11 @@ public class NetworkManager extends SimpleChannelInboundHandler<Packet>
 
     public void sendPacket(Packet packetIn, GenericFutureListener <? extends Future <? super Void >> listener, GenericFutureListener <? extends Future <? super Void >> ... listeners)
     {
+        if (this.isPacketCancelledByClientHooks(packetIn, true))
+        {
+            return;
+        }
+
         if (this.isChannelOpen())
         {
             this.flushOutboundQueue();
@@ -508,6 +524,24 @@ public class NetworkManager extends SimpleChannelInboundHandler<Packet>
             {
                 logger.warn("handleDisconnection() called twice");
             }
+        }
+    }
+
+    private boolean isPacketCancelledByClientHooks(Packet packet, boolean outbound)
+    {
+        if (packet == null || this.direction != EnumPacketDirection.CLIENTBOUND)
+        {
+            return false;
+        }
+
+        try
+        {
+            ClientBootstrap bootstrap = ClientBootstrap.instance();
+            return outbound ? bootstrap.onPacketSend(packet) : bootstrap.onPacketReceive(packet);
+        }
+        catch (Throwable ignored)
+        {
+            return false;
         }
     }
 

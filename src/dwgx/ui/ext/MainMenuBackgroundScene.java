@@ -7,6 +7,16 @@ package dwgx.ui.ext;
 public interface MainMenuBackgroundScene
 {
     /**
+     * Fragment shader source used for this scene.
+     */
+    String fragmentShaderSource();
+
+    /**
+     * Texture alpha mode used by this scene pass.
+     */
+    MainMenuSplashShader.TextureAlphaMode textureAlphaMode();
+
+    /**
      * Initialize internal state on first menu open.
      */
     void initialize();

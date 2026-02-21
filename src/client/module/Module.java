@@ -8,6 +8,7 @@ import client.setting.SettingGroup;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import net.minecraft.network.Packet;
 
 /**
  * Base module class with lifecycle hooks and setting container.
@@ -173,6 +174,16 @@ public abstract class Module
 
     public void onKey(KeyEvent event)
     {
+    }
+
+    public boolean onPacketSend(Packet<?> packet)
+    {
+        return false;
+    }
+
+    public boolean onPacketReceive(Packet<?> packet)
+    {
+        return false;
     }
 
     protected final void attachEventLinks()

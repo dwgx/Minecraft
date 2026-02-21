@@ -1,7 +1,10 @@
 package dwgx.modulekit;
 
-import dwgx.scaffold.ScaffoldUtils;
 import net.minecraft.block.Block;
+import net.minecraft.block.BlockAir;
+import net.minecraft.block.BlockContainer;
+import net.minecraft.block.BlockFalling;
+import net.minecraft.block.BlockLiquid;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.inventory.ContainerChest;
 import net.minecraft.item.Item;
@@ -17,7 +20,7 @@ import net.minecraft.util.BlockPos;
 import net.minecraft.util.MathHelper;
 
 /**
- * Shared inventory/chest heuristics extracted from player and scaffold patterns.
+ * Shared inventory/chest heuristics extracted from player patterns.
  */
 public final class InventoryProbe
 {
@@ -150,7 +153,7 @@ public final class InventoryProbe
 
         if (item instanceof ItemBlock)
         {
-            if (!ScaffoldUtils.isValidScaffoldBlock(stack))
+            if (!isValidBuildingBlock(stack))
             {
                 return 6;
             }
@@ -164,5 +167,29 @@ public final class InventoryProbe
         }
 
         return 4;
+    }
+
+    private static boolean isValidBuildingBlock(ItemStack stack)
+    {
+        if (stack == null || stack.stackSize <= 0)
+        {
+            return false;
+        }
+
+        Item item = stack.getItem();
+
+        if (!(item instanceof ItemBlock))
+        {
+            return false;
+        }
+
+        Block block = ((ItemBlock)item).getBlock();
+
+        if (block == null || block instanceof BlockAir || block instanceof BlockLiquid || block instanceof BlockContainer || block instanceof BlockFalling)
+        {
+            return false;
+        }
+
+        return block.isFullCube() && block.isFullBlock();
     }
 }

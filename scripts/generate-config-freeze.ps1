@@ -75,8 +75,7 @@ Get-ChildItem -LiteralPath $hudPath -Recurse -File -Filter *.java | ForEach-Obje
 $enumRows = New-Object System.Collections.Generic.List[object]
 $enumScanRoots = @(
     $moduleImplPath,
-    $hudPath,
-    (Join-Path $srcPath "dwgx/scaffold")
+    $hudPath
 )
 foreach ($enumRoot in $enumScanRoots) {
     if (-not (Test-Path -LiteralPath $enumRoot)) {

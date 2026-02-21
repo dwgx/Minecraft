@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.network.Packet;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -386,5 +387,15 @@ public final class ClientBootstrap
     public void onMouse(int button, int x, int y, boolean pressed)
     {
         this.eventBus.post(new MouseEvent(button, x, y, pressed));
+    }
+
+    public boolean onPacketSend(Packet<?> packet)
+    {
+        return this.modules.onPacketSend(packet);
+    }
+
+    public boolean onPacketReceive(Packet<?> packet)
+    {
+        return this.modules.onPacketReceive(packet);
     }
 }

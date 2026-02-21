@@ -496,6 +496,7 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         }
 
         this.lastNanoVg = vg;
+        this.refreshLiveMousePosition();
         this.clampPanelToScreen();
 
         if (this.draggingElement)
@@ -873,6 +874,21 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         Rect anchorChip = new Rect(panel.x + 10.0F, panel.y + panel.h - 30.0F, chipW, 20.0F);
         Rect dockChip = new Rect(anchorChip.x2() + 4.0F, panel.y + panel.h - 30.0F, chipW, 20.0F);
         return new PanelLayout(panel, enabledChip, resetButton, closeButton, offsetXTrack, offsetYTrack, scaleTrack, offsetXValue, offsetYValue, scaleValue, sourceChip, anchorChip, dockChip, scale);
+    }
+
+    private void refreshLiveMousePosition()
+    {
+        if (this.mc == null)
+        {
+            return;
+        }
+
+        int displayWidth = Math.max(1, this.mc.displayWidth);
+        int displayHeight = Math.max(1, this.mc.displayHeight);
+        float rawX = (float)Mouse.getX() * (float)this.width / (float)displayWidth;
+        float rawY = (float)this.height - (float)Mouse.getY() * (float)this.height / (float)displayHeight - 1.0F;
+        this.mouseX = Math.round(UiMotion.clamp(rawX, 0.0F, Math.max(0.0F, (float)this.width - 1.0F)));
+        this.mouseY = Math.round(UiMotion.clamp(rawY, 0.0F, Math.max(0.0F, (float)this.height - 1.0F)));
     }
 
     private void clampPanelToScreen()

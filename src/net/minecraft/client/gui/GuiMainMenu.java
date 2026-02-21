@@ -1,6 +1,18 @@
 package net.minecraft.client.gui;
 
+import client.core.ClientBootstrap;
+import client.module.Module;
+import client.module.impl.client.ClickGuiModule;
+import client.render.RenderContext2D;
+import client.ui.NanoRenderableScreen;
+import client.ui.template.UiAnimProfile;
+import client.ui.template.UiAnimProfiles;
 import com.google.common.collect.Lists;
+import dwgx.nano.NanoPalette;
+import dwgx.nano.NanoTheme;
+import dwgx.nano.NanoThemes;
+import java.awt.Desktop;
+import java.awt.GraphicsEnvironment;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -14,6 +26,10 @@ import dwgx.ui.MainMenuSession;
 import dwgx.ui.ext.MainMenuBackgroundRuntime;
 import dwgx.ui.ext.MainMenuSplashShader;
 import dwgx.ui.ext.UiExtensionManager;
+import dwgx.ui.ext.menufx.MenuFxController;
+import dwgx.ui.ext.menufx.MenuFxLayout;
+import dwgx.ui.ext.menufx.MenuFxRenderer;
+import dwgx.ui.ext.menufx.MenuFxState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
@@ -33,11 +49,12 @@ import net.minecraft.world.storage.WorldInfo;
 import org.apache.commons.io.Charsets;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GLContext;
 import org.lwjgl.util.glu.Project;
 
-public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
+public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback, NanoRenderableScreen
 {
     private static final AtomicInteger field_175373_f = new AtomicInteger(0);
     private static final Logger logger = LogManager.getLogger();
@@ -64,22 +81,22 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
      */
     private final Object threadLock = new Object();
 
-    /** OpenGL 能力警告（第一行）。 */
+    /** OpenGL warning first line. */
     private String openGLWarning1;
 
-    /** OpenGL 能力警告（第二行）。 */
+    /** OpenGL warning second line. */
     private String openGLWarning2;
 
-    /** 警告对应的帮助链接。 */
+    /** Help link for the warning. */
     private String openGLWarningLink;
     private static final ResourceLocation splashTexts = new ResourceLocation("texts/splashes.txt");
     private static final ResourceLocation minecraftTitleTextures = new ResourceLocation("textures/gui/title/minecraft.png");
 
     /** An array of all the paths to the panorama pictures. */
     private static final ResourceLocation[] titlePanoramaPaths = new ResourceLocation[] {new ResourceLocation("textures/gui/title/background/panorama_0.png"), new ResourceLocation("textures/gui/title/background/panorama_1.png"), new ResourceLocation("textures/gui/title/background/panorama_2.png"), new ResourceLocation("textures/gui/title/background/panorama_3.png"), new ResourceLocation("textures/gui/title/background/panorama_4.png"), new ResourceLocation("textures/gui/title/background/panorama_5.png")};
-    public static final String field_96138_a = "点击 " + EnumChatFormatting.UNDERLINE + "这里" + EnumChatFormatting.RESET + " 查看更多信息。";
-    private static final String OPENGL_WARNING_LINE1 = "检测到当前显卡或驱动不支持 OpenGL 2.0 / 着色器。";
-    private static final String OPENGL_WARNING_LINE2 = "主菜单特效已自动降级，点击这里查看最低配置与驱动建议。";
+    public static final String field_96138_a = "Click " + EnumChatFormatting.UNDERLINE + "here" + EnumChatFormatting.RESET + " for more information.";
+    private static final String OPENGL_WARNING_LINE1 = "Detected GPU/driver does not support OpenGL 2.0 / shaders.";
+    private static final String OPENGL_WARNING_LINE2 = "Main menu effects were downgraded. Click here for minimum requirements and driver advice.";
     private int field_92024_r;
     private int field_92023_s;
     private int field_92022_t;
@@ -94,6 +111,11 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
     private GuiScreen field_183503_M;
     private MainMenuSession dwgxSession;
     private final MainMenuBackgroundRuntime backgroundRuntime = new MainMenuBackgroundRuntime(UiExtensionManager.createMainMenuBackgroundScene());
+    private final MenuFxState menuFxState = new MenuFxState();
+    private UiExtensionManager.MainMenuBackgroundMode activeBackgroundMode = UiExtensionManager.getMainMenuBackgroundMode();
+    private boolean backgroundRuntimeReady;
+    private int nanoMouseX;
+    private int nanoMouseY;
 
     public GuiMainMenu()
     {
@@ -194,6 +216,8 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
      */
     protected void keyTyped(char typedChar, int keyCode) throws IOException
     {
+        this.syncBackgroundMode(false);
+
         if (this.backgroundRuntime.handleKeyInput(typedChar, keyCode, UiExtensionManager.isMainMenuBackgroundShaderEnabled()))
         {
             return;
@@ -208,8 +232,12 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
      */
     public void initGui()
     {
-        this.viewportTexture = new DynamicTexture(256, 256);
-        this.backgroundTexture = this.mc.getTextureManager().getDynamicTextureLocation("background", this.viewportTexture);
+        if (this.viewportTexture == null)
+        {
+            this.viewportTexture = new DynamicTexture(256, 256);
+            this.backgroundTexture = this.mc.getTextureManager().getDynamicTextureLocation("background", this.viewportTexture);
+        }
+
         Calendar calendar = Calendar.getInstance();
         calendar.setTime(new Date());
 
@@ -273,8 +301,19 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
             this.dwgxSession = new MainMenuSession(this.mc);
         }
 
+        boolean openingFresh = !this.backgroundRuntimeReady;
         this.dwgxSession.setScreenSize(this.width, this.height);
-        this.backgroundRuntime.initializeScene();
+
+        if (openingFresh)
+        {
+            this.menuFxState.reset();
+            this.syncBackgroundMode(true);
+            this.backgroundRuntimeReady = true;
+        }
+        else
+        {
+            this.syncBackgroundMode(false);
+        }
     }
 
     /**
@@ -373,21 +412,30 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
         }
         else if (id == 13)
         {
-            if (result)
+            if (result && !openExternalLink(this.openGLWarningLink))
             {
-                try
-                {
-                    Class<?> oclass = Class.forName("java.awt.Desktop");
-                    Object object = oclass.getMethod("getDesktop", new Class[0]).invoke((Object)null, new Object[0]);
-                    oclass.getMethod("browse", new Class[] {URI.class}).invoke(object, new Object[] {new URI(this.openGLWarningLink)});
-                }
-                catch (Throwable throwable)
-                {
-                    logger.error("无法打开帮助链接。", throwable);
-                }
+                logger.error("Unable to open OpenGL warning link.");
             }
 
             this.mc.displayGuiScreen(this);
+        }
+    }
+
+    private static boolean openExternalLink(String url)
+    {
+        try
+        {
+            if (url == null || url.isEmpty() || GraphicsEnvironment.isHeadless() || !Desktop.isDesktopSupported())
+            {
+                return false;
+            }
+
+            Desktop.getDesktop().browse(new URI(url));
+            return true;
+        }
+        catch (Throwable ignored)
+        {
+            return false;
         }
     }
 
@@ -521,8 +569,8 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
      */
     private void renderSkybox(int p_73971_1_, int p_73971_2_, float p_73971_3_)
     {
-        // 始终在游戏主 FBO 内绘制主菜单背景。
-        // 如果中途切回默认帧缓冲，在窗口最大化/还原时可能出现黑屏闪烁。
+        // Always render the menu background inside the main game FBO.
+        // Switching to default framebuffer mid-frame can cause flicker on maximize/restore.
         GlStateManager.viewport(0, 0, 256, 256);
         this.drawPanorama(p_73971_1_, p_73971_2_, p_73971_3_);
         this.rotateAndBlurSkybox(p_73971_3_);
@@ -567,7 +615,18 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
      */
     public void drawScreen(int mouseX, int mouseY, float partialTicks)
     {
-        this.backgroundRuntime.tickScene(UiExtensionManager.isMainMenuBackgroundShaderEnabled());
+        this.nanoMouseX = mouseX;
+        this.nanoMouseY = mouseY;
+
+        if (!this.backgroundRuntimeReady)
+        {
+            this.syncBackgroundMode(true);
+            this.backgroundRuntimeReady = true;
+        }
+
+        this.syncBackgroundMode(false);
+        boolean backgroundShaderEnabled = UiExtensionManager.isMainMenuBackgroundShaderEnabled();
+        this.backgroundRuntime.tickScene(backgroundShaderEnabled);
         GlStateManager.disableAlpha();
         boolean shaderBackgroundRendered = this.renderBackgroundScene();
 
@@ -577,8 +636,13 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
         }
 
         GlStateManager.enableAlpha();
-        Tessellator tessellator = Tessellator.getInstance();
-        WorldRenderer worldrenderer = tessellator.getWorldRenderer();
+        boolean gameOnly = UiExtensionManager.isMainMenuGameOnlyEnabled();
+
+        if (gameOnly)
+        {
+            return;
+        }
+
         int i = 274;
         int j = this.width / 2 - i / 2;
         int k = 30;
@@ -607,7 +671,7 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
         float f = 1.8F - MathHelper.abs(MathHelper.sin((float)(Minecraft.getSystemTime() % 1000L) / 1000.0F * (float)Math.PI * 2.0F) * 0.1F);
         f = f * 100.0F / (float)(this.fontRendererObj.getStringWidth(this.splashText) + 32);
         GlStateManager.scale(f, f, f);
-        boolean shaderActive = UiExtensionManager.isSplashShaderEnabled() && this.getMainMenuShader().begin(-256);
+        boolean shaderActive = UiExtensionManager.isSplashShaderEnabled() && UiExtensionManager.isMainMenuBackgroundShaderEnabled() && this.getMainMenuShader().begin(-256);
 
         try
         {
@@ -622,14 +686,6 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
         }
 
         GlStateManager.popMatrix();
-        String s = "Minecraft 1.8.9";
-
-        if (this.mc.isDemo())
-        {
-            s = s + " Demo";
-        }
-
-        this.drawString(this.fontRendererObj, s, 2, this.height - 10, -1);
         String s1 = "Copyright Mojang AB. Do not distribute!";
         this.drawString(this.fontRendererObj, s1, this.width - this.fontRendererObj.getStringWidth(s1) - 2, this.height - 10, -1);
         this.drawBackgroundSceneHint();
@@ -657,12 +713,12 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
     private boolean renderBackgroundScene()
     {
         return this.backgroundRuntime.renderSceneBackground(
-            this.mc,
-            this.width,
-            this.height,
-            this.zLevel,
-            UiExtensionManager.isMainMenuBackgroundShaderEnabled(),
-            logger
+                this.mc,
+                this.width,
+                this.height,
+                this.zLevel,
+                UiExtensionManager.isMainMenuBackgroundShaderEnabled(),
+                logger
         );
     }
 
@@ -681,6 +737,19 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
      */
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException
     {
+        this.nanoMouseX = mouseX;
+        this.nanoMouseY = mouseY;
+
+        if (this.handleExtensionPanelClick(mouseX, mouseY, mouseButton))
+        {
+            return;
+        }
+
+        if (UiExtensionManager.isMainMenuGameOnlyEnabled())
+        {
+            return;
+        }
+
         super.mouseClicked(mouseX, mouseY, mouseButton);
 
         if (this.dwgxSession != null)
@@ -706,6 +775,14 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
 
     protected void mouseReleased(int mouseX, int mouseY, int state)
     {
+        this.nanoMouseX = mouseX;
+        this.nanoMouseY = mouseY;
+
+        if (UiExtensionManager.isMainMenuGameOnlyEnabled())
+        {
+            return;
+        }
+
         super.mouseReleased(mouseX, mouseY, state);
 
         if (this.dwgxSession != null)
@@ -714,12 +791,20 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
         }
     }
 
+    public void handleMouseInput() throws IOException
+    {
+        super.handleMouseInput();
+        MenuFxController.handleWheel(this.menuFxState, this.menuFxLayout(), Mouse.getEventDWheel(), this.nanoMouseX, this.nanoMouseY);
+    }
+
     /**
      * Called when the screen is unloaded. Used to disable keyboard repeat events
      */
     public void onGuiClosed()
     {
+        client.ui.template.UiAnimationBus.clearPrefix("mainmenu.ext.");
         this.backgroundRuntime.close();
+        this.backgroundRuntimeReady = false;
 
         if (this.field_183503_M != null)
         {
@@ -727,10 +812,106 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback
         }
     }
 
+    public void renderNano(RenderContext2D context)
+    {
+        if (context == null || context.getNanoVG() == null)
+        {
+            return;
+        }
+
+        long vg = context.getNanoVG().getHandle();
+
+        if (vg == 0L)
+        {
+            return;
+        }
+
+        MenuFxLayout layout = this.menuFxLayout();
+        ClickGuiModule clickGui = this.resolveClickGuiModule();
+        UiAnimProfile animProfile = this.resolveAnimationProfile(clickGui);
+        NanoTheme theme = this.resolveTheme(clickGui);
+        MenuFxRenderer.render(vg, this.nanoMouseX, this.nanoMouseY, this.menuFxState, layout, clickGui, animProfile, theme, UiExtensionManager.getMainMenuBackgroundMode(), UiExtensionManager.isMainMenuGameOnlyEnabled());
+    }
+
+    private boolean handleExtensionPanelClick(int mouseX, int mouseY, int mouseButton)
+    {
+        MenuFxLayout layout = this.menuFxLayout();
+        MenuFxController.ClickResult result = MenuFxController.handleClick(this.menuFxState, layout, mouseX, mouseY, mouseButton);
+
+        if (!result.consumed())
+        {
+            return false;
+        }
+
+        if (result.modeIndex() >= 0 && result.modeIndex() < layout.backgroundOptions().length)
+        {
+            this.applyBackgroundMode(layout.backgroundOptions()[result.modeIndex()].mode());
+        }
+
+        if (result.toggleGameOnly())
+        {
+            UiExtensionManager.setMainMenuGameOnlyEnabled(!UiExtensionManager.isMainMenuGameOnlyEnabled());
+        }
+
+        return true;
+    }
+
+    private void applyBackgroundMode(UiExtensionManager.MainMenuBackgroundMode mode)
+    {
+        UiExtensionManager.setMainMenuBackgroundMode(mode);
+
+        if (mode != null && mode.usesShader())
+        {
+            UiExtensionManager.setMainMenuBackgroundShaderEnabled(true);
+        }
+
+        this.syncBackgroundMode(true);
+    }
+
+    private void syncBackgroundMode(boolean force)
+    {
+        UiExtensionManager.MainMenuBackgroundMode mode = UiExtensionManager.getMainMenuBackgroundMode();
+
+        if (!force && mode == this.activeBackgroundMode)
+        {
+            return;
+        }
+
+        this.activeBackgroundMode = mode;
+        this.backgroundRuntime.setScene(UiExtensionManager.createMainMenuBackgroundScene());
+        this.backgroundRuntime.initializeScene();
+    }
+
+    private MenuFxLayout menuFxLayout()
+    {
+        return MenuFxLayout.compute(this.width, this.height, this.width / 2 - 100, UiExtensionManager.getMainMenuBackgroundOptions());
+    }
+
+    private ClickGuiModule resolveClickGuiModule()
+    {
+        Module module = ClientBootstrap.instance().getModules().getById("click_gui");
+        return module instanceof ClickGuiModule ? (ClickGuiModule)module : null;
+    }
+
+    private UiAnimProfile resolveAnimationProfile(ClickGuiModule clickGui)
+    {
+        return UiAnimProfiles.settingsProfile(clickGui);
+    }
+
+    private NanoTheme resolveTheme(ClickGuiModule clickGui)
+    {
+        if (clickGui == null)
+        {
+            return NanoThemes.create(NanoPalette.COBALT, 220, 0, 10.0F, null);
+        }
+
+        int backdrop = clickGui.isBackdropEnabled() ? clickGui.getBackdropAlpha() : 0;
+        Integer accent = clickGui.isAccentOverrideEnabled() ? Integer.valueOf(clickGui.getAccentOverride().toArgb()) : null;
+        return NanoThemes.create(clickGui.getPalette(), clickGui.getPanelAlpha(), backdrop, clickGui.getCornerRadius(), accent);
+    }
+
     private MainMenuSplashShader getMainMenuShader()
     {
         return this.backgroundRuntime.getOrCreateShader();
     }
 }
-
-

@@ -48,6 +48,9 @@ public final class ConfigManager implements ModuleStateListener
     private static final String FILE_CLIENT = "client.json";
     private static final String FILE_MODULES = "modules.json";
     private static final String FILE_HUD = "hud.json";
+    private static final String DIR_CLIENT = "client";
+    private static final String DIR_MODULES = "modules";
+    private static final String DIR_HUD = "hud";
 
     private final ClientInfo clientInfo;
     private final ModuleManager moduleManager;
@@ -171,14 +174,15 @@ public final class ConfigManager implements ModuleStateListener
             root.addProperty("locale", this.i18n.getCurrentLocale());
         }
 
-        this.io.writeAtomicIfChanged(this.path(FILE_CLIENT), root);
+        this.io.writeAtomicIfChanged(this.pathClient(), root);
         this.dirtyClient = false;
     }
 
     public void loadClient() throws IOException
     {
-        Path target = this.path(FILE_CLIENT);
-        ConfigIO.ReadResult readResult = this.io.readWithResult(target);
+        ReadSource readSource = this.readWithLegacyFallback(this.pathClient(), this.pathLegacy(FILE_CLIENT));
+        Path target = readSource.path;
+        ConfigIO.ReadResult readResult = readSource.result;
 
         if (!readResult.isParsed())
         {
@@ -189,7 +193,7 @@ public final class ConfigManager implements ModuleStateListener
 
         SchemaResult schema = this.ensureSchema(readResult.getData());
         JsonObject root = schema.root;
-        boolean changed = schema.changed;
+        boolean changed = schema.changed || readSource.fromLegacy;
 
         if (this.i18n != null)
         {
@@ -206,7 +210,7 @@ public final class ConfigManager implements ModuleStateListener
             }
         }
 
-        this.maybeWriteMigrated(FILE_CLIENT, root, changed);
+        this.maybeWriteMigrated(this.pathClient(), root, changed);
         this.dirtyClient = false;
     }
 
@@ -245,14 +249,15 @@ public final class ConfigManager implements ModuleStateListener
         }
 
         root.add("modules", modules);
-        this.io.writeAtomicIfChanged(this.path(FILE_MODULES), root);
+        this.io.writeAtomicIfChanged(this.pathModules(), root);
         this.dirtyModules = false;
     }
 
     public void loadModules() throws IOException
     {
-        Path target = this.path(FILE_MODULES);
-        ConfigIO.ReadResult readResult = this.io.readWithResult(target);
+        ReadSource readSource = this.readWithLegacyFallback(this.pathModules(), this.pathLegacy(FILE_MODULES));
+        Path target = readSource.path;
+        ConfigIO.ReadResult readResult = readSource.result;
 
         if (!readResult.isParsed())
         {
@@ -264,7 +269,7 @@ public final class ConfigManager implements ModuleStateListener
         SchemaResult schema = this.ensureSchema(readResult.getData());
         JsonObject root = schema.root;
         JsonObject modules = this.readObject(root, "modules");
-        boolean changed = schema.changed;
+        boolean changed = schema.changed || readSource.fromLegacy;
 
         if (modules == null)
         {
@@ -327,7 +332,7 @@ public final class ConfigManager implements ModuleStateListener
             }
         }
 
-        this.maybeWriteMigrated(FILE_MODULES, root, changed);
+        this.maybeWriteMigrated(this.pathModules(), root, changed);
         this.dirtyModules = false;
     }
 
@@ -369,14 +374,15 @@ public final class ConfigManager implements ModuleStateListener
         }
 
         root.add("elements", elements);
-        this.io.writeAtomicIfChanged(this.path(FILE_HUD), root);
+        this.io.writeAtomicIfChanged(this.pathHud(), root);
         this.dirtyHud = false;
     }
 
     public void loadHud() throws IOException
     {
-        Path target = this.path(FILE_HUD);
-        ConfigIO.ReadResult readResult = this.io.readWithResult(target);
+        ReadSource readSource = this.readWithLegacyFallback(this.pathHud(), this.pathLegacy(FILE_HUD));
+        Path target = readSource.path;
+        ConfigIO.ReadResult readResult = readSource.result;
 
         if (!readResult.isParsed())
         {
@@ -388,7 +394,7 @@ public final class ConfigManager implements ModuleStateListener
         SchemaResult schema = this.ensureSchema(readResult.getData());
         JsonObject root = schema.root;
         JsonObject elements = this.readObject(root, "elements");
-        boolean changed = schema.changed;
+        boolean changed = schema.changed || readSource.fromLegacy;
 
         if (elements == null)
         {
@@ -495,7 +501,7 @@ public final class ConfigManager implements ModuleStateListener
             }
         }
 
-        this.maybeWriteMigrated(FILE_HUD, root, changed);
+        this.maybeWriteMigrated(this.pathHud(), root, changed);
         this.dirtyHud = false;
     }
 
@@ -532,7 +538,22 @@ public final class ConfigManager implements ModuleStateListener
         return root;
     }
 
-    private Path path(String fileName)
+    private Path pathClient()
+    {
+        return this.profileManager.resolveInActiveProfile(DIR_CLIENT + "/" + FILE_CLIENT);
+    }
+
+    private Path pathModules()
+    {
+        return this.profileManager.resolveInActiveProfile(DIR_MODULES + "/" + FILE_MODULES);
+    }
+
+    private Path pathHud()
+    {
+        return this.profileManager.resolveInActiveProfile(DIR_HUD + "/" + FILE_HUD);
+    }
+
+    private Path pathLegacy(String fileName)
     {
         return this.profileManager.resolveInActiveProfile(fileName);
     }
@@ -560,11 +581,30 @@ public final class ConfigManager implements ModuleStateListener
         return new SchemaResult(out, changed);
     }
 
-    private void maybeWriteMigrated(String fileName, JsonObject root, boolean changed) throws IOException
+    private ReadSource readWithLegacyFallback(Path preferredPath, Path legacyPath) throws IOException
     {
-        if (root != null && changed)
+        ConfigIO.ReadResult preferred = this.io.readWithResult(preferredPath);
+
+        if (preferred.isFilePresent() || legacyPath == null || preferredPath.equals(legacyPath))
         {
-            this.io.writeAtomicIfChanged(this.path(fileName), root);
+            return new ReadSource(preferredPath, preferred, false);
+        }
+
+        ConfigIO.ReadResult legacy = this.io.readWithResult(legacyPath);
+
+        if (legacy.isFilePresent())
+        {
+            return new ReadSource(legacyPath, legacy, true);
+        }
+
+        return new ReadSource(preferredPath, preferred, false);
+    }
+
+    private void maybeWriteMigrated(Path target, JsonObject root, boolean changed) throws IOException
+    {
+        if (target != null && root != null && changed)
+        {
+            this.io.writeAtomicIfChanged(target, root);
         }
     }
 
@@ -857,6 +897,20 @@ public final class ConfigManager implements ModuleStateListener
         {
             this.root = root;
             this.changed = changed;
+        }
+    }
+
+    private static final class ReadSource
+    {
+        private final Path path;
+        private final ConfigIO.ReadResult result;
+        private final boolean fromLegacy;
+
+        private ReadSource(Path path, ConfigIO.ReadResult result, boolean fromLegacy)
+        {
+            this.path = path;
+            this.result = result;
+            this.fromLegacy = fromLegacy;
         }
     }
 

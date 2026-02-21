@@ -7,7 +7,6 @@ import client.module.impl.client.ClickGuiModule;
 import client.module.impl.client.UiScaleEditModule;
 import client.render.RenderContext2D;
 import client.setting.StringSetting;
-import client.ui.state.WindowResizeResolver;
 import client.ui.template.NanoSliderController;
 import client.ui.template.NanoTextInput;
 import client.ui.template.UiAnimProfile;
@@ -25,6 +24,7 @@ import dwgx.nano.NanoUi;
 import java.io.IOException;
 import java.util.Locale;
 import net.minecraft.client.gui.GuiScreen;
+import org.lwjgl.input.Mouse;
 import org.lwjgl.system.MemoryStack;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
@@ -164,14 +164,6 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
 
         if (mouseButton == 0)
         {
-            UiWindowState.ResizeMode resizeMode = WindowResizeResolver.resolve(l.window.x, l.window.y, l.window.w, l.window.h, mouseX, mouseY, scaled(8.0F, l.scale));
-
-            if (resizeMode != null)
-            {
-                this.window.startResize((float)mouseX, (float)mouseY, resizeMode);
-                return;
-            }
-
             if (l.headerDrag.contains(mouseX, mouseY))
             {
                 this.window.startMove((float)mouseX, (float)mouseY);
@@ -286,12 +278,6 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         this.mouseX = mouseX;
         this.mouseY = mouseY;
 
-        if (this.window.isInteracting())
-        {
-            this.window.updateInteraction((float)mouseX, (float)mouseY, (float)this.width, (float)this.height, SCREEN_MARGIN);
-            this.syncProfileFromWindow();
-        }
-
         Layout l = this.layout();
 
         if (this.draggingScale)
@@ -356,6 +342,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
 
         this.lastNanoAt = System.currentTimeMillis();
         this.lastNanoVg = vg;
+        this.refreshLiveMousePosition();
         this.validateActiveSliderInput();
         ClickGuiModule clickGui = this.resolveClickGuiModule();
         this.updateTransition(clickGui);
@@ -370,7 +357,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
 
         if (this.window.isInteracting())
         {
-            this.window.updateInteraction((float)this.mouseX, (float)this.mouseY, (float)this.width, (float)this.height, SCREEN_MARGIN);
+            this.window.updateInteraction(this.liveMouseX(), this.liveMouseY(), (float)this.width, (float)this.height, SCREEN_MARGIN);
             this.syncProfileFromWindow();
         }
 
@@ -1123,6 +1110,36 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
     {
         Module module = ClientBootstrap.instance().getModules().getById("click_gui");
         return module instanceof ClickGuiModule ? (ClickGuiModule)module : null;
+    }
+
+    private void refreshLiveMousePosition()
+    {
+        this.mouseX = Math.round(this.liveMouseX());
+        this.mouseY = Math.round(this.liveMouseY());
+    }
+
+    private float liveMouseX()
+    {
+        if (this.mc == null)
+        {
+            return (float)this.mouseX;
+        }
+
+        int displayWidth = Math.max(1, this.mc.displayWidth);
+        float raw = (float)Mouse.getX() * (float)this.width / (float)displayWidth;
+        return UiMotion.clamp(raw, 0.0F, Math.max(0.0F, (float)this.width - 1.0F));
+    }
+
+    private float liveMouseY()
+    {
+        if (this.mc == null)
+        {
+            return (float)this.mouseY;
+        }
+
+        int displayHeight = Math.max(1, this.mc.displayHeight);
+        float raw = (float)this.height - (float)Mouse.getY() * (float)this.height / (float)displayHeight - 1.0F;
+        return UiMotion.clamp(raw, 0.0F, Math.max(0.0F, (float)this.height - 1.0F));
     }
 
     private String tr(String key, String fallback, Object... args)

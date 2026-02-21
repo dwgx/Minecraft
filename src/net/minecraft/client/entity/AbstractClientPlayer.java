@@ -1,5 +1,6 @@
 package net.minecraft.client.entity;
 
+import client.auth.SkinCapeOverrideService;
 import com.mojang.authlib.GameProfile;
 import java.io.File;
 import net.minecraft.client.Minecraft;
@@ -68,12 +69,26 @@ public abstract class AbstractClientPlayer extends EntityPlayer
      */
     public ResourceLocation getLocationSkin()
     {
+        ResourceLocation override = SkinCapeOverrideService.getOverrideSkinForLocalPlayer(this);
+
+        if (override != null)
+        {
+            return override;
+        }
+
         NetworkPlayerInfo networkplayerinfo = this.getPlayerInfo();
         return networkplayerinfo == null ? DefaultPlayerSkin.getDefaultSkin(this.getUniqueID()) : networkplayerinfo.getLocationSkin();
     }
 
     public ResourceLocation getLocationCape()
     {
+        ResourceLocation override = SkinCapeOverrideService.getOverrideCapeForLocalPlayer(this);
+
+        if (override != null)
+        {
+            return override;
+        }
+
         NetworkPlayerInfo networkplayerinfo = this.getPlayerInfo();
         return networkplayerinfo == null ? null : networkplayerinfo.getLocationCape();
     }
@@ -102,6 +117,13 @@ public abstract class AbstractClientPlayer extends EntityPlayer
 
     public String getSkinType()
     {
+        String override = SkinCapeOverrideService.getOverrideSkinTypeForLocalPlayer(this);
+
+        if (override != null)
+        {
+            return override;
+        }
+
         NetworkPlayerInfo networkplayerinfo = this.getPlayerInfo();
         return networkplayerinfo == null ? DefaultPlayerSkin.getSkinType(this.getUniqueID()) : networkplayerinfo.getSkinType();
     }

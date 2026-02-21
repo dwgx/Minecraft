@@ -59,14 +59,29 @@ public class C07PacketPlayerDigging implements Packet<INetHandlerPlayServer>
         return this.position;
     }
 
+    public void setPosition(BlockPos positionIn)
+    {
+        this.position = positionIn;
+    }
+
     public EnumFacing getFacing()
     {
         return this.facing;
     }
 
+    public void setFacing(EnumFacing facingIn)
+    {
+        this.facing = facingIn;
+    }
+
     public C07PacketPlayerDigging.Action getStatus()
     {
         return this.status;
+    }
+
+    public void setStatus(C07PacketPlayerDigging.Action statusIn)
+    {
+        this.status = statusIn;
     }
 
     public static enum Action
