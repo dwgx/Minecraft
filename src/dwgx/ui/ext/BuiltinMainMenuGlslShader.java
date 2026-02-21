@@ -1,14 +1,370 @@
 package dwgx.ui.ext;
 
-import java.nio.charset.StandardCharsets;
-import javax.xml.bind.DatatypeConverter;
-
 /**
  * Built-in CRT terminal shader converted from user supplied Shadertoy-style source.
  */
 public final class BuiltinMainMenuGlslShader
 {
-    private static final String SOURCE_B64 = \"I3ZlcnNpb24gMTIwCgp1bmlmb3JtIHNhbXBsZXIyRCB1VGV4Owp1bmlmb3JtIGZsb2F0IHVUaW1lOwp1bmlmb3JtIHZlYzIgdVJlc29sdXRpb247CnZhcnlpbmcgdmVjMiB2VGV4Q29vcmQ7CnZhcnlpbmcgdmVjNCB2Q29sb3I7CgojZGVmaW5lIGlUaW1lIHVUaW1lCiNkZWZpbmUgaVJlc29sdXRpb24gdmVjMyh1UmVzb2x1dGlvbiwgMS4wKQojZGVmaW5lIGlNb3VzZSB2ZWM0KDAuMCkKI2RlZmluZSBpQ2hhbm5lbDAgdVRleAoKI2RlZmluZSBMSUdIVFNfT04gKHNpbihmcmFjdChpVGltZS8yMy4wKSsyLjc0KSArIDAuMDUqYWJzKHNpbihpVGltZSoxMDAwLjApKSA8IDAuMCkKI2RlZmluZSBXSURUSCAwLjQ4CiNkZWZpbmUgSEVJR0hUIDAuMwojZGVmaW5lIENVUlZFIDMuMAojZGVmaW5lIFNNT09USCAwLjAwNAojZGVmaW5lIFNISU5FIDAuNjYKI2RlZmluZSBCRVpFTF9DT0wgdmVjNCgwLjgsIDAuOCwgMC42LCAwLjApCiNkZWZpbmUgUkVGTEVDVElPTl9CTFVSX0lURVJBVElPTlMgNQojZGVmaW5lIFJFRkxFQ1RJT05fQkxVUl9TSVpFIDAuMDQKCiNkZWZpbmUgRk9OVF9TSVpFIHZlYzIoMTAuMCwyMC4wKQojZGVmaW5lIFJPV0NPTFMgdmVjMig4MC4wLCAyNC4wKQojZGVmaW5lIFBIT1NQSE9SX0NPTCB2ZWM0KDAuMiwgMS4wLCAwLjIsIDAuMCkKCmZsb2F0IHJhbmQodmVjMiBjbykKewogICAgcmV0dXJuIGZyYWN0KHNpbihkb3QoY28ueHkgLHZlYzIoMTIuOTg5OCw3OC4yMzMpKSkgKiA0Mzc1OC41NDUzKTsKfQoKdmVjMiBDdXJ2ZWRTdXJmYWNlKHZlYzIgdXYsIGZsb2F0IHIpCnsKICAgIHJldHVybiByICogdXYgLyBzcXJ0KG1heCgwLjAwMDEsIHIgKiByIC0gZG90KHV2LCB1dikpKTsKfQoKdmVjMiBjcnRDdXJ2ZSh2ZWMyIHV2LCBmbG9hdCByLCBib29sIGNvbnRlbnQsIGJvb2wgc2hpbmUpCnsKICAgIHIgPSBDVVJWRSAqIHI7CiAgICB1diA9ICh1diAvIGlSZXNvbHV0aW9uLnh5IC0gMC41KSAvIHZlYzIoaVJlc29sdXRpb24ueS9pUmVzb2x1dGlvbi54LCAxLjApICogMi4wOwogICAgdXYgPSBDdXJ2ZWRTdXJmYWNlKHV2LCByKTsKICAgIGlmKGNvbnRlbnQpIHV2ICo9IDAuNSAvIHZlYzIoV0lEVEgsIEhFSUdIVCk7CiAgICB1diA9ICh1diAvIDIuMCkgKyAwLjU7CiAgICByZXR1cm4gdXY7Cn0KCmZsb2F0IHJvdW5kU3F1YXJlKHZlYzIgcCwgdmVjMiBiLCBmbG9hdCByKQp7CiAgICByZXR1cm4gbGVuZ3RoKG1heChhYnMocCktYiwwLjApKS1yOwp9CgpmbG9hdCBzdGRSUyh2ZWMyIHV2LCBmbG9hdCByKQp7CiAgICByZXR1cm4gcm91bmRTcXVhcmUodXYgLSAwLjUsIHZlYzIoV0lEVEgsIEhFSUdIVCkgKyByLCAwLjA1KTsKfQoKdmVjMiBib3JkZXJSZWZsZWN0KHZlYzIgcCwgZmxvYXQgcikKewogICAgZmxvYXQgZXBzID0gMC4wMDAxOwogICAgdmVjMiBlcHN4ID0gdmVjMihlcHMsMC4wKTsKICAgIHZlYzIgZXBzeSA9IHZlYzIoMC4wLGVwcyk7CiAgICB2ZWMyIGIgPSAoMS4wK3ZlYzIocixyKSkqIDAuNTsKICAgIHIgLz0gMy4wOwogICAgcCAtPSAwLjU7CiAgICB2ZWMyIG5vcm1hbCA9IHZlYzIocm91bmRTcXVhcmUocC1lcHN4LGIsciktcm91bmRTcXVhcmUocCtlcHN4LGIsciksCiAgICAgICAgICAgICAgICAgICAgICAgcm91bmRTcXVhcmUocC1lcHN5LGIsciktcm91bmRTcXVhcmUocCtlcHN5LGIscikpL2VwczsKICAgIGZsb2F0IGQgPSByb3VuZFNxdWFyZShwLCBiLCByKTsKICAgIHAgKz0gMC41OwogICAgcmV0dXJuIHAgKyBkKm5vcm1hbDsKfQoKZmxvYXQgc29tZVBsYXNtYSh2ZWMyIHV2KQp7CiAgICB1diAvPSBpUmVzb2x1dGlvbi54eTsKICAgIHV2ICo9IFJPV0NPTFM7CiAgICB1diA9IGNlaWwodXYpOwogICAgdXYgLz0gUk9XQ09MUzsKCiAgICBmbG9hdCBjb2xvciA9IDAuMDsKICAgIGNvbG9yICs9IDAuNypzaW4oMC41KnV2LnggKyBpVGltZS81LjApOwogICAgY29sb3IgKz0gMy4wKnNpbigxLjYqdXYueSArIGlUaW1lLzUuMCk7CiAgICBjb2xvciArPSAxLjAqc2luKDEwLjAqKHV2LnkgKiBzaW4oaVRpbWUvMi4wKSArIHV2LnggKiBjb3MoaVRpbWUvNS4wKSkgKyBpVGltZS8yLjApOwogICAgZmxvYXQgY3ggPSB1di54ICsgMC41KnNpbihpVGltZS8yLjApOwogICAgZmxvYXQgY3kgPSB1di55ICsgMC41KmNvcyhpVGltZS80LjApOwogICAgY29sb3IgKz0gMC40KnNpbihzcXJ0KDEwMC4wKmN4KmN4ICsgMTAwLjAqY3kqY3kgKyAxLjApICsgaVRpbWUpOwogICAgY29sb3IgKz0gMC45KnNpbihzcXJ0KDc1LjAqY3gqY3ggKyAyNS4wKmN5KmN5ICsgMS4wKSArIGlUaW1lKTsKICAgIGNvbG9yICs9IC0xLjQqc2luKHNxcnQoMjU2LjAqY3gqY3ggKyAyNS4wKmN5KmN5ICsgMS4wKSArIGlUaW1lKTsKICAgIGNvbG9yICs9IDAuMyAqIHNpbigwLjUqdXYueSArIHV2LnggKyBzaW4oaVRpbWUpKTsKICAgIHJldHVybiAxNy4wKigwLjUrMC40OTkqc2luKGNvbG9yKSkqKDAuNytzaW4oaVRpbWUpKjAuMyk7Cn0KCmZsb2F0IHRleHRMaW5lcyh2ZWMyIHV2RykKewogICAgZmxvYXQgd3QgPSA1LjAgKiAoaVRpbWUgKyAwLjUqc2luKGlUaW1lKjEuNCkgKyAwLjIqc2luKGlUaW1lKjIuOSkpOwogICAgdmVjMiB1dkd0ID0gdXZHICsgdmVjMigwLjAsIGZsb29yKHd0KSk7CiAgICBmbG9hdCBsbCA9IHJhbmQodmVjMih1dkd0LnksIC0xLjApKSAqIFJPV0NPTFMueDsKCiAgICBpZiAodXZHLnkgPiBST1dDT0xTLnkgLSAyLjApewogICAgICAgIGlmIChjZWlsKHV2Ry54KSA9PSBmbG9vcihtaW4obGwsIGZyYWN0KHd0KSpST1dDT0xTLngpKSkKICAgICAgICAgICAgcmV0dXJuIDIuMDsKICAgICAgICBpZiAoY2VpbCh1dkcueCkgPiBmbG9vcihtaW4obGwsIGZyYWN0KHd0KSpST1dDT0xTLngpKSkKICAgICAgICAgICAgcmV0dXJuIDAuMDsKICAgIH0KICAgIGlmICh1dkd0LnggPiA1LjAgJiYgcmFuZCh1dkd0KSA8IDAuMDc1KQogICAgICAgIHJldHVybiAwLjA7CiAgICBpZiAobWF4KDUuMCwgdXZHdC54KSA+IGxsKQogICAgICAgIHJldHVybiAwLjA7CgogICAgcmV0dXJuIHJhbmQodXZHdCkqMTUuMCArIDIuMDsKfQoKZmxvYXQgcm91bmRMaW5lKHZlYzIgcCwgdmVjMiBhLCB2ZWMyIGIpCnsKICAgIGIgLT0gYSArIHZlYzIoMS4wLDAuMCk7CiAgICBwIC09IGE7CiAgICBmbG9hdCBmID0gbGVuZ3RoKHAtY2xhbXAoZG90KHAsYikvbWF4KDAuMDAwMSxkb3QoYixiKSksMC4wLDEuMCkqYik7CiAgICBpZiAoaVJlc29sdXRpb24ueSA8IDMyMC4wKQogICAgICAgIHJldHVybiBzbW9vdGhzdGVwKDEuMCwgMC45LCBmKTsKICAgIGVsc2UgaWYgKGlSZXNvbHV0aW9uLnkgPCA3MjAuMCkKICAgICAgICByZXR1cm4gc21vb3Roc3RlcCgwLjc1LCAwLjUsIGYpOwogICAgZWxzZQogICAgICAgIHJldHVybiBzbW9vdGhzdGVwKDEuMCwgMC4wLCBmKTsKfQoKI2RlZmluZSBsKHksYSxiKSByb3VuZExpbmUocCwgdmVjMihmbG9hdChhKSwgZmxvYXQoeSkpLCB2ZWMyKGZsb2F0KGIpLCBmbG9hdCh5KSkpCgpmbG9hdCB2dDIyMEZvbnQodmVjMiBwLCBmbG9hdCBjKQp7CiAgICBpZiAoYyA8IDEuMCkgcmV0dXJuIDAuMDsKICAgIGlmKHAueSA+IDE2LjApewogICAgICAgIGlmKGMgPiAyLjApIHJldHVybiAwLjA7CiAgICAgICAgaWYoYyA+IDEuMCkgcmV0dXJuIGwoMTcsMSw5KTsKICAgIH0KICAgIGlmKHAueSA+IDE0LjApewogICAgICAgIGlmKGMgPiAxNi4wKSByZXR1cm4gbCgxNSwzLDgpOwogICAgICAgIGlmKGMgPiAxNS4wKSByZXR1cm4gbCgxNSwxLDgpOwogICAgICAgIGlmKGMgPiAxNC4wKSByZXR1cm4gbCgxNSwxLDMpKyBsKDE1LDcsOSk7CiAgICAgICAgaWYoYyA+IDEzLjApIHJldHVybiBsKDE1LDIsOCk7CiAgICAgICAgaWYoYyA+IDEyLjApIHJldHVybiBsKDE1LDEsOSk7CiAgICAgICAgaWYoYyA+IDExLjApIHJldHVybiBsKDE1LDIsOCk7CiAgICAgICAgaWYoYyA+IDEwLjApIHJldHVybiBsKDE1LDEsMykrIGwoMTUsNiw4KTsKICAgICAgICBpZihjID4gOS4wKSByZXR1cm4gbCgxNSw0LDYpOwogICAgICAgIGlmKGMgPiA4LjApIHJldHVybiBsKDE1LDIsNCkrIGwoMTUsNSw3KTsKICAgICAgICBpZihjID4gNy4wKSByZXR1cm4gbCgxNSwyLDgpOwogICAgICAgIGlmKGMgPiA2LjApIHJldHVybiBsKDE1LDIsOCk7CiAgICAgICAgaWYoYyA+IDUuMCkgcmV0dXJuIGwoMTUsMiw4KTsKICAgICAgICBpZihjID4gNC4wKSByZXR1cm4gbCgxNSwyLDkpOwogICAgICAgIGlmKGMgPiAzLjApIHJldHVybiBsKDE1LDEsOCk7CiAgICAgICAgaWYoYyA+IDIuMCkgcmV0dXJuIGwoMTUsMiw5KTsKICAgIH0KICAgIGlmKHAueSA+IDEyLjApewogICAgICAgIGlmKGMgPiAxNi4wKSByZXR1cm4gbCgxMywyLDQpKyBsKDEzLDcsOSk7CiAgICAgICAgaWYoYyA+IDE1LjApIHJldHVybiBsKDEzLDIsNCkrIGwoMTMsNyw5KTsKICAgICAgICBpZihjID4gMTQuMCkgcmV0dXJuIGwoMTMsMSwzKSsgbCgxMyw3LDkpOwogICAgICAgIGlmKGMgPiAxMy4wKSByZXR1cm4gbCgxMywxLDMpKyBsKDEzLDcsOSk7CiAgICAgICAgaWYoYyA+IDEyLjApIHJldHVybiBsKDEzLDEsMyk7CiAgICAgICAgaWYoYyA+IDExLjApIHJldHVybiBsKDEzLDQsNik7CiAgICAgICAgaWYoYyA+IDEwLjApIHJldHVybiBsKDEzLDIsNCkrIGwoMTMsNSw5KTsKICAgICAgICBpZihjID4gOS4wKSByZXR1cm4gbCgxMywyLDgpOwogICAgICAgIGlmKGMgPiA4LjApIHJldHVybiBsKDEzLDIsNCkrIGwoMTMsNSw3KTsKICAgICAgICBpZihjID4gNy4wKSByZXR1cm4gbCgxMywxLDMpKyBsKDEzLDcsOSk7CiAgICAgICAgaWYoYyA+IDYuMCkgcmV0dXJuIGwoMTMsMSwzKSsgbCgxMyw3LDkpOwogICAgICAgIGlmKGMgPiA1LjApIHJldHVybiBsKDEzLDEsMykrIGwoMTMsNyw5KTsKICAgICAgICBpZihjID4gNC4wKSByZXR1cm4gbCgxMywxLDMpKyBsKDE1LDIsOSk7CiAgICAgICAgaWYoYyA+IDMuMCkgcmV0dXJuIGwoMTMsMSw0KSsgbCgxMyw3LDkpOwogICAgICAgIGlmKGMgPiAyLjApIHJldHVybiBsKDEzLDEsMykrIGwoMTMsNiw5KTsKICAgIH0KICAgIGlmKHAueSA+IDEwLjApewogICAgICAgIGlmKGMgPiAxNi4wKSByZXR1cm4gbCgxMSwxLDMpOwogICAgICAgIGlmKGMgPiAxNS4wKSByZXR1cm4gbCgxMSwyLDQpKyBsKDExLDcsOSk7CiAgICAgICAgaWYoYyA+IDE0LjApIHJldHVybiBsKDExLDEsOSk7CiAgICAgICAgaWYoYyA+IDEzLjApIHJldHVybiBsKDExLDcsOSk7CiAgICAgICAgaWYoYyA+IDEyLjApIHJldHVybiBsKDExLDIsNSk7CiAgICAgICAgaWYoYyA+IDExLjApIHJldHVybiBsKDExLDQsNik7CiAgICAgICAgaWYoYyA+IDEwLjApIHJldHVybiBsKDExLDMsNSkrIGwoMTEsNiw4KTsKICAgICAgICBpZihjID4gOS4wKSByZXR1cm4gbCgxMSw0LDYpKyBsKDExLDcsOSk7CiAgICAgICAgaWYoYyA+IDguMCkgcmV0dXJuIGwoMTEsMSw4KTsKICAgICAgICBpZihjID4gNy4wKSByZXR1cm4gbCgxMSwxLDMpKyBsKDExLDcsOSk7CiAgICAgICAgaWYoYyA+IDYuMCkgcmV0dXJuIGwoMTEsMSwzKSsgbCgxMSw3LDkpOwogICAgICAgIGlmKGMgPiA1LjApIHJldHVybiBsKDExLDEsMykrIGwoMTEsNyw5KTsKICAgICAgICBpZihjID4gNC4wKSByZXR1cm4gbCgxMSwxLDMpOwogICAgICAgIGlmKGMgPiAzLjApIHJldHVybiBsKDExLDEsMykrIGwoMTEsNyw5KTsKICAgICAgICBpZihjID4gMi4wKSByZXR1cm4gbCgxMSwyLDkpOwogICAgfQogICAgaWYocC55ID4gOC4wKXsKICAgICAgICBpZihjID4gMTYuMCkgcmV0dXJuIGwoOSwxLDMpOwogICAgICAgIGlmKGMgPiAxNS4wKSByZXR1cm4gbCg5LDIsOCk7CiAgICAgICAgaWYoYyA+IDE0LjApIHJldHVybiBsKDksMSwzKSsgbCg5LDcsOSk7CiAgICAgICAgaWYoYyA+IDEzLjApIHJldHVybiBsKDksNCw4KTsKICAgICAgICBpZihjID4gMTIuMCkgcmV0dXJuIGwoOSw0LDgpOwogICAgICAgIGlmKGMgPiAxMS4wKSByZXR1cm4gbCg5LDQsNik7CiAgICAgICAgaWYoYyA+IDEwLjApIHJldHVybiBsKDksNCw2KTsKICAgICAgICBpZihjID4gOS4wKSByZXR1cm4gbCg5LDIsOCk7CiAgICAgICAgaWYoYyA+IDguMCkgcmV0dXJuIGwoOSwyLDQpKyBsKDksNSw3KTsKICAgICAgICBpZihjID4gNy4wKSByZXR1cm4gbCg5LDEsMykrIGwoOSw3LDkpOwogICAgICAgIGlmKGMgPiA2LjApIHJldHVybiBsKDksMSwzKSsgbCg5LDcsOSk7CiAgICAgICAgaWYoYyA+IDUuMCkgcmV0dXJuIGwoOSwxLDMpKyBsKDksNyw5KTsKICAgICAgICBpZihjID4gNC4wKSByZXR1cm4gbCg5LDEsMykrIGwoOSw3LDkpOwogICAgICAgIGlmKGMgPiAzLjApIHJldHVybiBsKDksMSw0KSsgbCg5LDcsOSk7CiAgICAgICAgaWYoYyA+IDIuMCkgcmV0dXJuIGwoOSw3LDkpOwogICAgfQogICAgaWYocC55ID4gNi4wKXsKICAgICAgICBpZihjID4gMTYuMCkgcmV0dXJuIGwoNywxLDMpOwogICAgICAgIGlmKGMgPiAxNS4wKSByZXR1cm4gbCg3LDIsNCkrIGwoNyw3LDkpOwogICAgICAgIGlmKGMgPiAxNC4wKSByZXR1cm4gbCg3LDIsNCkrIGwoNyw2LDgpOwogICAgICAgIGlmKGMgPiAxMy4wKSByZXR1cm4gbCg3LDUsNyk7CiAgICAgICAgaWYoYyA+IDEyLjApIHJldHVybiBsKDcsNyw5KTsKICAgICAgICBpZihjID4gMTEuMCkgcmV0dXJuIGwoNywyLDYpOwogICAgICAgIGlmKGMgPiAxMC4wKSByZXR1cm4gbCg3LDIsNCkrIGwoNyw1LDcpOwogICAgICAgIGlmKGMgPiA5LjApIHJldHVybiBsKDcsMSwzKSsgbCg3LDQsNik7CiAgICAgICAgaWYoYyA+IDguMCkgcmV0dXJuIGwoNywxLDgpOwogICAgICAgIGlmKGMgPiA3LjApIHJldHVybiBsKDcsMiw4KTsKICAgICAgICBpZihjID4gNi4wKSByZXR1cm4gbCg3LDIsOCk7CiAgICAgICAgaWYoYyA+IDUuMCkgcmV0dXJuIGwoNywyLDgpOwogICAgICAgIGlmKGMgPiA0LjApIHJldHVybiBsKDcsMiw4KTsKICAgICAgICBpZihjID4gMy4wKSByZXR1cm4gbCg3LDEsOCk7CiAgICAgICAgaWYoYyA+IDIuMCkgcmV0dXJuIGwoNywyLDgpOwogICAgfQogICAgaWYocC55ID4gNC4wKXsKICAgICAgICBpZihjID4gMTYuMCkgcmV0dXJuIGwoNSwyLDQpKyBsKDUsNyw5KTsKICAgICAgICBpZihjID4gMTUuMCkgcmV0dXJuIGwoNSwyLDQpKyBsKDUsNyw5KTsKICAgICAgICBpZihjID4gMTQuMCkgcmV0dXJuIGwoNSwzLDcpOwogICAgICAgIGlmKGMgPiAxMy4wKSByZXR1cm4gbCg1LDYsOCk7CiAgICAgICAgaWYoYyA+IDEyLjApIHJldHVybiBsKDUsMSwzKSsgbCg1LDcsOSk7CiAgICAgICAgaWYoYyA+IDExLjApIHJldHVybiBsKDUsMyw2KTsKICAgICAgICBpZihjID4gMTAuMCkgcmV0dXJuIGwoNSwxLDUpKyBsKDUsNiw4KTsKICAgICAgICBpZihjID4gOS4wKSByZXR1cm4gbCg1LDIsOCk7CiAgICAgICAgaWYoYyA+IDguMCkgcmV0dXJuIGwoNSwyLDQpKyBsKDUsNSw3KTsKICAgICAgICBpZihjID4gNy4wKSByZXR1cm4gMC4wOwogICAgICAgIGlmKGMgPiA2LjApIHJldHVybiAwLjA7CiAgICAgICAgaWYoYyA+IDUuMCkgcmV0dXJuIDAuMDsKICAgICAgICBpZihjID4gNC4wKSByZXR1cm4gMC4wOwogICAgICAgIGlmKGMgPiAzLjApIHJldHVybiBsKDUsMSwzKTsKICAgICAgICBpZihjID4gMi4wKSByZXR1cm4gMC4wOwogICAgfQogICAgaWYocC55ID4gMi4wKXsKICAgICAgICBpZihjID4gMTYuMCkgcmV0dXJuIGwoMywzLDgpOwogICAgICAgIGlmKGMgPiAxNS4wKSByZXR1cm4gbCgzLDEsOCk7CiAgICAgICAgaWYoYyA+IDE0LjApIHJldHVybiBsKDMsNCw2KTsKICAgICAgICBpZihjID4gMTMuMCkgcmV0dXJuIGwoMywxLDkpOwogICAgICAgIGlmKGMgPiAxMi4wKSByZXR1cm4gbCgzLDIsOCk7CiAgICAgICAgaWYoYyA+IDExLjApIHJldHVybiBsKDMsNCw2KTsKICAgICAgICBpZihjID4gMTAuMCkgcmV0dXJuIGwoMywyLDQpKyBsKDMsNyw5KTsKICAgICAgICBpZihjID4gOS4wKSByZXR1cm4gbCgzLDQsNik7CiAgICAgICAgaWYoYyA+IDguMCkgcmV0dXJuIGwoMywyLDQpKyBsKDMsNSw3KTsKICAgICAgICBpZihjID4gNy4wKSByZXR1cm4gbCgzLDIsNCkrIGwoMyw2LDgpOwogICAgICAgIGlmKGMgPiA2LjApIHJldHVybiBsKDMsMSwzKSsgbCgzLDQsNyk7CiAgICAgICAgaWYoYyA+IDUuMCkgcmV0dXJuIGwoMywyLDQpKyBsKDMsNiw4KTsKICAgICAgICBpZihjID4gNC4wKSByZXR1cm4gMC4wOwogICAgICAgIGlmKGMgPiAzLjApIHJldHVybiBsKDMsMSwzKTsKICAgICAgICBpZihjID4gMi4wKSByZXR1cm4gMC4wOwogICAgfQogICAgZWxzZXsKICAgICAgICBpZihjID4gNy4wKSByZXR1cm4gMC4wOwogICAgICAgIGlmKGMgPiA2LjApIHJldHVybiBsKDEsMiw1KSsgbCgxLDYsOCk7CiAgICB9CiAgICByZXR1cm4gMC4wOwp9Cgp2ZWM0IHJlbmRlckJ1ZmZlcih2ZWMyIGZyYWdDb29yZCkKewogICAgZmxvYXQgdmFsID0gMC4wOwoKICAgIHZlYzIgdXYgPSB2ZWMyKGZyYWdDb29yZC54LCBpUmVzb2x1dGlvbi55IC0gZnJhZ0Nvb3JkLnkpOwogICAgdmVjMiB1dlQgPSB2ZWMyKDgwLjAsIDI0LjApICogRk9OVF9TSVpFICogdXYgLyBpUmVzb2x1dGlvbi54eTsKICAgIHZlYzIgdXZHID0gZmxvb3IoUk9XQ09MUyAqIHV2IC8gaVJlc29sdXRpb24ueHkpOwoKICAgIGZsb2F0IHByb2cgPSBzaW4oaVRpbWUqMC41KTsKICAgIGlmKHByb2cgPCAtMC4xKQogICAgICAgIHZhbCA9IHNvbWVQbGFzbWEoZnJhZ0Nvb3JkLnh5KTsKICAgIGVsc2UgaWYocHJvZyA8IDAuMSkKICAgICAgICB2YWwgPSByYW5kKHV2RyAqIGlUaW1lKSAqIDE3LjA7CiAgICBlbHNlCiAgICAgICAgdmFsID0gdGV4dExpbmVzKHV2Ryk7CgogICAgcmV0dXJuIHZ0MjIwRm9udCh1dlQgLSB1dkcgKiBGT05UX1NJWkUsIHZhbCkgKiBQSE9TUEhPUl9DT0w7Cn0KCnZvaWQgbWFpbkltYWdlKG91dCB2ZWM0IGMsIGluIHZlYzIgZnJhZ0Nvb3JkKQp7CiAgICBjID0gdmVjNCgwLjAsIDAuMCwgMC4wLCAwLjApOwoKICAgIHZlYzIgdXZDID0gY3J0Q3VydmUoZnJhZ0Nvb3JkLCAxLjAsIHRydWUsIGZhbHNlKTsKICAgIHZlYzIgdXZTID0gY3J0Q3VydmUoZnJhZ0Nvb3JkLCAxLjAsIGZhbHNlLCBmYWxzZSk7CiAgICB2ZWMyIHV2RSA9IGNydEN1cnZlKGZyYWdDb29yZCwgMS4yNSwgZmFsc2UsIGZhbHNlKTsKCiAgICBpZiAoTElHSFRTX09OKSB7CiAgICAgICAgY29uc3QgZmxvYXQgYW1iaWVudCA9IDAuMzM7CiAgICAgICAgdmVjMiB1dlNoID0gY3J0Q3VydmUoZnJhZ0Nvb3JkLCAxLjAsIGZhbHNlLCB0cnVlKTsKICAgICAgICBjICs9IG1heCgwLjAsIFNISU5FIC0gZGlzdGFuY2UodXZTaCwgdmVjMigwLjUsIDEuMCkpKSAqIHNtb290aHN0ZXAoU01PT1RILzIuMCwgLVNNT09USC8yLjAsIHN0ZFJTKHV2UyArIHZlYzIoMC4wLCAwLjAzKSwgMC4wKSk7CiAgICAgICAgYyArPSBtYXgoMC4wLCBhbWJpZW50IC0gMC41KmRpc3RhbmNlKHV2UywgdmVjMigwLjUsMC41KSkpICogc21vb3Roc3RlcChTTU9PVEgsIC1TTU9PVEgsIHN0ZFJTKHV2UywgMC4wKSk7CgogICAgICAgIHV2U2ggPSBjcnRDdXJ2ZShmcmFnQ29vcmQsIDEuMjUsIGZhbHNlLCB0cnVlKTsKICAgICAgICB2ZWM0IGIgPSB2ZWM0KDAuMCwgMC4wLCAwLjAsIDAuMCk7CiAgICAgICAgZm9yKGludCBpPTA7IGk8MTI7IGkrKykgewogICAgICAgICAgICBiICs9IChjbGFtcChCRVpFTF9DT0wgKyByYW5kKHV2U2grZmxvYXQoaSkpKjAuMDUtMC4wMjUsIDAuMCwgMS4wKSArIHJhbmQodXZFKzEuMCtmbG9hdChpKSkqMC4yNSAqIGNvcygodXZTaC54LTAuNSkqMy4xNDE1KjEuNSkpLzEyLjA7CiAgICAgICAgfQoKICAgICAgICBjb25zdCBmbG9hdCBISFcgPSAwLjUgKiBIRUlHSFQvV0lEVEg7CiAgICAgICAgYyArPSBiLzMuMCooMS4wICsgc21vb3Roc3RlcChISFcgLSAwLjAyNSwgSEhXICsgMC4wMjUsIGFicyhhdGFuKHV2Uy54LTAuNSwgdXZTLnktMC41KSkvMy4xNDE1KQogICAgICAgICAgICArIHNtb290aHN0ZXAoSEhXICsgMC4wMjUsIEhIVyAtIDAuMDI1LCBhYnMoYXRhbih1dlMueC0wLjUsIDAuNS11dlMueSkpLzMuMTQxNSkpCiAgICAgICAgICAgICogc21vb3Roc3RlcCgtU01PT1RILCBTTU9PVEgsIHN0ZFJTKHV2UywgMC4wKSkKICAgICAgICAgICAgKiBzbW9vdGhzdGVwKFNNT09USCwgLVNNT09USCwgc3RkUlModXZFLCAwLjA1KSk7CgogICAgICAgIGMgKz0gKGIgLSAwLjQpCiAgICAgICAgICAgICogc21vb3Roc3RlcCgtU01PT1RIKjIuMCwgU01PT1RIKjIuMCwgcm91bmRTcXVhcmUodXZFLXZlYzIoMC41LCAwLjUwNSksIHZlYzIoV0lEVEgsIEhFSUdIVCkgKyAwLjA1LCAwLjA1KSkKICAgICAgICAgICAgKiBzbW9vdGhzdGVwKFNNT09USCoyLjAsIC1TTU9PVEgqMi4wLCByb3VuZFNxdWFyZSh1dkUtdmVjMigwLjUsIDAuNDk1KSwgdmVjMihXSURUSCwgSEVJR0hUKSArIDAuMDUsIDAuMDUpKTsKCiAgICAgICAgYyArPSBiCiAgICAgICAgICAgICogc21vb3Roc3RlcCgtU01PT1RILCBTTU9PVEgsIHJvdW5kU3F1YXJlKHV2RS12ZWMyKDAuNSwgMC41KSwgdmVjMihXSURUSCwgSEVJR0hUKSArIDAuMDUsIDAuMDUpKQogICAgICAgICAgICAqIHNtb290aHN0ZXAoU01PT1RILCAtU01PT1RILCByb3VuZFNxdWFyZSh1dkUtdmVjMigwLjUsIDAuNSksIHZlYzIoV0lEVEgsIEhFSUdIVCkgKyAwLjE1LCAwLjA1KSk7CgogICAgICAgIGMgKz0gKGIgLSAwLjQpCiAgICAgICAgICAgICogc21vb3Roc3RlcCgtU01PT1RIKjIuMCwgU01PT1RIKjIuMCwgcm91bmRTcXVhcmUodXZFLXZlYzIoMC41LCAwLjQ5NSksIHZlYzIoV0lEVEgsIEhFSUdIVCkgKyAwLjE1LCAwLjA1KSkKICAgICAgICAgICAgKiBzbW9vdGhzdGVwKFNNT09USCoyLjAsIC1TTU9PVEgqMi4wLCByb3VuZFNxdWFyZSh1dkUtdmVjMigwLjUsIDAuNTA1KSwgdmVjMihXSURUSCwgSEVJR0hUKSArIDAuMTUsIDAuMDUpKTsKCiAgICAgICAgYyArPSBtYXgoMC4wLCAoMS4wIC0gMi4wKiBmcmFnQ29vcmQueS9pUmVzb2x1dGlvbi55KSkgKiB2ZWM0KDEuMCwgMS4wLCAxLjAsIDAuMCkKICAgICAgICAgICAgKiBzbW9vdGhzdGVwKC0wLjI1LCAwLjI1LCByb3VuZFNxdWFyZSh1dkMgLSB2ZWMyKDAuNSwgLTAuMiksIHZlYzIoV0lEVEgrMC4yNSwgSEVJR0hULTAuMTUpLCAwLjEpKQogICAgICAgICAgICAqIHNtb290aHN0ZXAoLVNNT09USCoyLjAsIFNNT09USCoyLjAsIHJvdW5kU3F1YXJlKHV2RS12ZWMyKDAuNSwgMC41KSwgdmVjMihXSURUSCwgSEVJR0hUKSArIDAuMTUsIDAuMDUpKTsKICAgIH0KICAgIGVsc2UgewogICAgICAgIGNvbnN0IGZsb2F0IGFtYmllbnQgPSAwLjI7CiAgICAgICAgYyArPSBtYXgoMC4wLCBhbWJpZW50IC0gMC4zKmRpc3RhbmNlKHV2UywgdmVjMigwLjUsMC41KSkpICogc21vb3Roc3RlcChTTU9PVEgsIC1TTU9PVEgsIHN0ZFJTKHV2UywgMC4wKSk7CgogICAgICAgIGMgKz0gQkVaRUxfQ09MICogYW1iaWVudCAqIDAuNwogICAgICAgICAgICAqIHNtb290aHN0ZXAoLVNNT09USCwgU01PT1RILCBzdGRSUyh1dlMsIDAuMCkpCiAgICAgICAgICAgICogc21vb3Roc3RlcChTTU9PVEgsIC1TTU9PVEgsIHN0ZFJTKHV2RSwgMC4wNSkpOwoKICAgICAgICBjIC09IEJFWkVMX0NPTAogICAgICAgICAgICAqIHNtb290aHN0ZXAoLVNNT09USCoyLjAsIFNNT09USCoxMC4wLCBzdGRSUyh1dkUsIDAuMDUpKQogICAgICAgICAgICAqIHNtb290aHN0ZXAoU01PT1RIKjIuMCwgLVNNT09USCoyLjAsIHN0ZFJTKHV2RSwgMC4wNSkpOwoKICAgICAgICBjICs9IEJFWkVMX0NPTCAqIGFtYmllbnQKICAgICAgICAgICAgKiBzbW9vdGhzdGVwKC1TTU9PVEgsIFNNT09USCwgc3RkUlModXZFLCAwLjA1KSkKICAgICAgICAgICAgKiBzbW9vdGhzdGVwKFNNT09USCwgLVNNT09USCwgc3RkUlModXZFLCAwLjE1KSk7CgogICAgICAgIGZvcihpbnQgaSA9IDA7IGkgPCBSRUZMRUNUSU9OX0JMVVJfSVRFUkFUSU9OUzsgaSsrKQogICAgICAgIHsKICAgICAgICAgICAgdmVjMiB1dlIgPSBib3JkZXJSZWZsZWN0KHV2QyArICh2ZWMyKHJhbmQodXZDK2Zsb2F0KGkpKSwgcmFuZCh1dkMrZmxvYXQoaSkrMC4xKSktMC41KSpSRUZMRUNUSU9OX0JMVVJfU0laRSwgMC4wNSk7CiAgICAgICAgICAgIGMgKz0gKFBIT1NQSE9SX0NPTCAtIEJFWkVMX0NPTCphbWJpZW50KSAqIHRleHR1cmUyRChpQ2hhbm5lbDAsIHV2UikgLyBmbG9hdChSRUZMRUNUSU9OX0JMVVJfSVRFUkFUSU9OUykKICAgICAgICAgICAgICAgICogc21vb3Roc3RlcCgtU01PT1RILCBTTU9PVEgsIHN0ZFJTKHV2UywgMC4wKSkKICAgICAgICAgICAgICAgICogc21vb3Roc3RlcChTTU9PVEgsIC1TTU9PVEgsIHN0ZFJTKHV2RSwgMC4wNSkpOwogICAgICAgIH0KCiAgICAgICAgYyArPSAodGV4dHVyZTJEKGlDaGFubmVsMCwgdXZDKSArIHRleHR1cmUyRChpQ2hhbm5lbDAsIHV2QyArIHZlYzIoMC4wMDMsIDAuMDAzKSkgKyB0ZXh0dXJlMkQoaUNoYW5uZWwwLCB1dkMgLSB2ZWMyKDAuMDAzLCAwLjAwMykpKQogICAgICAgICAgICAqIHNtb290aHN0ZXAoMC4wLCAtU01PT1RIKjIwLjAsIHN0ZFJTKHV2UywgLTAuMDIpKSAqIDAuNTsKICAgIH0KCiAgICBpZiAodXZDLnggPiAwLjAgJiYgdXZDLnggPCAxLjAgJiYgdXZDLnkgPiAwLjAgJiYgdXZDLnkgPCAxLjApCiAgICAgICAgYyArPSB0ZXh0dXJlMkQoaUNoYW5uZWwwLCB1dkMpICsgcmVuZGVyQnVmZmVyKGZyYWdDb29yZCk7Cn0KCnZvaWQgbWFpbigpCnsKICAgIHZlYzQgYzsKICAgIG1haW5JbWFnZShjLCBnbF9GcmFnQ29vcmQueHkpOwogICAgZ2xfRnJhZ0NvbG9yID0gYyAqIHZDb2xvcjsKfQ==\";
+    private static final String SOURCE =
+        "#version 120\n" +
+        "\n" +
+        "uniform sampler2D uTex;\n" +
+        "uniform float uTime;\n" +
+        "uniform vec2 uResolution;\n" +
+        "varying vec2 vTexCoord;\n" +
+        "varying vec4 vColor;\n" +
+        "\n" +
+        "#define iTime uTime\n" +
+        "#define iResolution vec3(uResolution, 1.0)\n" +
+        "#define iMouse vec4(0.0)\n" +
+        "#define iChannel0 uTex\n" +
+        "\n" +
+        "#define LIGHTS_ON (sin(fract(iTime/23.0)+2.74) + 0.05*abs(sin(iTime*1000.0)) < 0.0)\n" +
+        "#define WIDTH 0.48\n" +
+        "#define HEIGHT 0.3\n" +
+        "#define CURVE 3.0\n" +
+        "#define SMOOTH 0.004\n" +
+        "#define SHINE 0.66\n" +
+        "#define BEZEL_COL vec4(0.8, 0.8, 0.6, 0.0)\n" +
+        "#define REFLECTION_BLUR_ITERATIONS 5\n" +
+        "#define REFLECTION_BLUR_SIZE 0.04\n" +
+        "\n" +
+        "#define FONT_SIZE vec2(10.0,20.0)\n" +
+        "#define ROWCOLS vec2(80.0, 24.0)\n" +
+        "#define PHOSPHOR_COL vec4(0.2, 1.0, 0.2, 0.0)\n" +
+        "\n" +
+        "float rand(vec2 co)\n" +
+        "{\n" +
+        "    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);\n" +
+        "}\n" +
+        "\n" +
+        "vec2 CurvedSurface(vec2 uv, float r)\n" +
+        "{\n" +
+        "    return r * uv / sqrt(max(0.0001, r * r - dot(uv, uv)));\n" +
+        "}\n" +
+        "\n" +
+        "vec2 crtCurve(vec2 uv, float r, bool content, bool shine)\n" +
+        "{\n" +
+        "    r = CURVE * r;\n" +
+        "    uv = (uv / iResolution.xy - 0.5) / vec2(iResolution.y/iResolution.x, 1.0) * 2.0;\n" +
+        "    uv = CurvedSurface(uv, r);\n" +
+        "    if(content) uv *= 0.5 / vec2(WIDTH, HEIGHT);\n" +
+        "    uv = (uv / 2.0) + 0.5;\n" +
+        "    return uv;\n" +
+        "}\n" +
+        "\n" +
+        "float roundSquare(vec2 p, vec2 b, float r)\n" +
+        "{\n" +
+        "    return length(max(abs(p)-b,0.0))-r;\n" +
+        "}\n" +
+        "\n" +
+        "float stdRS(vec2 uv, float r)\n" +
+        "{\n" +
+        "    return roundSquare(uv - 0.5, vec2(WIDTH, HEIGHT) + r, 0.05);\n" +
+        "}\n" +
+        "\n" +
+        "vec2 borderReflect(vec2 p, float r)\n" +
+        "{\n" +
+        "    float eps = 0.0001;\n" +
+        "    vec2 epsx = vec2(eps,0.0);\n" +
+        "    vec2 epsy = vec2(0.0,eps);\n" +
+        "    vec2 b = (1.0+vec2(r,r))* 0.5;\n" +
+        "    r /= 3.0;\n" +
+        "    p -= 0.5;\n" +
+        "    vec2 normal = vec2(roundSquare(p-epsx,b,r)-roundSquare(p+epsx,b,r),\n" +
+        "                       roundSquare(p-epsy,b,r)-roundSquare(p+epsy,b,r))/eps;\n" +
+        "    float d = roundSquare(p, b, r);\n" +
+        "    p += 0.5;\n" +
+        "    return p + d*normal;\n" +
+        "}\n" +
+        "\n" +
+        "float somePlasma(vec2 uv)\n" +
+        "{\n" +
+        "    uv /= iResolution.xy;\n" +
+        "    uv *= ROWCOLS;\n" +
+        "    uv = ceil(uv);\n" +
+        "    uv /= ROWCOLS;\n" +
+        "\n" +
+        "    float color = 0.0;\n" +
+        "    color += 0.7*sin(0.5*uv.x + iTime/5.0);\n" +
+        "    color += 3.0*sin(1.6*uv.y + iTime/5.0);\n" +
+        "    color += 1.0*sin(10.0*(uv.y * sin(iTime/2.0) + uv.x * cos(iTime/5.0)) + iTime/2.0);\n" +
+        "    float cx = uv.x + 0.5*sin(iTime/2.0);\n" +
+        "    float cy = uv.y + 0.5*cos(iTime/4.0);\n" +
+        "    color += 0.4*sin(sqrt(100.0*cx*cx + 100.0*cy*cy + 1.0) + iTime);\n" +
+        "    color += 0.9*sin(sqrt(75.0*cx*cx + 25.0*cy*cy + 1.0) + iTime);\n" +
+        "    color += -1.4*sin(sqrt(256.0*cx*cx + 25.0*cy*cy + 1.0) + iTime);\n" +
+        "    color += 0.3 * sin(0.5*uv.y + uv.x + sin(iTime));\n" +
+        "    return 17.0*(0.5+0.499*sin(color))*(0.7+sin(iTime)*0.3);\n" +
+        "}\n" +
+        "\n" +
+        "float textLines(vec2 uvG)\n" +
+        "{\n" +
+        "    float wt = 5.0 * (iTime + 0.5*sin(iTime*1.4) + 0.2*sin(iTime*2.9));\n" +
+        "    vec2 uvGt = uvG + vec2(0.0, floor(wt));\n" +
+        "    float ll = rand(vec2(uvGt.y, -1.0)) * ROWCOLS.x;\n" +
+        "\n" +
+        "    if (uvG.y > ROWCOLS.y - 2.0){\n" +
+        "        if (ceil(uvG.x) == floor(min(ll, fract(wt)*ROWCOLS.x)))\n" +
+        "            return 2.0;\n" +
+        "        if (ceil(uvG.x) > floor(min(ll, fract(wt)*ROWCOLS.x)))\n" +
+        "            return 0.0;\n" +
+        "    }\n" +
+        "    if (uvGt.x > 5.0 && rand(uvGt) < 0.075)\n" +
+        "        return 0.0;\n" +
+        "    if (max(5.0, uvGt.x) > ll)\n" +
+        "        return 0.0;\n" +
+        "\n" +
+        "    return rand(uvGt)*15.0 + 2.0;\n" +
+        "}\n" +
+        "\n" +
+        "float roundLine(vec2 p, vec2 a, vec2 b)\n" +
+        "{\n" +
+        "    b -= a + vec2(1.0,0.0);\n" +
+        "    p -= a;\n" +
+        "    float f = length(p-clamp(dot(p,b)/max(0.0001,dot(b,b)),0.0,1.0)*b);\n" +
+        "    if (iResolution.y < 320.0)\n" +
+        "        return smoothstep(1.0, 0.9, f);\n" +
+        "    else if (iResolution.y < 720.0)\n" +
+        "        return smoothstep(0.75, 0.5, f);\n" +
+        "    else\n" +
+        "        return smoothstep(1.0, 0.0, f);\n" +
+        "}\n" +
+        "\n" +
+        "#define l(y,a,b) roundLine(p, vec2(float(a), float(y)), vec2(float(b), float(y)))\n" +
+        "\n" +
+        "float vt220Font(vec2 p, float c)\n" +
+        "{\n" +
+        "    if (c < 1.0) return 0.0;\n" +
+        "    if(p.y > 16.0){\n" +
+        "        if(c > 2.0) return 0.0;\n" +
+        "        if(c > 1.0) return l(17,1,9);\n" +
+        "    }\n" +
+        "    if(p.y > 14.0){\n" +
+        "        if(c > 16.0) return l(15,3,8);\n" +
+        "        if(c > 15.0) return l(15,1,8);\n" +
+        "        if(c > 14.0) return l(15,1,3)+ l(15,7,9);\n" +
+        "        if(c > 13.0) return l(15,2,8);\n" +
+        "        if(c > 12.0) return l(15,1,9);\n" +
+        "        if(c > 11.0) return l(15,2,8);\n" +
+        "        if(c > 10.0) return l(15,1,3)+ l(15,6,8);\n" +
+        "        if(c > 9.0) return l(15,4,6);\n" +
+        "        if(c > 8.0) return l(15,2,4)+ l(15,5,7);\n" +
+        "        if(c > 7.0) return l(15,2,8);\n" +
+        "        if(c > 6.0) return l(15,2,8);\n" +
+        "        if(c > 5.0) return l(15,2,8);\n" +
+        "        if(c > 4.0) return l(15,2,9);\n" +
+        "        if(c > 3.0) return l(15,1,8);\n" +
+        "        if(c > 2.0) return l(15,2,9);\n" +
+        "    }\n" +
+        "    if(p.y > 12.0){\n" +
+        "        if(c > 16.0) return l(13,2,4)+ l(13,7,9);\n" +
+        "        if(c > 15.0) return l(13,2,4)+ l(13,7,9);\n" +
+        "        if(c > 14.0) return l(13,1,3)+ l(13,7,9);\n" +
+        "        if(c > 13.0) return l(13,1,3)+ l(13,7,9);\n" +
+        "        if(c > 12.0) return l(13,1,3);\n" +
+        "        if(c > 11.0) return l(13,4,6);\n" +
+        "        if(c > 10.0) return l(13,2,4)+ l(13,5,9);\n" +
+        "        if(c > 9.0) return l(13,2,8);\n" +
+        "        if(c > 8.0) return l(13,2,4)+ l(13,5,7);\n" +
+        "        if(c > 7.0) return l(13,1,3)+ l(13,7,9);\n" +
+        "        if(c > 6.0) return l(13,1,3)+ l(13,7,9);\n" +
+        "        if(c > 5.0) return l(13,1,3)+ l(13,7,9);\n" +
+        "        if(c > 4.0) return l(13,1,3)+ l(15,2,9);\n" +
+        "        if(c > 3.0) return l(13,1,4)+ l(13,7,9);\n" +
+        "        if(c > 2.0) return l(13,1,3)+ l(13,6,9);\n" +
+        "    }\n" +
+        "    if(p.y > 10.0){\n" +
+        "        if(c > 16.0) return l(11,1,3);\n" +
+        "        if(c > 15.0) return l(11,2,4)+ l(11,7,9);\n" +
+        "        if(c > 14.0) return l(11,1,9);\n" +
+        "        if(c > 13.0) return l(11,7,9);\n" +
+        "        if(c > 12.0) return l(11,2,5);\n" +
+        "        if(c > 11.0) return l(11,4,6);\n" +
+        "        if(c > 10.0) return l(11,3,5)+ l(11,6,8);\n" +
+        "        if(c > 9.0) return l(11,4,6)+ l(11,7,9);\n" +
+        "        if(c > 8.0) return l(11,1,8);\n" +
+        "        if(c > 7.0) return l(11,1,3)+ l(11,7,9);\n" +
+        "        if(c > 6.0) return l(11,1,3)+ l(11,7,9);\n" +
+        "        if(c > 5.0) return l(11,1,3)+ l(11,7,9);\n" +
+        "        if(c > 4.0) return l(11,1,3);\n" +
+        "        if(c > 3.0) return l(11,1,3)+ l(11,7,9);\n" +
+        "        if(c > 2.0) return l(11,2,9);\n" +
+        "    }\n" +
+        "    if(p.y > 8.0){\n" +
+        "        if(c > 16.0) return l(9,1,3);\n" +
+        "        if(c > 15.0) return l(9,2,8);\n" +
+        "        if(c > 14.0) return l(9,1,3)+ l(9,7,9);\n" +
+        "        if(c > 13.0) return l(9,4,8);\n" +
+        "        if(c > 12.0) return l(9,4,8);\n" +
+        "        if(c > 11.0) return l(9,4,6);\n" +
+        "        if(c > 10.0) return l(9,4,6);\n" +
+        "        if(c > 9.0) return l(9,2,8);\n" +
+        "        if(c > 8.0) return l(9,2,4)+ l(9,5,7);\n" +
+        "        if(c > 7.0) return l(9,1,3)+ l(9,7,9);\n" +
+        "        if(c > 6.0) return l(9,1,3)+ l(9,7,9);\n" +
+        "        if(c > 5.0) return l(9,1,3)+ l(9,7,9);\n" +
+        "        if(c > 4.0) return l(9,1,3)+ l(9,7,9);\n" +
+        "        if(c > 3.0) return l(9,1,4)+ l(9,7,9);\n" +
+        "        if(c > 2.0) return l(9,7,9);\n" +
+        "    }\n" +
+        "    if(p.y > 6.0){\n" +
+        "        if(c > 16.0) return l(7,1,3);\n" +
+        "        if(c > 15.0) return l(7,2,4)+ l(7,7,9);\n" +
+        "        if(c > 14.0) return l(7,2,4)+ l(7,6,8);\n" +
+        "        if(c > 13.0) return l(7,5,7);\n" +
+        "        if(c > 12.0) return l(7,7,9);\n" +
+        "        if(c > 11.0) return l(7,2,6);\n" +
+        "        if(c > 10.0) return l(7,2,4)+ l(7,5,7);\n" +
+        "        if(c > 9.0) return l(7,1,3)+ l(7,4,6);\n" +
+        "        if(c > 8.0) return l(7,1,8);\n" +
+        "        if(c > 7.0) return l(7,2,8);\n" +
+        "        if(c > 6.0) return l(7,2,8);\n" +
+        "        if(c > 5.0) return l(7,2,8);\n" +
+        "        if(c > 4.0) return l(7,2,8);\n" +
+        "        if(c > 3.0) return l(7,1,8);\n" +
+        "        if(c > 2.0) return l(7,2,8);\n" +
+        "    }\n" +
+        "    if(p.y > 4.0){\n" +
+        "        if(c > 16.0) return l(5,2,4)+ l(5,7,9);\n" +
+        "        if(c > 15.0) return l(5,2,4)+ l(5,7,9);\n" +
+        "        if(c > 14.0) return l(5,3,7);\n" +
+        "        if(c > 13.0) return l(5,6,8);\n" +
+        "        if(c > 12.0) return l(5,1,3)+ l(5,7,9);\n" +
+        "        if(c > 11.0) return l(5,3,6);\n" +
+        "        if(c > 10.0) return l(5,1,5)+ l(5,6,8);\n" +
+        "        if(c > 9.0) return l(5,2,8);\n" +
+        "        if(c > 8.0) return l(5,2,4)+ l(5,5,7);\n" +
+        "        if(c > 7.0) return 0.0;\n" +
+        "        if(c > 6.0) return 0.0;\n" +
+        "        if(c > 5.0) return 0.0;\n" +
+        "        if(c > 4.0) return 0.0;\n" +
+        "        if(c > 3.0) return l(5,1,3);\n" +
+        "        if(c > 2.0) return 0.0;\n" +
+        "    }\n" +
+        "    if(p.y > 2.0){\n" +
+        "        if(c > 16.0) return l(3,3,8);\n" +
+        "        if(c > 15.0) return l(3,1,8);\n" +
+        "        if(c > 14.0) return l(3,4,6);\n" +
+        "        if(c > 13.0) return l(3,1,9);\n" +
+        "        if(c > 12.0) return l(3,2,8);\n" +
+        "        if(c > 11.0) return l(3,4,6);\n" +
+        "        if(c > 10.0) return l(3,2,4)+ l(3,7,9);\n" +
+        "        if(c > 9.0) return l(3,4,6);\n" +
+        "        if(c > 8.0) return l(3,2,4)+ l(3,5,7);\n" +
+        "        if(c > 7.0) return l(3,2,4)+ l(3,6,8);\n" +
+        "        if(c > 6.0) return l(3,1,3)+ l(3,4,7);\n" +
+        "        if(c > 5.0) return l(3,2,4)+ l(3,6,8);\n" +
+        "        if(c > 4.0) return 0.0;\n" +
+        "        if(c > 3.0) return l(3,1,3);\n" +
+        "        if(c > 2.0) return 0.0;\n" +
+        "    }\n" +
+        "    else{\n" +
+        "        if(c > 7.0) return 0.0;\n" +
+        "        if(c > 6.0) return l(1,2,5)+ l(1,6,8);\n" +
+        "    }\n" +
+        "    return 0.0;\n" +
+        "}\n" +
+        "\n" +
+        "vec4 renderBuffer(vec2 fragCoord)\n" +
+        "{\n" +
+        "    float val = 0.0;\n" +
+        "\n" +
+        "    vec2 uv = vec2(fragCoord.x, iResolution.y - fragCoord.y);\n" +
+        "    vec2 uvT = vec2(80.0, 24.0) * FONT_SIZE * uv / iResolution.xy;\n" +
+        "    vec2 uvG = floor(ROWCOLS * uv / iResolution.xy);\n" +
+        "\n" +
+        "    float prog = sin(iTime*0.5);\n" +
+        "    if(prog < -0.1)\n" +
+        "        val = somePlasma(fragCoord.xy);\n" +
+        "    else if(prog < 0.1)\n" +
+        "        val = rand(uvG * iTime) * 17.0;\n" +
+        "    else\n" +
+        "        val = textLines(uvG);\n" +
+        "\n" +
+        "    return vt220Font(uvT - uvG * FONT_SIZE, val) * PHOSPHOR_COL;\n" +
+        "}\n" +
+        "\n" +
+        "void mainImage(out vec4 c, in vec2 fragCoord)\n" +
+        "{\n" +
+        "    c = vec4(0.0, 0.0, 0.0, 0.0);\n" +
+        "\n" +
+        "    vec2 uvC = crtCurve(fragCoord, 1.0, true, false);\n" +
+        "    vec2 uvS = crtCurve(fragCoord, 1.0, false, false);\n" +
+        "    vec2 uvE = crtCurve(fragCoord, 1.25, false, false);\n" +
+        "\n" +
+        "    if (LIGHTS_ON) {\n" +
+        "        const float ambient = 0.33;\n" +
+        "        vec2 uvSh = crtCurve(fragCoord, 1.0, false, true);\n" +
+        "        c += max(0.0, SHINE - distance(uvSh, vec2(0.5, 1.0))) * smoothstep(SMOOTH/2.0, -SMOOTH/2.0, stdRS(uvS + vec2(0.0, 0.03), 0.0));\n" +
+        "        c += max(0.0, ambient - 0.5*distance(uvS, vec2(0.5,0.5))) * smoothstep(SMOOTH, -SMOOTH, stdRS(uvS, 0.0));\n" +
+        "\n" +
+        "        uvSh = crtCurve(fragCoord, 1.25, false, true);\n" +
+        "        vec4 b = vec4(0.0, 0.0, 0.0, 0.0);\n" +
+        "        for(int i=0; i<12; i++) {\n" +
+        "            b += (clamp(BEZEL_COL + rand(uvSh+float(i))*0.05-0.025, 0.0, 1.0) + rand(uvE+1.0+float(i))*0.25 * cos((uvSh.x-0.5)*3.1415*1.5))/12.0;\n" +
+        "        }\n" +
+        "\n" +
+        "        const float HHW = 0.5 * HEIGHT/WIDTH;\n" +
+        "        c += b/3.0*(1.0 + smoothstep(HHW - 0.025, HHW + 0.025, abs(atan(uvS.x-0.5, uvS.y-0.5))/3.1415)\n" +
+        "            + smoothstep(HHW + 0.025, HHW - 0.025, abs(atan(uvS.x-0.5, 0.5-uvS.y))/3.1415))\n" +
+        "            * smoothstep(-SMOOTH, SMOOTH, stdRS(uvS, 0.0))\n" +
+        "            * smoothstep(SMOOTH, -SMOOTH, stdRS(uvE, 0.05));\n" +
+        "\n" +
+        "        c += (b - 0.4)\n" +
+        "            * smoothstep(-SMOOTH*2.0, SMOOTH*2.0, roundSquare(uvE-vec2(0.5, 0.505), vec2(WIDTH, HEIGHT) + 0.05, 0.05))\n" +
+        "            * smoothstep(SMOOTH*2.0, -SMOOTH*2.0, roundSquare(uvE-vec2(0.5, 0.495), vec2(WIDTH, HEIGHT) + 0.05, 0.05));\n" +
+        "\n" +
+        "        c += b\n" +
+        "            * smoothstep(-SMOOTH, SMOOTH, roundSquare(uvE-vec2(0.5, 0.5), vec2(WIDTH, HEIGHT) + 0.05, 0.05))\n" +
+        "            * smoothstep(SMOOTH, -SMOOTH, roundSquare(uvE-vec2(0.5, 0.5), vec2(WIDTH, HEIGHT) + 0.15, 0.05));\n" +
+        "\n" +
+        "        c += (b - 0.4)\n" +
+        "            * smoothstep(-SMOOTH*2.0, SMOOTH*2.0, roundSquare(uvE-vec2(0.5, 0.495), vec2(WIDTH, HEIGHT) + 0.15, 0.05))\n" +
+        "            * smoothstep(SMOOTH*2.0, -SMOOTH*2.0, roundSquare(uvE-vec2(0.5, 0.505), vec2(WIDTH, HEIGHT) + 0.15, 0.05));\n" +
+        "\n" +
+        "        c += max(0.0, (1.0 - 2.0* fragCoord.y/iResolution.y)) * vec4(1.0, 1.0, 1.0, 0.0)\n" +
+        "            * smoothstep(-0.25, 0.25, roundSquare(uvC - vec2(0.5, -0.2), vec2(WIDTH+0.25, HEIGHT-0.15), 0.1))\n" +
+        "            * smoothstep(-SMOOTH*2.0, SMOOTH*2.0, roundSquare(uvE-vec2(0.5, 0.5), vec2(WIDTH, HEIGHT) + 0.15, 0.05));\n" +
+        "    }\n" +
+        "    else {\n" +
+        "        const float ambient = 0.2;\n" +
+        "        c += max(0.0, ambient - 0.3*distance(uvS, vec2(0.5,0.5))) * smoothstep(SMOOTH, -SMOOTH, stdRS(uvS, 0.0));\n" +
+        "\n" +
+        "        c += BEZEL_COL * ambient * 0.7\n" +
+        "            * smoothstep(-SMOOTH, SMOOTH, stdRS(uvS, 0.0))\n" +
+        "            * smoothstep(SMOOTH, -SMOOTH, stdRS(uvE, 0.05));\n" +
+        "\n" +
+        "        c -= BEZEL_COL\n" +
+        "            * smoothstep(-SMOOTH*2.0, SMOOTH*10.0, stdRS(uvE, 0.05))\n" +
+        "            * smoothstep(SMOOTH*2.0, -SMOOTH*2.0, stdRS(uvE, 0.05));\n" +
+        "\n" +
+        "        c += BEZEL_COL * ambient\n" +
+        "            * smoothstep(-SMOOTH, SMOOTH, stdRS(uvE, 0.05))\n" +
+        "            * smoothstep(SMOOTH, -SMOOTH, stdRS(uvE, 0.15));\n" +
+        "\n" +
+        "        for(int i = 0; i < REFLECTION_BLUR_ITERATIONS; i++)\n" +
+        "        {\n" +
+        "            vec2 uvR = borderReflect(uvC + (vec2(rand(uvC+float(i)), rand(uvC+float(i)+0.1))-0.5)*REFLECTION_BLUR_SIZE, 0.05);\n" +
+        "            c += (PHOSPHOR_COL - BEZEL_COL*ambient) * texture2D(iChannel0, uvR) / float(REFLECTION_BLUR_ITERATIONS)\n" +
+        "                * smoothstep(-SMOOTH, SMOOTH, stdRS(uvS, 0.0))\n" +
+        "                * smoothstep(SMOOTH, -SMOOTH, stdRS(uvE, 0.05));\n" +
+        "        }\n" +
+        "\n" +
+        "        c += (texture2D(iChannel0, uvC) + texture2D(iChannel0, uvC + vec2(0.003, 0.003)) + texture2D(iChannel0, uvC - vec2(0.003, 0.003)))\n" +
+        "            * smoothstep(0.0, -SMOOTH*20.0, stdRS(uvS, -0.02)) * 0.5;\n" +
+        "    }\n" +
+        "\n" +
+        "    if (uvC.x > 0.0 && uvC.x < 1.0 && uvC.y > 0.0 && uvC.y < 1.0)\n" +
+        "        c += texture2D(iChannel0, uvC) + renderBuffer(fragCoord);\n" +
+        "}\n" +
+        "\n" +
+        "void main()\n" +
+        "{\n" +
+        "    vec4 c;\n" +
+        "    mainImage(c, gl_FragCoord.xy);\n" +
+        "    gl_FragColor = c * vColor;\n" +
+        "}\n";
 
     private BuiltinMainMenuGlslShader()
     {
@@ -16,7 +372,7 @@ public final class BuiltinMainMenuGlslShader
 
     public static String source()
     {
-        byte[] bytes = DatatypeConverter.parseBase64Binary(SOURCE_B64);
-        return new String(bytes, StandardCharsets.UTF_8);
+        return SOURCE;
     }
 }
+
