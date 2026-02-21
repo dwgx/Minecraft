@@ -1,6 +1,7 @@
 package client.module;
 
 import client.event.KeyEvent;
+import client.event.MotionUpdateEvent;
 import client.render.RenderContext2D;
 import client.setting.KeybindSetting;
 import client.setting.Setting;
@@ -173,6 +174,10 @@ public abstract class Module
     }
 
     public void onKey(KeyEvent event)
+    {
+    }
+
+    public void onMotionUpdate(MotionUpdateEvent event)
     {
     }
 
