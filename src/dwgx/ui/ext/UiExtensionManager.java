@@ -1,6 +1,5 @@
 package dwgx.ui.ext;
 
-import java.io.File;
 import java.util.Locale;
 import net.minecraft.client.LoadingScreenRenderer;
 import net.minecraft.client.Minecraft;
@@ -462,17 +461,6 @@ public final class UiExtensionManager
     {
         try
         {
-            if (mainMenuBackgroundGlslPath.isEmpty())
-            {
-                File builtin = new File("glsl/mainmenu_custom.glsl");
-
-                if (builtin.isFile())
-                {
-                    mainMenuBackgroundGlslPath = builtin.getAbsolutePath();
-                    LOGGER.info("Configured default main-menu GLSL file: {}", mainMenuBackgroundGlslPath);
-                }
-            }
-
             BingWallpaperFetcher.downloadOnceAsync(new BingWallpaperFetcher.Callback()
             {
                 public void onComplete(String localPath)

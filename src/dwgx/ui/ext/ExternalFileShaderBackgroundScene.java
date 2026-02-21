@@ -73,7 +73,7 @@ public final class ExternalFileShaderBackgroundScene implements MainMenuBackgrou
 
         if (this.shaderFilePath.isEmpty())
         {
-            return "GLSL File: not configured";
+            return "GLSL Built-in: CRT Terminal";
         }
 
         File file = new File(this.shaderFilePath);
@@ -90,7 +90,7 @@ public final class ExternalFileShaderBackgroundScene implements MainMenuBackgrou
     {
         if (this.shaderFilePath.isEmpty())
         {
-            this.cachedSource = null;
+            this.cachedSource = BuiltinMainMenuGlslShader.source();
             this.cachedLastModified = Long.MIN_VALUE;
             return;
         }
@@ -107,13 +107,13 @@ public final class ExternalFileShaderBackgroundScene implements MainMenuBackgrou
 
         if (!file.isFile())
         {
-            this.cachedSource = null;
+            this.cachedSource = BuiltinMainMenuGlslShader.source();
             this.cachedLastModified = Long.MIN_VALUE;
 
             if (!this.missingWarned)
             {
                 this.missingWarned = true;
-                LOGGER.warn("Main-menu external GLSL file is missing: {}", file.getPath());
+                LOGGER.warn("Main-menu external GLSL file is missing: {}, fallback to built-in shader.", file.getPath());
             }
 
             return;
@@ -139,7 +139,7 @@ public final class ExternalFileShaderBackgroundScene implements MainMenuBackgrou
                     LOGGER.warn("Main-menu external GLSL file is empty: {}", file.getPath());
                 }
 
-                this.cachedSource = null;
+                this.cachedSource = BuiltinMainMenuGlslShader.source();
                 this.cachedLastModified = modified;
                 this.missingWarned = false;
                 return;
