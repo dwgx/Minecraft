@@ -33,6 +33,11 @@ public final class BingWallpaperFetcher
     {
     }
 
+    public interface Callback
+    {
+        void onComplete(String localPath);
+    }
+
     public static String downloadOnce()
     {
         for (int i = 0; i < SOURCES.length; i++)
@@ -55,6 +60,33 @@ public final class BingWallpaperFetcher
         }
 
         return null;
+    }
+
+    public static void downloadOnceAsync(final Callback callback)
+    {
+        Thread worker = new Thread("bing-wallpaper-fetch")
+        {
+            public void run()
+            {
+                String path = null;
+
+                try
+                {
+                    path = downloadOnce();
+                }
+                catch (Throwable throwable)
+                {
+                    LOGGER.warn("Unexpected error while downloading Bing wallpaper.", throwable);
+                }
+
+                if (callback != null)
+                {
+                    callback.onComplete(path);
+                }
+            }
+        };
+        worker.setDaemon(true);
+        worker.start();
     }
 
     private static String pickSource(int attempt)

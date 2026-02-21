@@ -870,6 +870,11 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback, NanoRend
 
     private void syncBackgroundMode(boolean force)
     {
+        if (UiExtensionManager.applyPendingBingBackgroundIfReady())
+        {
+            force = true;
+        }
+
         UiExtensionManager.MainMenuBackgroundMode mode = UiExtensionManager.getMainMenuBackgroundMode();
 
         if (!force && mode == this.activeBackgroundMode)

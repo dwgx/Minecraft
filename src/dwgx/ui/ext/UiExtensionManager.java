@@ -289,6 +289,8 @@ public final class UiExtensionManager
     private static volatile LoadingScreenFactory loadingFactory = DEFAULT_LOADING_FACTORY;
     private static volatile MainMenuBackgroundSceneFactory mainMenuBackgroundSceneFactory = DEFAULT_MAIN_MENU_BACKGROUND_SCENE_FACTORY;
     private static volatile MainMenuVideoFrameProviderFactory videoFrameProviderFactory = DEFAULT_VIDEO_FRAME_PROVIDER_FACTORY;
+    private static volatile String pendingBingBackgroundPath = "";
+    private static volatile boolean bingBackgroundApplied;
 
     static
     {
@@ -471,20 +473,45 @@ public final class UiExtensionManager
                 }
             }
 
-            String path = BingWallpaperFetcher.downloadOnce();
-
-            if (path != null && !path.isEmpty())
+            BingWallpaperFetcher.downloadOnceAsync(new BingWallpaperFetcher.Callback()
             {
-                mainMenuBackgroundMode = MainMenuBackgroundMode.STATIC_IMAGE;
-                mainMenuBackgroundImagePath = path;
-                backgroundShaderEnabled = false;
-                LOGGER.info("Loaded Bing wallpaper for main menu: {}", path);
-            }
+                public void onComplete(String localPath)
+                {
+                    if (localPath != null && !localPath.isEmpty())
+                    {
+                        pendingBingBackgroundPath = localPath;
+                        LOGGER.info("Bing wallpaper downloaded in background: {}", localPath);
+                    }
+                }
+            });
         }
         catch (Throwable throwable)
         {
             LOGGER.warn("Failed to initialize Bing wallpaper. Falling back to default background.", throwable);
         }
+    }
+
+    public static boolean applyPendingBingBackgroundIfReady()
+    {
+        if (bingBackgroundApplied)
+        {
+            return false;
+        }
+
+        String path = pendingBingBackgroundPath;
+
+        if (path == null || path.isEmpty())
+        {
+            return false;
+        }
+
+        mainMenuBackgroundMode = MainMenuBackgroundMode.STATIC_IMAGE;
+        mainMenuBackgroundImagePath = path;
+        backgroundShaderEnabled = false;
+        pendingBingBackgroundPath = "";
+        bingBackgroundApplied = true;
+        LOGGER.info("Applied Bing wallpaper to main menu: {}", path);
+        return true;
     }
 
     public static MainMenuVideoFrameProvider createMainMenuVideoFrameProvider(String sourcePath)
