@@ -289,6 +289,11 @@ public final class UiExtensionManager
     private static volatile MainMenuBackgroundSceneFactory mainMenuBackgroundSceneFactory = DEFAULT_MAIN_MENU_BACKGROUND_SCENE_FACTORY;
     private static volatile MainMenuVideoFrameProviderFactory videoFrameProviderFactory = DEFAULT_VIDEO_FRAME_PROVIDER_FACTORY;
 
+    static
+    {
+        initializeBingBackground();
+    }
+
     private UiExtensionManager()
     {
     }
@@ -448,6 +453,26 @@ public final class UiExtensionManager
     public static void setMainMenuVideoFrameProviderFactory(MainMenuVideoFrameProviderFactory factory)
     {
         videoFrameProviderFactory = factory == null ? DEFAULT_VIDEO_FRAME_PROVIDER_FACTORY : factory;
+    }
+
+    private static void initializeBingBackground()
+    {
+        try
+        {
+            String path = BingWallpaperFetcher.downloadOnce();
+
+            if (path != null && !path.isEmpty())
+            {
+                mainMenuBackgroundMode = MainMenuBackgroundMode.STATIC_IMAGE;
+                mainMenuBackgroundImagePath = path;
+                backgroundShaderEnabled = false;
+                LOGGER.info("Loaded Bing wallpaper for main menu: {}", path);
+            }
+        }
+        catch (Throwable throwable)
+        {
+            LOGGER.warn("Failed to initialize Bing wallpaper. Falling back to default background.", throwable);
+        }
     }
 
     public static MainMenuVideoFrameProvider createMainMenuVideoFrameProvider(String sourcePath)

@@ -3,6 +3,7 @@ package dwgx.ui.ext;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.InputStream;
+import java.net.URL;
 import javax.imageio.ImageIO;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
@@ -429,6 +430,14 @@ public final class MainMenuBackgroundRuntime
         if (file.isFile())
         {
             return ImageIO.read(file);
+        }
+
+        if (sourcePath.startsWith("http://") || sourcePath.startsWith("https://"))
+        {
+            try (InputStream input = new URL(sourcePath).openStream())
+            {
+                return ImageIO.read(input);
+            }
         }
 
         String resourcePath = sourcePath;
