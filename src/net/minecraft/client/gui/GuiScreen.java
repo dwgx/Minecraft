@@ -41,8 +41,8 @@ import net.minecraft.util.IChatComponent;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
+import client.runtime.lwjgl.GlfwKeyboard;
+import client.runtime.lwjgl.GlfwMouse;
 import tv.twitch.chat.ChatUserInfo;
 
 public abstract class GuiScreen extends Gui implements GuiYesNoCallback
@@ -587,17 +587,17 @@ public abstract class GuiScreen extends Gui implements GuiYesNoCallback
      */
     public void handleInput() throws IOException
     {
-        if (Mouse.isCreated())
+        if (GlfwMouse.isCreated())
         {
-            while (Mouse.next())
+            while (GlfwMouse.next())
             {
                 this.handleMouseInput();
             }
         }
 
-        if (Keyboard.isCreated())
+        if (GlfwKeyboard.isCreated())
         {
-            while (Keyboard.next())
+            while (GlfwKeyboard.next())
             {
                 this.handleKeyboardInput();
             }
@@ -609,11 +609,11 @@ public abstract class GuiScreen extends Gui implements GuiYesNoCallback
      */
     public void handleMouseInput() throws IOException
     {
-        int i = Mouse.getEventX() * this.width / this.mc.displayWidth;
-        int j = this.height - Mouse.getEventY() * this.height / this.mc.displayHeight - 1;
-        int k = Mouse.getEventButton();
+        int i = GlfwMouse.getEventX() * this.width / this.mc.displayWidth;
+        int j = this.height - GlfwMouse.getEventY() * this.height / this.mc.displayHeight - 1;
+        int k = GlfwMouse.getEventButton();
 
-        if (Mouse.getEventButtonState())
+        if (GlfwMouse.getEventButtonState())
         {
             if (this.mc.gameSettings.touchscreen && this.touchValue++ > 0)
             {
@@ -646,9 +646,9 @@ public abstract class GuiScreen extends Gui implements GuiYesNoCallback
      */
     public void handleKeyboardInput() throws IOException
     {
-        if (Keyboard.getEventKeyState())
+        if (GlfwKeyboard.getEventKeyState())
         {
-            this.keyTyped(Keyboard.getEventCharacter(), Keyboard.getEventKey());
+            this.keyTyped(GlfwKeyboard.getEventCharacter(), GlfwKeyboard.getEventKey());
         }
 
         this.mc.dispatchKeypresses();
@@ -749,7 +749,7 @@ public abstract class GuiScreen extends Gui implements GuiYesNoCallback
      */
     public static boolean isCtrlKeyDown()
     {
-        return Minecraft.isRunningOnMac ? Keyboard.isKeyDown(219) || Keyboard.isKeyDown(220) : Keyboard.isKeyDown(29) || Keyboard.isKeyDown(157);
+        return Minecraft.isRunningOnMac ? GlfwKeyboard.isKeyDown(219) || GlfwKeyboard.isKeyDown(220) : GlfwKeyboard.isKeyDown(29) || GlfwKeyboard.isKeyDown(157);
     }
 
     /**
@@ -757,7 +757,7 @@ public abstract class GuiScreen extends Gui implements GuiYesNoCallback
      */
     public static boolean isShiftKeyDown()
     {
-        return Keyboard.isKeyDown(42) || Keyboard.isKeyDown(54);
+        return GlfwKeyboard.isKeyDown(42) || GlfwKeyboard.isKeyDown(54);
     }
 
     /**
@@ -765,7 +765,7 @@ public abstract class GuiScreen extends Gui implements GuiYesNoCallback
      */
     public static boolean isAltKeyDown()
     {
-        return Keyboard.isKeyDown(56) || Keyboard.isKeyDown(184);
+        return GlfwKeyboard.isKeyDown(56) || GlfwKeyboard.isKeyDown(184);
     }
 
     public static boolean isKeyComboCtrlX(int keyID)

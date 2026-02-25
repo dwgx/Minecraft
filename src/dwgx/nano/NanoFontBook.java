@@ -8,8 +8,8 @@ import java.util.List;
 public final class NanoFontBook
 {
     private static final NanoFontManager FONTS = new NanoFontManager();
-    private static boolean initialized;
-    private static long loadedForVg;
+    private static volatile boolean initialized;
+    private static volatile long loadedForVg;
     private static int uiRegularId = -1;
     private static int uiBoldId = -1;
     private static int monoId = -1;
@@ -21,13 +21,25 @@ public final class NanoFontBook
     {
     }
 
-    public static synchronized void ensureLoaded(long vg)
+    public static void ensureLoaded(long vg)
     {
         if (vg == 0L)
         {
             return;
         }
 
+        // Fast path: already loaded for this context — no synchronization needed
+        if (initialized && loadedForVg == vg)
+        {
+            return;
+        }
+
+        ensureLoadedSlow(vg);
+    }
+
+    private static synchronized void ensureLoadedSlow(long vg)
+    {
+        // Double-check under lock
         if (initialized && loadedForVg == vg)
         {
             return;

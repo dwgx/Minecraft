@@ -20,6 +20,7 @@ public final class ConfigIO
 {
     private static final Charset UTF8 = StandardCharsets.UTF_8;
     private static final Gson GSON = (new GsonBuilder()).setPrettyPrinting().create();
+    private static final JsonParser JSON_PARSER = new JsonParser();
     private final ConfigBackup backup = new ConfigBackup();
 
     public JsonObject read(Path target) throws IOException
@@ -43,7 +44,7 @@ public final class ConfigIO
 
         try
         {
-            JsonElement element = (new JsonParser()).parse(reader);
+            JsonElement element = JSON_PARSER.parse(reader);
 
             if (element != null && element.isJsonObject())
             {
@@ -81,9 +82,7 @@ public final class ConfigIO
 
         if (Files.isRegularFile(target))
         {
-            String existing = new String(Files.readAllBytes(target), UTF8);
-
-            if (serialized.equals(existing))
+            if (contentEquals(target, serialized))
             {
                 return false;
             }
@@ -121,6 +120,48 @@ public final class ConfigIO
         }
 
         return true;
+    }
+
+    /**
+     * Stream-compare file content against a string without loading the entire file into memory.
+     */
+    private static boolean contentEquals(Path file, String expected) throws IOException
+    {
+        byte[] expectedBytes = expected.getBytes(UTF8);
+        long fileSize = Files.size(file);
+
+        if (fileSize != expectedBytes.length)
+        {
+            return false;
+        }
+
+        BufferedReader reader = Files.newBufferedReader(file, UTF8);
+
+        try
+        {
+            int offset = 0;
+            char[] buf = new char[4096];
+            int read;
+
+            while ((read = reader.read(buf)) != -1)
+            {
+                for (int i = 0; i < read; ++i)
+                {
+                    if (offset + i >= expected.length() || buf[i] != expected.charAt(offset + i))
+                    {
+                        return false;
+                    }
+                }
+
+                offset += read;
+            }
+
+            return offset == expected.length();
+        }
+        finally
+        {
+            reader.close();
+        }
     }
 
     public static final class ReadResult

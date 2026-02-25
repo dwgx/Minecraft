@@ -1,6 +1,6 @@
 package client.render;
 
-import net.minecraft.client.renderer.OpenGlHelper;
+import net.minecraft.client.renderer.GlStateManager;
 
 import static org.lwjgl.nanovg.NanoVG.nvgBeginFrame;
 import static org.lwjgl.nanovg.NanoVG.nvgEndFrame;
@@ -13,15 +13,14 @@ import static org.lwjgl.nanovg.NanoVG.nvgSave;
 import static org.lwjgl.nanovg.NanoVG.nvgScissor;
 import static org.lwjgl.nanovg.NanoVG.nvgScale;
 import static org.lwjgl.nanovg.NanoVG.nvgTranslate;
-import static org.lwjgl.opengl.GL11.GL_TEXTURE_2D;
-import static org.lwjgl.opengl.GL11.glBindTexture;
 import static org.lwjgl.opengl.GL11.GL_SCISSOR_TEST;
 import static org.lwjgl.opengl.GL11.GL_STENCIL_TEST;
 import static org.lwjgl.opengl.GL11.glDisable;
-import static org.lwjgl.opengl.GL15.GL_ELEMENT_ARRAY_BUFFER;
 
 /**
  * NanoVG 帧生命周期封装。
+ *
+ * 使用 GlStateManager.saveState/restoreState 实现与固定管线的安全隔离。
  */
 public final class NanoVGContext
 {
@@ -70,6 +69,12 @@ public final class NanoVGContext
         float safeHeight = sanitizeDimension(windowHeight);
         float safePixelRatio = Float.isNaN(pixelRatio) || Float.isInfinite(pixelRatio) || pixelRatio <= 0.0F ? 1.0F : pixelRatio;
 
+        // Drain stale GL errors before NanoVG frame
+        GlStateManager.drainGlErrors();
+
+        // Snapshot Minecraft's GL state before NanoVG takes over
+        GlStateManager.saveState();
+
         glDisable(GL_SCISSOR_TEST);
         glDisable(GL_STENCIL_TEST);
         nvgBeginFrame(this.vg, safeWidth, safeHeight, safePixelRatio);
@@ -93,7 +98,14 @@ public final class NanoVGContext
         nvgEndFrame(this.vg);
         glDisable(GL_SCISSOR_TEST);
         glDisable(GL_STENCIL_TEST);
-        this.resetLegacyPipelineState();
+
+        // Restore Minecraft's GL state after NanoVG frame
+        GlStateManager.invalidateModernState();
+        GlStateManager.restoreState();
+
+        // Drain any GL errors NanoVG may have left behind
+        GlStateManager.drainGlErrors();
+
         this.frameActive = false;
     }
 
@@ -135,27 +147,6 @@ public final class NanoVGContext
     public void scale(float sx, float sy)
     {
         nvgScale(this.vg, sx, sy);
-    }
-
-    private void resetLegacyPipelineState()
-    {
-        // NanoVG(GL3) may leave program/VBO bindings active; fixed-function MC UI/world expects clean state.
-        OpenGlHelper.glUseProgram(0);
-        OpenGlHelper.glBindBuffer(OpenGlHelper.GL_ARRAY_BUFFER, 0);
-        OpenGlHelper.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-        OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, 0);
-
-        try
-        {
-            org.lwjgl.opengl.GL30.glBindVertexArray(0);
-        }
-        catch (Throwable ignored)
-        {
-        }
-
-        OpenGlHelper.setActiveTexture(OpenGlHelper.defaultTexUnit);
-        OpenGlHelper.setClientActiveTexture(OpenGlHelper.defaultTexUnit);
-        glBindTexture(GL_TEXTURE_2D, 0);
     }
 
     private static float sanitizeDimension(float value)

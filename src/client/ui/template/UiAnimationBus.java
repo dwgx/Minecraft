@@ -1,9 +1,7 @@
 package client.ui.template;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -113,17 +111,29 @@ public final class UiAnimationBus
             return;
         }
 
-        List<String> keys = new ArrayList<String>(CHANNELS.keySet());
+        // Use iterator directly — avoids allocating a temporary key list
+        Iterator<Map.Entry<String, Channel>> it = CHANNELS.entrySet().iterator();
 
-        for (int i = 0; i < keys.size(); ++i)
+        while (it.hasNext())
         {
-            String key = keys.get(i);
+            String key = it.next().getKey();
 
             if (key != null && key.startsWith(prefix))
             {
-                CHANNELS.remove(key);
+                it.remove();
             }
         }
+    }
+
+    /**
+     * Clear all channels associated with a screen.
+     * Call from {@code onGuiClosed()} to prevent unbounded channel growth.
+     *
+     * @param screenPrefix the animation key prefix used by the screen (e.g. "clickgui")
+     */
+    public static void clearScreen(String screenPrefix)
+    {
+        clearPrefix(screenPrefix);
     }
 
     private static final class Channel

@@ -1,6 +1,7 @@
 package client.module.impl.client;
 
 import client.core.ClientBootstrap;
+import client.i18n.ClientLocale;
 import client.module.Category;
 import client.module.Module;
 import client.setting.BoolSetting;
@@ -19,6 +20,7 @@ import net.minecraft.client.Minecraft;
 public final class ClickGuiModule extends Module
 {
     private final EnumSetting<NanoPalette> palette;
+    private final EnumSetting<ClientLocale> locale;
     private final FloatSetting cornerRadius;
     private final IntSetting panelAlpha;
     private final BoolSetting backdropEnabled;
@@ -61,6 +63,7 @@ public final class ClickGuiModule extends Module
 
         SettingGroup appearance = this.addGroup("appearance", "Appearance");
         this.palette = this.addSetting(new EnumSetting<NanoPalette>("palette", "Palette", "UI palette", NanoPalette.class, NanoPalette.COBALT));
+        this.locale = this.addSetting(new EnumSetting<ClientLocale>("locale", "Language", "UI language / 界面语言", ClientLocale.class, ClientLocale.EN_US));
         this.cornerRadius = this.addSetting(new FloatSetting("corner_radius", "Corner Radius", "Window corner radius", 12.0F, 6.0F, 26.0F, 0.5F));
         this.panelAlpha = this.addSetting(new IntSetting("panel_alpha", "Panel Alpha", "Panel opacity", 226, 120, 255, 1));
         this.backdropEnabled = this.addSetting(new BoolSetting("backdrop", "Backdrop", "Enable dimmed backdrop", true));
@@ -159,6 +162,7 @@ public final class ClickGuiModule extends Module
         });
 
         appearance.add(this.palette);
+        appearance.add(this.locale);
         appearance.add(this.cornerRadius);
         appearance.add(this.panelAlpha);
         appearance.add(this.backdropEnabled);
@@ -215,6 +219,16 @@ public final class ClickGuiModule extends Module
     public NanoPalette getPalette()
     {
         return this.palette.get();
+    }
+
+    public ClientLocale getLocale()
+    {
+        return this.locale.get();
+    }
+
+    public void setLocale(ClientLocale locale)
+    {
+        this.locale.set(locale == null ? ClientLocale.EN_US : locale);
     }
 
     public float getCornerRadius()

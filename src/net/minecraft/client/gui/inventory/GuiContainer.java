@@ -17,7 +17,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.ResourceLocation;
-import org.lwjgl.input.Keyboard;
+import client.runtime.lwjgl.GlfwKeyboard;
 
 public abstract class GuiContainer extends GuiScreen
 {
@@ -413,7 +413,7 @@ public abstract class GuiContainer extends GuiScreen
                         }
                         else
                         {
-                            boolean flag2 = l != -999 && (Keyboard.isKeyDown(42) || Keyboard.isKeyDown(54));
+                            boolean flag2 = l != -999 && (GlfwKeyboard.isKeyDown(42) || GlfwKeyboard.isKeyDown(54));
                             int i1 = 0;
 
                             if (flag2)
@@ -631,7 +631,7 @@ public abstract class GuiContainer extends GuiScreen
                 }
                 else
                 {
-                    boolean flag1 = k != -999 && (Keyboard.isKeyDown(42) || Keyboard.isKeyDown(54));
+                    boolean flag1 = k != -999 && (GlfwKeyboard.isKeyDown(42) || GlfwKeyboard.isKeyDown(54));
 
                     if (flag1)
                     {

@@ -539,8 +539,13 @@ public class NetworkManager extends SimpleChannelInboundHandler<Packet>
             ClientBootstrap bootstrap = ClientBootstrap.instance();
             return outbound ? bootstrap.onPacketSend(packet) : bootstrap.onPacketReceive(packet);
         }
-        catch (Throwable ignored)
+        catch (Throwable ex)
         {
+            if (logger.isDebugEnabled())
+            {
+                logger.debug("Client packet hook threw for {} (outbound={}): {}", packet.getClass().getSimpleName(), Boolean.valueOf(outbound), ex.toString());
+            }
+
             return false;
         }
     }

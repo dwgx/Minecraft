@@ -1,12 +1,12 @@
-package org.lwjgl.input;
+package client.runtime.lwjgl;
 
 import org.lwjgl.glfw.GLFW;
-import org.lwjgl.opengl.Display;
 
 import java.util.ArrayDeque;
 import java.util.Queue;
 
-public final class Mouse {
+public final class GlfwMouse
+{
     private static final int MAX_EVENT_QUEUE_SIZE = 1024;
     private static long window;
     private static boolean created;
@@ -31,10 +31,10 @@ public final class Mouse {
     private static final Queue<MouseEvent> events = new ArrayDeque<MouseEvent>();
     private static MouseEvent current;
 
-    private Mouse() {
-    }
+    private GlfwMouse() {}
 
-    public static void attachWindow(long win) {
+    public static void attachWindow(long win)
+    {
         window = win;
         created = true;
         grabbed = false;
@@ -47,7 +47,10 @@ public final class Mouse {
         clearEvents();
     }
 
-    public static void reset() {
+    public static void reset()
+    {
+
+
         window = 0L;
         created = false;
         grabbed = false;
@@ -66,11 +69,13 @@ public final class Mouse {
         clearEvents();
     }
 
-    public static boolean isCreated() {
+    public static boolean isCreated()
+    {
         return created;
     }
 
-    public static void setGrabbed(boolean grab) {
+    public static void setGrabbed(boolean grab)
+    {
         boolean previous = grabbed;
         grabbed = grab;
         if (!created) {
@@ -95,11 +100,14 @@ public final class Mouse {
         clearEvents();
     }
 
-    public static boolean isGrabbed() {
+
+    public static boolean isGrabbed()
+    {
         return grabbed;
     }
 
-    public static void setCursorPosition(int newX, int newY) {
+    public static void setCursorPosition(int newX, int newY)
+    {
         if (!created) {
             return;
         }
@@ -121,69 +129,85 @@ public final class Mouse {
         clearEvents();
     }
 
-    public static int getDX() {
+    public static int getDX()
+    {
         int value = dx;
         dx = 0;
         return value;
     }
 
-    public static int getDY() {
+    public static int getDY()
+    {
         int value = dy;
         dy = 0;
         return value;
     }
 
-    public static int getDWheel() {
+    public static int getDWheel()
+    {
         int value = dWheel;
         dWheel = 0;
         return value;
     }
 
-    public static int getEventDWheel() {
+
+    public static int getEventDWheel()
+    {
         return current != null ? current.wheel : 0;
     }
 
-    public static int getX() {
+    public static int getX()
+    {
         return x;
     }
 
-    public static int getY() {
+    public static int getY()
+    {
         return y;
     }
 
-    public static boolean isButtonDown(int button) {
+    public static boolean isButtonDown(int button)
+    {
         if (!created || button < 0) {
             return false;
         }
         return GLFW.glfwGetMouseButton(window, button) == GLFW.GLFW_PRESS;
     }
 
-    public static boolean next() {
+    public static boolean next()
+    {
         current = events.poll();
         return current != null;
     }
 
-    public static int getEventButton() {
+    public static int getEventButton()
+    {
         return current != null ? current.button : -1;
     }
 
-    public static boolean getEventButtonState() {
+    public static boolean getEventButtonState()
+    {
         return current != null && current.pressed;
     }
 
-    public static int getEventX() {
+    public static int getEventX()
+    {
         return current != null ? current.x : x;
     }
 
-    public static int getEventY() {
+    public static int getEventY()
+    {
         return current != null ? current.y : y;
     }
 
-    public static boolean isInsideWindow() {
+    public static boolean isInsideWindow()
+    {
         return insideWindow || grabbed;
     }
 
-    public static void pushButtonEvent(int button, boolean pressed, double rawX, double rawY) {
+
+    public static void pushButtonEvent(int button, boolean pressed, double rawX, double rawY)
+    {
         if (!created) {
             return;
         }
@@ -192,7 +216,8 @@ public final class Mouse {
         enqueueEvent(new MouseEvent(button, pressed, 0, eventX, eventY));
     }
 
-    public static void pushWheelEvent(double yoffset, double rawX, double rawY) {
+    public static void pushWheelEvent(double yoffset, double rawX, double rawY)
+    {
         if (!created) {
             return;
         }
@@ -210,7 +235,9 @@ public final class Mouse {
         enqueueEvent(new MouseEvent(-1, false, amount, eventX, eventY));
     }
 
-    public static void pushMoveEvent(double rawX, double rawY) {
+
+    public static void pushMoveEvent(double rawX, double rawY)
+    {
         if (!created) {
             return;
         }
@@ -253,7 +280,9 @@ public final class Mouse {
         enqueueEvent(new MouseEvent(-1, false, 0, x, y));
     }
 
-    public static void onWindowFocusChanged(boolean focused) {
+
+    public static void onWindowFocusChanged(boolean focused)
+    {
         insideWindow = focused || grabbed;
         if (!created || !focused) {
             return;
@@ -266,11 +295,13 @@ public final class Mouse {
         clearEvents();
     }
 
-    public static void onCursorEntered(boolean entered) {
+    public static void onCursorEntered(boolean entered)
+    {
         insideWindow = entered || grabbed;
     }
 
-    private static void syncFromWindow() {
+    private static void syncFromWindow()
+    {
         GLFW.glfwGetCursorPos(window, cursorXBuffer, cursorYBuffer);
         lastRawX = cursorXBuffer[0];
         lastRawY = cursorYBuffer[0];
@@ -278,7 +309,8 @@ public final class Mouse {
         y = windowToDisplayY(lastRawY);
     }
 
-    private static void warpCursorTo(int displayX, int displayY) {
+    private static void warpCursorTo(int displayX, int displayY)
+    {
         double rawX = displayToWindowX(displayX);
         double rawY = displayToWindowY(displayY);
         GLFW.glfwSetCursorPos(window, rawX, rawY);
@@ -286,82 +318,96 @@ public final class Mouse {
         lastRawY = rawY;
     }
 
-    private static void resetMotion() {
+    private static void resetMotion()
+    {
         dx = 0;
         dy = 0;
         dWheel = 0;
         wheelRemainder = 0.0;
     }
 
-    private static void clearEvents() {
+    private static void clearEvents()
+    {
         events.clear();
         current = null;
     }
 
-    private static void enqueueEvent(MouseEvent event) {
+
+    private static void enqueueEvent(MouseEvent event)
+    {
         if (events.size() >= MAX_EVENT_QUEUE_SIZE) {
             events.poll();
         }
         events.add(event);
     }
 
-    private static int windowToDisplayX(double rawX) {
-        double windowW = Math.max(1.0, Display.getWindowWidth());
-        double displayW = Math.max(1.0, Display.getWidth());
+    private static int windowToDisplayX(double rawX)
+    {
+        double windowW = Math.max(1.0, GlfwWindow.getWindowWidth());
+        double displayW = Math.max(1.0, GlfwWindow.getWidth());
         return clipX((int)Math.round(rawX * displayW / windowW));
     }
 
-    private static int windowToDisplayY(double rawY) {
-        double windowH = Math.max(1.0, Display.getWindowHeight());
-        double displayH = Math.max(1.0, Display.getHeight());
+    private static int windowToDisplayY(double rawY)
+    {
+        double windowH = Math.max(1.0, GlfwWindow.getWindowHeight());
+        double displayH = Math.max(1.0, GlfwWindow.getHeight());
         double topBased = rawY * displayH / windowH;
         return clipY((int)Math.round(displayH - 1.0 - topBased));
     }
 
-    private static int windowDeltaToDisplayX(double rawDeltaX) {
-        double windowW = Math.max(1.0, Display.getWindowWidth());
-        double displayW = Math.max(1.0, Display.getWidth());
+    private static int windowDeltaToDisplayX(double rawDeltaX)
+    {
+        double windowW = Math.max(1.0, GlfwWindow.getWindowWidth());
+        double displayW = Math.max(1.0, GlfwWindow.getWidth());
         return (int)Math.round(rawDeltaX * displayW / windowW);
     }
 
-    private static int windowDeltaToDisplayY(double rawDeltaY) {
-        double windowH = Math.max(1.0, Display.getWindowHeight());
-        double displayH = Math.max(1.0, Display.getHeight());
+    private static int windowDeltaToDisplayY(double rawDeltaY)
+    {
+        double windowH = Math.max(1.0, GlfwWindow.getWindowHeight());
+        double displayH = Math.max(1.0, GlfwWindow.getHeight());
         return (int)Math.round(-rawDeltaY * displayH / windowH);
     }
 
-    private static double displayToWindowX(int displayX) {
-        double windowW = Math.max(1.0, Display.getWindowWidth());
-        double displayW = Math.max(1.0, Display.getWidth());
+    private static double displayToWindowX(int displayX)
+    {
+        double windowW = Math.max(1.0, GlfwWindow.getWindowWidth());
+        double displayW = Math.max(1.0, GlfwWindow.getWidth());
         return displayX * windowW / displayW;
     }
 
-    private static double displayToWindowY(int displayY) {
-        double windowH = Math.max(1.0, Display.getWindowHeight());
-        double displayH = Math.max(1.0, Display.getHeight());
+    private static double displayToWindowY(int displayY)
+    {
+        double windowH = Math.max(1.0, GlfwWindow.getWindowHeight());
+        double displayH = Math.max(1.0, GlfwWindow.getHeight());
         return (displayH - 1.0 - displayY) * windowH / displayH;
     }
-
-    private static int clipX(int value) {
-        return clamp(value, 0, Math.max(0, Display.getWidth() - 1));
+    private static int clipX(int value)
+    {
+        return clamp(value, 0, Math.max(0, GlfwWindow.getWidth() - 1));
     }
 
-    private static int clipY(int value) {
-        return clamp(value, 0, Math.max(0, Display.getHeight() - 1));
+    private static int clipY(int value)
+    {
+        return clamp(value, 0, Math.max(0, GlfwWindow.getHeight() - 1));
     }
 
-    private static int clamp(int value, int min, int max) {
+    private static int clamp(int value, int min, int max)
+    {
         return Math.max(min, Math.min(max, value));
     }
 
-    private static final class MouseEvent {
+    private static final class MouseEvent
+    {
         final int button;
         final boolean pressed;
         final int wheel;
         final int x;
         final int y;
 
-        MouseEvent(int button, boolean pressed, int wheel, int x, int y) {
+        MouseEvent(int button, boolean pressed, int wheel, int x, int y)
+        {
             this.button = button;
             this.pressed = pressed;
             this.wheel = wheel;

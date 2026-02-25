@@ -3,33 +3,11 @@ package dwgx.ui.ext;
 /**
  * Pure GLSL visual scene: Kirby Jump.
  */
-public final class KirbyJumpBackgroundScene implements MainMenuBackgroundScene
+public final class KirbyJumpBackgroundScene extends AbstractShaderScene
 {
     public String fragmentShaderSource()
     {
         return KirbyJumpFragmentShaderTemplate.source();
-    }
-
-    public MainMenuSplashShader.TextureAlphaMode textureAlphaMode()
-    {
-        return MainMenuSplashShader.TextureAlphaMode.IGNORE_SOURCE_ALPHA;
-    }
-
-    public void initialize()
-    {
-    }
-
-    public boolean handleKeyInput(char typedChar, int keyCode, boolean sceneEnabled)
-    {
-        return false;
-    }
-
-    public void tick(boolean sceneEnabled)
-    {
-    }
-
-    public void applyShaderUniforms(MainMenuSplashShader shader)
-    {
     }
 
     public String getOverlayHint(boolean sceneEnabled)

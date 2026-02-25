@@ -65,24 +65,24 @@ public final class NanoUi
 
     public static void drawLeftText(long vg, MemoryStack stack, int fontId, float x, float y, float size, int argb, String text)
     {
-        NanoRenderUtils.drawLabel(vg, stack, fontId, x, y, size, text, (argb >>> 16) & 255, (argb >>> 8) & 255, argb & 255, (argb >>> 24) & 255, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+        NanoRenderUtils.drawLabel(vg, stack, fontId, x, y, size, text, argb, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
     }
 
     public static void drawRightText(long vg, MemoryStack stack, int fontId, float x, float y, float size, int argb, String text)
     {
-        NanoRenderUtils.drawLabel(vg, stack, fontId, x, y, size, text, (argb >>> 16) & 255, (argb >>> 8) & 255, argb & 255, (argb >>> 24) & 255, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
+        NanoRenderUtils.drawLabel(vg, stack, fontId, x, y, size, text, argb, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
     }
 
     public static void drawCenterText(long vg, MemoryStack stack, int fontId, float x, float y, float size, int argb, String text)
     {
-        NanoRenderUtils.drawLabel(vg, stack, fontId, x, y, size, text, (argb >>> 16) & 255, (argb >>> 8) & 255, argb & 255, (argb >>> 24) & 255, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+        NanoRenderUtils.drawLabel(vg, stack, fontId, x, y, size, text, argb, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
     }
 
     public static void beginClip(long vg, float x, float y, float width, float height)
     {
         nvgSave(vg);
 
-        if (!isFinite(x) || !isFinite(y) || !isFinite(width) || !isFinite(height) || width <= 0.0F || height <= 0.0F)
+        if (!NanoRenderUtils.isFinite(x) || !NanoRenderUtils.isFinite(y) || !NanoRenderUtils.isFinite(width) || !NanoRenderUtils.isFinite(height) || width <= 0.0F || height <= 0.0F)
         {
             nvgScissor(vg, -1.0F, -1.0F, 0.0F, 0.0F);
             return;
@@ -109,10 +109,5 @@ public final class NanoUi
         {
             NanoRenderUtils.strokeRoundedRect(vg, x, y, size, size, 3.5F, 1.0F, NanoRenderUtils.argb(stack, 0xEEFFFFFF));
         }
-    }
-
-    private static boolean isFinite(float value)
-    {
-        return !Float.isNaN(value) && !Float.isInfinite(value);
     }
 }

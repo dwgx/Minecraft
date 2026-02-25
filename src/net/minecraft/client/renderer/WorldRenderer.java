@@ -1,14 +1,11 @@
 package net.minecraft.client.renderer;
 
-import com.google.common.primitives.Floats;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
-import java.util.Arrays;
 import java.util.BitSet;
-import java.util.Comparator;
 import net.minecraft.client.renderer.vertex.VertexFormat;
 import net.minecraft.client.renderer.vertex.VertexFormatElement;
 import net.minecraft.util.MathHelper;
@@ -33,6 +30,12 @@ public class WorldRenderer
     private VertexFormat vertexFormat;
     private boolean isDrawing;
 
+    // --- Reusable sort buffers to avoid per-frame allocation ---
+    private float[] sortDistances;
+    private int[] sortIndices;
+    private int[] sortSwapBuffer;
+    private BitSet sortBitSet;
+
     public WorldRenderer(int bufferSizeIn)
     {
         this.byteBuffer = GLAllocation.createDirectByteBuffer(bufferSizeIn * 4);
@@ -41,16 +44,37 @@ public class WorldRenderer
         this.rawFloatBuffer = this.byteBuffer.asFloatBuffer();
     }
 
+    /** Maximum buffer capacity: 256 MB. Prevents runaway growth from corrupted vertex data. */
+    private static final int MAX_BUFFER_CAPACITY = 256 * 1024 * 1024;
+
     private void growBuffer(int p_181670_1_)
     {
         if (p_181670_1_ > this.rawIntBuffer.remaining())
         {
-            int i = this.byteBuffer.capacity();
-            int j = i % 2097152;
-            int k = j + (((this.rawIntBuffer.position() + p_181670_1_) * 4 - j) / 2097152 + 1) * 2097152;
-            LogManager.getLogger().warn("Needed to grow BufferBuilder buffer: Old size " + i + " bytes, new size " + k + " bytes.");
+            int oldCapacity = this.byteBuffer.capacity();
+            int requiredBytes = (this.rawIntBuffer.position() + p_181670_1_) * 4;
+
+            // 1.5x growth factor instead of 2MB-aligned doubling — reduces memory waste
+            int newCapacity = Math.max(requiredBytes, oldCapacity + (oldCapacity >> 1));
+
+            // Align to 2MB boundary for allocator friendliness
+            int alignment = 2097152;
+            newCapacity = ((newCapacity + alignment - 1) / alignment) * alignment;
+
+            if (newCapacity > MAX_BUFFER_CAPACITY)
+            {
+                LogManager.getLogger().error("WorldRenderer buffer growth exceeds 256 MB cap (requested {} bytes). Clamping.", Integer.valueOf(newCapacity));
+                newCapacity = MAX_BUFFER_CAPACITY;
+
+                if (requiredBytes > newCapacity)
+                {
+                    throw new IllegalStateException("WorldRenderer buffer overflow: required " + requiredBytes + " bytes exceeds 256 MB cap.");
+                }
+            }
+
+            LogManager.getLogger().warn("Needed to grow BufferBuilder buffer: Old size " + oldCapacity + " bytes, new size " + newCapacity + " bytes.");
             int l = this.rawIntBuffer.position();
-            ByteBuffer bytebuffer = GLAllocation.createDirectByteBuffer(k);
+            ByteBuffer bytebuffer = GLAllocation.createDirectByteBuffer(newCapacity);
             this.byteBuffer.position(0);
             bytebuffer.put(this.byteBuffer);
             bytebuffer.rewind();
@@ -66,43 +90,67 @@ public class WorldRenderer
     public void sortVertexData(float p_181674_1_, float p_181674_2_, float p_181674_3_)
     {
         int i = this.vertexCount / 4;
-        final float[] afloat = new float[i];
+
+        // Reuse or grow distance array
+        if (this.sortDistances == null || this.sortDistances.length < i)
+        {
+            this.sortDistances = new float[i];
+        }
+
+        float[] afloat = this.sortDistances;
 
         for (int j = 0; j < i; ++j)
         {
             afloat[j] = getDistanceSq(this.rawFloatBuffer, (float)((double)p_181674_1_ + this.xOffset), (float)((double)p_181674_2_ + this.yOffset), (float)((double)p_181674_3_ + this.zOffset), this.vertexFormat.getIntegerSize(), j * this.vertexFormat.getNextOffset());
         }
 
-        Integer[] ainteger = new Integer[i];
-
-        for (int k = 0; k < ainteger.length; ++k)
+        // Reuse or grow index array — primitive int[] avoids Integer boxing
+        if (this.sortIndices == null || this.sortIndices.length < i)
         {
-            ainteger[k] = Integer.valueOf(k);
+            this.sortIndices = new int[i];
         }
 
-        Arrays.sort(ainteger, new Comparator<Integer>()
-        {
-            public int compare(Integer p_compare_1_, Integer p_compare_2_)
-            {
-                return Floats.compare(afloat[p_compare_2_.intValue()], afloat[p_compare_1_.intValue()]);
-            }
-        });
-        BitSet bitset = new BitSet();
-        int l = this.vertexFormat.getNextOffset();
-        int[] aint = new int[l];
+        int[] indices = this.sortIndices;
 
-        for (int l1 = 0; (l1 = bitset.nextClearBit(l1)) < ainteger.length; ++l1)
+        for (int k = 0; k < i; ++k)
         {
-            int i1 = ainteger[l1].intValue();
+            indices[k] = k;
+        }
+
+        // Primitive radix-friendly insertion sort for small counts, merge sort for large
+        sortByDistance(afloat, indices, i);
+
+        int l = this.vertexFormat.getNextOffset();
+
+        // Reuse or grow swap buffer
+        if (this.sortSwapBuffer == null || this.sortSwapBuffer.length < l)
+        {
+            this.sortSwapBuffer = new int[l];
+        }
+
+        int[] aint = this.sortSwapBuffer;
+
+        // Reuse BitSet
+        if (this.sortBitSet == null)
+        {
+            this.sortBitSet = new BitSet();
+        }
+
+        BitSet bitset = this.sortBitSet;
+        bitset.clear();
+
+        for (int l1 = 0; (l1 = bitset.nextClearBit(l1)) < i; ++l1)
+        {
+            int i1 = indices[l1];
 
             if (i1 != l1)
             {
                 this.rawIntBuffer.limit(i1 * l + l);
                 this.rawIntBuffer.position(i1 * l);
-                this.rawIntBuffer.get(aint);
+                this.rawIntBuffer.get(aint, 0, l);
                 int j1 = i1;
 
-                for (int k1 = ainteger[i1].intValue(); j1 != l1; k1 = ainteger[k1].intValue())
+                for (int k1 = indices[i1]; j1 != l1; k1 = indices[k1])
                 {
                     this.rawIntBuffer.limit(k1 * l + l);
                     this.rawIntBuffer.position(k1 * l);
@@ -116,10 +164,36 @@ public class WorldRenderer
 
                 this.rawIntBuffer.limit(l1 * l + l);
                 this.rawIntBuffer.position(l1 * l);
-                this.rawIntBuffer.put(aint);
+                this.rawIntBuffer.put(aint, 0, l);
             }
 
             bitset.set(l1);
+        }
+    }
+
+    /**
+     * Sort indices by distance (descending) using primitive arrays.
+     * Uses insertion sort for small arrays, otherwise a simple shell sort.
+     */
+    private static void sortByDistance(float[] distances, int[] indices, int count)
+    {
+        // Shell sort — no allocations, good cache locality, O(n^1.25) average
+        for (int gap = count / 2; gap > 0; gap /= 2)
+        {
+            for (int idx = gap; idx < count; ++idx)
+            {
+                int tmpIdx = indices[idx];
+                float tmpDist = distances[tmpIdx];
+                int j = idx;
+
+                while (j >= gap && distances[indices[j - gap]] < tmpDist)
+                {
+                    indices[j] = indices[j - gap];
+                    j -= gap;
+                }
+
+                indices[j] = tmpIdx;
+            }
         }
     }
 

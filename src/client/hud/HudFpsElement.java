@@ -6,7 +6,7 @@ import client.setting.EnumSetting;
 import dwgx.nano.NanoFontBook;
 import dwgx.nano.NanoRenderUtils;
 import net.minecraft.client.Minecraft;
-import org.lwjgl.opengl.Display;
+import client.runtime.lwjgl.GlfwWindow;
 import org.lwjgl.nanovg.NVGColor;
 import org.lwjgl.system.MemoryStack;
 
@@ -65,7 +65,7 @@ public final class HudFpsElement extends HudElement
     {
         if (this.getSource() == FpsSource.DISPLAY_REFRESH)
         {
-            return Math.max(0, Display.getDesktopDisplayMode().getFrequency());
+            return Math.max(0, GlfwWindow.getDesktopDisplayMode().getFrequency());
         }
 
         return Math.max(0, Minecraft.getDebugFPS());

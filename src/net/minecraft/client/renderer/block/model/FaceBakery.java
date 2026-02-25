@@ -6,16 +6,16 @@ import net.minecraft.client.resources.model.ModelRotation;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.Vec3i;
-import org.lwjgl.util.vector.Matrix4f;
-import org.lwjgl.util.vector.Vector3f;
-import org.lwjgl.util.vector.Vector4f;
+import client.runtime.lwjgl.LegacyMatrix4f;
+import client.runtime.lwjgl.LegacyVec3f;
+import client.runtime.lwjgl.LegacyVec4f;
 
 public class FaceBakery
 {
     private static final float SCALE_ROTATION_22_5 = 1.0F / (float)Math.cos(0.39269909262657166D) - 1.0F;
     private static final float SCALE_ROTATION_GENERAL = 1.0F / (float)Math.cos((Math.PI / 4D)) - 1.0F;
 
-    public BakedQuad makeBakedQuad(Vector3f posFrom, Vector3f posTo, BlockPartFace face, TextureAtlasSprite sprite, EnumFacing facing, ModelRotation modelRotationIn, BlockPartRotation partRotation, boolean uvLocked, boolean shade)
+    public BakedQuad makeBakedQuad(LegacyVec3f posFrom, LegacyVec3f posTo, BlockPartFace face, TextureAtlasSprite sprite, EnumFacing facing, ModelRotation modelRotationIn, BlockPartRotation partRotation, boolean uvLocked, boolean shade)
     {
         int[] aint = this.makeQuadVertexData(face, sprite, facing, this.getPositionsDiv16(posFrom, posTo), modelRotationIn, partRotation, uvLocked, shade);
         EnumFacing enumfacing = getFacingFromVertexData(aint);
@@ -75,7 +75,7 @@ public class FaceBakery
         }
     }
 
-    private float[] getPositionsDiv16(Vector3f pos1, Vector3f pos2)
+    private float[] getPositionsDiv16(LegacyVec3f pos1, LegacyVec3f pos2)
     {
         float[] afloat = new float[EnumFacing.values().length];
         afloat[EnumFaceDirection.Constants.WEST_INDEX] = pos1.x / 16.0F;
@@ -92,13 +92,13 @@ public class FaceBakery
         EnumFacing enumfacing = modelRotationIn.rotateFace(facing);
         int i = shade ? this.getFaceShadeColor(enumfacing) : -1;
         EnumFaceDirection.VertexInformation enumfacedirection$vertexinformation = EnumFaceDirection.getFacing(facing).getVertexInformation(vertexIndex);
-        Vector3f vector3f = new Vector3f(p_178402_5_[enumfacedirection$vertexinformation.xIndex], p_178402_5_[enumfacedirection$vertexinformation.yIndex], p_178402_5_[enumfacedirection$vertexinformation.zIndex]);
+        LegacyVec3f vector3f = new LegacyVec3f(p_178402_5_[enumfacedirection$vertexinformation.xIndex], p_178402_5_[enumfacedirection$vertexinformation.yIndex], p_178402_5_[enumfacedirection$vertexinformation.zIndex]);
         this.rotatePart(vector3f, partRotation);
         int j = this.rotateVertex(vector3f, facing, vertexIndex, modelRotationIn, uvLocked);
         this.storeVertexData(faceData, j, vertexIndex, vector3f, i, sprite, partFace.blockFaceUV);
     }
 
-    private void storeVertexData(int[] faceData, int storeIndex, int vertexIndex, Vector3f position, int shadeColor, TextureAtlasSprite sprite, BlockFaceUV faceUV)
+    private void storeVertexData(int[] faceData, int storeIndex, int vertexIndex, LegacyVec3f position, int shadeColor, TextureAtlasSprite sprite, BlockFaceUV faceUV)
     {
         int i = storeIndex * 7;
         faceData[i] = Float.floatToRawIntBits(position.x);
@@ -109,27 +109,27 @@ public class FaceBakery
         faceData[i + 4 + 1] = Float.floatToRawIntBits(sprite.getInterpolatedV((double)faceUV.func_178346_b(vertexIndex)));
     }
 
-    private void rotatePart(Vector3f p_178407_1_, BlockPartRotation partRotation)
+    private void rotatePart(LegacyVec3f p_178407_1_, BlockPartRotation partRotation)
     {
         if (partRotation != null)
         {
-            Matrix4f matrix4f = this.getMatrixIdentity();
-            Vector3f vector3f = new Vector3f(0.0F, 0.0F, 0.0F);
+            LegacyMatrix4f matrix4f = this.getMatrixIdentity();
+            LegacyVec3f vector3f = new LegacyVec3f(0.0F, 0.0F, 0.0F);
 
             switch (partRotation.axis)
             {
                 case X:
-                    Matrix4f.rotate(partRotation.angle * 0.017453292F, new Vector3f(1.0F, 0.0F, 0.0F), matrix4f, matrix4f);
+                    LegacyMatrix4f.rotate(partRotation.angle * 0.017453292F, new LegacyVec3f(1.0F, 0.0F, 0.0F), matrix4f, matrix4f);
                     vector3f.set(0.0F, 1.0F, 1.0F);
                     break;
 
                 case Y:
-                    Matrix4f.rotate(partRotation.angle * 0.017453292F, new Vector3f(0.0F, 1.0F, 0.0F), matrix4f, matrix4f);
+                    LegacyMatrix4f.rotate(partRotation.angle * 0.017453292F, new LegacyVec3f(0.0F, 1.0F, 0.0F), matrix4f, matrix4f);
                     vector3f.set(1.0F, 0.0F, 1.0F);
                     break;
 
                 case Z:
-                    Matrix4f.rotate(partRotation.angle * 0.017453292F, new Vector3f(0.0F, 0.0F, 1.0F), matrix4f, matrix4f);
+                    LegacyMatrix4f.rotate(partRotation.angle * 0.017453292F, new LegacyVec3f(0.0F, 0.0F, 1.0F), matrix4f, matrix4f);
                     vector3f.set(1.0F, 1.0F, 0.0F);
             }
 
@@ -144,18 +144,18 @@ public class FaceBakery
                     vector3f.scale(SCALE_ROTATION_GENERAL);
                 }
 
-                Vector3f.add(vector3f, new Vector3f(1.0F, 1.0F, 1.0F), vector3f);
+                LegacyVec3f.add(vector3f, new LegacyVec3f(1.0F, 1.0F, 1.0F), vector3f);
             }
             else
             {
                 vector3f.set(1.0F, 1.0F, 1.0F);
             }
 
-            this.rotateScale(p_178407_1_, new Vector3f(partRotation.origin), matrix4f, vector3f);
+            this.rotateScale(p_178407_1_, new LegacyVec3f(partRotation.origin), matrix4f, vector3f);
         }
     }
 
-    public int rotateVertex(Vector3f position, EnumFacing facing, int vertexIndex, ModelRotation modelRotationIn, boolean uvLocked)
+    public int rotateVertex(LegacyVec3f position, EnumFacing facing, int vertexIndex, ModelRotation modelRotationIn, boolean uvLocked)
     {
         if (modelRotationIn == ModelRotation.X0_Y0)
         {
@@ -163,39 +163,39 @@ public class FaceBakery
         }
         else
         {
-            this.rotateScale(position, new Vector3f(0.5F, 0.5F, 0.5F), modelRotationIn.getMatrix4d(), new Vector3f(1.0F, 1.0F, 1.0F));
+            this.rotateScale(position, new LegacyVec3f(0.5F, 0.5F, 0.5F), modelRotationIn.getMatrix4d(), new LegacyVec3f(1.0F, 1.0F, 1.0F));
             return modelRotationIn.rotateVertex(facing, vertexIndex);
         }
     }
 
-    private void rotateScale(Vector3f position, Vector3f rotationOrigin, Matrix4f rotationMatrix, Vector3f scale)
+    private void rotateScale(LegacyVec3f position, LegacyVec3f rotationOrigin, LegacyMatrix4f rotationMatrix, LegacyVec3f scale)
     {
-        Vector4f vector4f = new Vector4f(position.x - rotationOrigin.x, position.y - rotationOrigin.y, position.z - rotationOrigin.z, 1.0F);
-        Matrix4f.transform(rotationMatrix, vector4f, vector4f);
+        LegacyVec4f vector4f = new LegacyVec4f(position.x - rotationOrigin.x, position.y - rotationOrigin.y, position.z - rotationOrigin.z, 1.0F);
+        LegacyMatrix4f.transform(rotationMatrix, vector4f, vector4f);
         vector4f.x *= scale.x;
         vector4f.y *= scale.y;
         vector4f.z *= scale.z;
         position.set(vector4f.x + rotationOrigin.x, vector4f.y + rotationOrigin.y, vector4f.z + rotationOrigin.z);
     }
 
-    private Matrix4f getMatrixIdentity()
+    private LegacyMatrix4f getMatrixIdentity()
     {
-        Matrix4f matrix4f = new Matrix4f();
+        LegacyMatrix4f matrix4f = new LegacyMatrix4f();
         matrix4f.setIdentity();
         return matrix4f;
     }
 
     public static EnumFacing getFacingFromVertexData(int[] faceData)
     {
-        Vector3f vector3f = new Vector3f(Float.intBitsToFloat(faceData[0]), Float.intBitsToFloat(faceData[1]), Float.intBitsToFloat(faceData[2]));
-        Vector3f vector3f1 = new Vector3f(Float.intBitsToFloat(faceData[7]), Float.intBitsToFloat(faceData[8]), Float.intBitsToFloat(faceData[9]));
-        Vector3f vector3f2 = new Vector3f(Float.intBitsToFloat(faceData[14]), Float.intBitsToFloat(faceData[15]), Float.intBitsToFloat(faceData[16]));
-        Vector3f vector3f3 = new Vector3f();
-        Vector3f vector3f4 = new Vector3f();
-        Vector3f vector3f5 = new Vector3f();
-        Vector3f.sub(vector3f, vector3f1, vector3f3);
-        Vector3f.sub(vector3f2, vector3f1, vector3f4);
-        Vector3f.cross(vector3f4, vector3f3, vector3f5);
+        LegacyVec3f vector3f = new LegacyVec3f(Float.intBitsToFloat(faceData[0]), Float.intBitsToFloat(faceData[1]), Float.intBitsToFloat(faceData[2]));
+        LegacyVec3f vector3f1 = new LegacyVec3f(Float.intBitsToFloat(faceData[7]), Float.intBitsToFloat(faceData[8]), Float.intBitsToFloat(faceData[9]));
+        LegacyVec3f vector3f2 = new LegacyVec3f(Float.intBitsToFloat(faceData[14]), Float.intBitsToFloat(faceData[15]), Float.intBitsToFloat(faceData[16]));
+        LegacyVec3f vector3f3 = new LegacyVec3f();
+        LegacyVec3f vector3f4 = new LegacyVec3f();
+        LegacyVec3f vector3f5 = new LegacyVec3f();
+        LegacyVec3f.sub(vector3f, vector3f1, vector3f3);
+        LegacyVec3f.sub(vector3f2, vector3f1, vector3f4);
+        LegacyVec3f.cross(vector3f4, vector3f3, vector3f5);
         float f = (float)Math.sqrt((double)(vector3f5.x * vector3f5.x + vector3f5.y * vector3f5.y + vector3f5.z * vector3f5.z));
         vector3f5.x /= f;
         vector3f5.y /= f;
@@ -206,8 +206,8 @@ public class FaceBakery
         for (EnumFacing enumfacing1 : EnumFacing.values())
         {
             Vec3i vec3i = enumfacing1.getDirectionVec();
-            Vector3f vector3f6 = new Vector3f((float)vec3i.getX(), (float)vec3i.getY(), (float)vec3i.getZ());
-            float f2 = Vector3f.dot(vector3f5, vector3f6);
+            LegacyVec3f vector3f6 = new LegacyVec3f((float)vec3i.getX(), (float)vec3i.getY(), (float)vec3i.getZ());
+            float f2 = LegacyVec3f.dot(vector3f5, vector3f6);
 
             if (f2 >= 0.0F && f2 > f1)
             {

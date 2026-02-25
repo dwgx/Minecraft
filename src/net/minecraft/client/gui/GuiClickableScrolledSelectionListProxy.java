@@ -3,7 +3,7 @@ package net.minecraft.client.gui;
 import net.minecraft.client.Minecraft;
 import net.minecraft.realms.RealmsClickableScrolledSelectionList;
 import net.minecraft.realms.Tezzelator;
-import org.lwjgl.input.Mouse;
+import client.runtime.lwjgl.GlfwMouse;
 
 public class GuiClickableScrolledSelectionListProxy extends GuiSlot
 {
@@ -78,7 +78,7 @@ public class GuiClickableScrolledSelectionListProxy extends GuiSlot
     {
         super.handleMouseInput();
 
-        if (this.scrollMultiplier > 0.0F && Mouse.getEventButtonState())
+        if (this.scrollMultiplier > 0.0F && GlfwMouse.getEventButtonState())
         {
             this.field_178046_u.customMouseEvent(this.top, this.bottom, this.headerPadding, this.amountScrolled, this.slotHeight);
         }

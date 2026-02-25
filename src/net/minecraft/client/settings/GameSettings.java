@@ -29,9 +29,9 @@ import net.minecraft.world.EnumDifficulty;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
-import org.lwjgl.opengl.Display;
+import client.runtime.lwjgl.GlfwKeyboard;
+import client.runtime.lwjgl.GlfwMouse;
+import client.runtime.lwjgl.GlfwWindow;
 
 public class GameSettings
 {
@@ -244,7 +244,7 @@ public class GameSettings
      */
     public static String getKeyDisplayString(int key)
     {
-        return key < 0 ? I18n.format("key.mouseButton", new Object[] {Integer.valueOf(key + 101)}): (key < 256 ? Keyboard.getKeyName(key) : String.format("%c", new Object[] {Character.valueOf((char)(key - 256))}).toUpperCase());
+        return key < 0 ? I18n.format("key.mouseButton", new Object[] {Integer.valueOf(key + 101)}): (key < 256 ? GlfwKeyboard.getKeyName(key) : String.format("%c", new Object[] {Character.valueOf((char)(key - 256))}).toUpperCase());
     }
 
     /**
@@ -254,7 +254,7 @@ public class GameSettings
      */
     public static boolean isKeyDown(KeyBinding key)
     {
-        return key.getKeyCode() == 0 ? false : (key.getKeyCode() < 0 ? Mouse.isButtonDown(key.getKeyCode() + 100) : Keyboard.isKeyDown(key.getKeyCode()));
+        return key.getKeyCode() == 0 ? false : (key.getKeyCode() < 0 ? GlfwMouse.isButtonDown(key.getKeyCode() + 100) : GlfwKeyboard.isKeyDown(key.getKeyCode()));
     }
 
     /**
@@ -511,7 +511,7 @@ public class GameSettings
         if (settingsOption == GameSettings.Options.ENABLE_VSYNC)
         {
             this.enableVsync = !this.enableVsync;
-            Display.setVSyncEnabled(this.enableVsync);
+            GlfwWindow.setVSyncEnabled(this.enableVsync);
         }
 
         if (settingsOption == GameSettings.Options.USE_VBO)

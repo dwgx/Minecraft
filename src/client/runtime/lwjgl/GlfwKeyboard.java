@@ -1,4 +1,4 @@
-package org.lwjgl.input;
+package client.runtime.lwjgl;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -9,7 +9,8 @@ import java.util.Queue;
 /**
  * GLFW-backed keyboard compatibility layer for legacy LWJGL-style callers.
  */
-public final class Keyboard {
+public final class GlfwKeyboard
+{
     private static final int MAX_EVENT_QUEUE_SIZE = 1024;
     private static final char[] SHIFTED_DIGITS = new char[] {')', '!', '@', '#', '$', '%', '^', '&', '*', '('};
     private static boolean repeatEnabled = false;
@@ -142,9 +143,10 @@ public final class Keyboard {
         map(GLFW.GLFW_KEY_PRINT_SCREEN, 183, "SYSRQ");
     }
 
-    private Keyboard() {}
+    private GlfwKeyboard() {}
 
-    private static void map(int glfwKey, int lwjglKey, String name) {
+    private static void map(int glfwKey, int lwjglKey, String name)
+    {
         if (glfwKey >= 0 && glfwKey < GLFW_TO_LWJGL.length) {
             GLFW_TO_LWJGL[glfwKey] = lwjglKey;
         }
@@ -155,14 +157,17 @@ public final class Keyboard {
         }
     }
 
-    public static void attachWindow(long window) {
+
+    public static void attachWindow(long window)
+    {
         windowHandle = window;
         created = true;
         events.clear();
         currentEvent = null;
     }
 
-    public static void reset() {
+    public static void reset()
+    {
         created = false;
         windowHandle = 0;
         repeatEnabled = false;
@@ -170,32 +175,40 @@ public final class Keyboard {
         currentEvent = null;
     }
 
-    public static boolean isCreated() {
+    public static boolean isCreated()
+    {
         return created;
     }
 
-    public static void enableRepeatEvents(boolean enable) {
+    public static void enableRepeatEvents(boolean enable)
+    {
         repeatEnabled = enable;
     }
 
-    public static boolean next() {
+    public static boolean next()
+    {
         currentEvent = events.poll();
         return currentEvent != null;
     }
 
-    public static boolean getEventKeyState() {
+    public static boolean getEventKeyState()
+    {
         return currentEvent != null && currentEvent.pressed;
     }
 
-    public static int getEventKey() {
+    public static int getEventKey()
+    {
         return currentEvent != null ? currentEvent.key : 0;
     }
 
-    public static char getEventCharacter() {
+    public static char getEventCharacter()
+    {
         return currentEvent != null ? currentEvent.ch : 0;
     }
 
-    public static boolean isKeyDown(int key) {
+
+    public static boolean isKeyDown(int key)
+    {
         if (!created || windowHandle == 0) return false;
 
         int glfwKey = key >= 0 && key < LWJGL_TO_GLFW.length ? LWJGL_TO_GLFW[key] : -1;
@@ -207,7 +220,8 @@ public final class Keyboard {
         return state == GLFW.GLFW_PRESS || state == GLFW.GLFW_REPEAT;
     }
 
-    public static String getKeyName(int key) {
+    public static String getKeyName(int key)
+    {
         if (key >= 0 && key < KEY_NAMES.length && KEY_NAMES[key] != null) {
             return KEY_NAMES[key];
         }
@@ -223,11 +237,14 @@ public final class Keyboard {
         return Integer.toString(key);
     }
 
-    public static boolean isRepeatEvent() {
+    public static boolean isRepeatEvent()
+    {
         return currentEvent != null && currentEvent.repeat;
     }
 
-    public static void pushEvent(int glfwKey, int action, int scancode, int mods) {
+
+    public static void pushEvent(int glfwKey, int action, int scancode, int mods)
+    {
         if (!created) {
             return;
         }
@@ -247,14 +264,17 @@ public final class Keyboard {
         enqueueEvent(new KeyEvent(lwjglKey, pressed, ch, repeat));
     }
 
-    private static void enqueueEvent(KeyEvent event) {
+    private static void enqueueEvent(KeyEvent event)
+    {
         if (events.size() >= MAX_EVENT_QUEUE_SIZE) {
             events.poll();
         }
         events.add(event);
     }
 
-    private static char translateCharacter(int glfwKey, int mods) {
+
+    private static char translateCharacter(int glfwKey, int mods)
+    {
         boolean shift = (mods & GLFW.GLFW_MOD_SHIFT) != 0;
 
         if (glfwKey >= GLFW.GLFW_KEY_A && glfwKey <= GLFW.GLFW_KEY_Z) {
@@ -318,13 +338,15 @@ public final class Keyboard {
         }
     }
 
-    private static final class KeyEvent {
+    private static final class KeyEvent
+    {
         final int key;
         final boolean pressed;
         final char ch;
         final boolean repeat;
 
-        KeyEvent(int key, boolean pressed, char ch, boolean repeat) {
+        KeyEvent(int key, boolean pressed, char ch, boolean repeat)
+        {
             this.key = key;
             this.pressed = pressed;
             this.ch = ch;

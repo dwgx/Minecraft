@@ -10,7 +10,7 @@ import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.resources.IResourceManager;
 import net.minecraft.client.util.JsonException;
-import org.lwjgl.util.vector.Matrix4f;
+import client.runtime.lwjgl.LegacyMatrix4f;
 
 public class Shader
 {
@@ -21,7 +21,7 @@ public class Shader
     private final List<String> listAuxNames = Lists.<String>newArrayList();
     private final List<Integer> listAuxWidths = Lists.<Integer>newArrayList();
     private final List<Integer> listAuxHeights = Lists.<Integer>newArrayList();
-    private Matrix4f projectionMatrix;
+    private LegacyMatrix4f projectionMatrix;
 
     public Shader(IResourceManager p_i45089_1_, String p_i45089_2_, Framebuffer p_i45089_3_, Framebuffer p_i45089_4_) throws JsonException, IOException
     {
@@ -56,7 +56,7 @@ public class Shader
         GlStateManager.bindTexture(0);
     }
 
-    public void setProjectionMatrix(Matrix4f p_148045_1_)
+    public void setProjectionMatrix(LegacyMatrix4f p_148045_1_)
     {
         this.projectionMatrix = p_148045_1_;
     }

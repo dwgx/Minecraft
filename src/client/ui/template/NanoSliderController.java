@@ -22,7 +22,7 @@ public final class NanoSliderController
 
         if (dragging)
         {
-            speed = UiMotion.clamp(speed * 1.42F + 0.08F, 0.08F, 1.0F);
+            speed = UiMotion.clamp(speed * 1.62F + 0.12F, 0.12F, 1.0F);
         }
 
         float animated = UiAnimationBus.animate(channelKey, target, speed, smooth, type, animationEnabled);
@@ -49,14 +49,14 @@ public final class NanoSliderController
     public static float resolveFillRatio(String channelKey, float targetRatio, boolean dragging, UiAnimProfile profile)
     {
         UiAnimProfile resolved = profile == null ? UiAnimProfile.defaults() : profile;
-        float speed = UiMotion.clamp(resolved.sliderSpeed() * 1.10F + 0.04F, 0.05F, 1.0F);
+        float speed = UiMotion.clamp(resolved.sliderSpeed() * 0.92F + 0.02F, 0.05F, 1.0F);
         return resolveDisplayRatio(channelKey + ".fill", targetRatio, dragging, resolved.isEnabled(), speed, resolved.smooth(), resolved.type());
     }
 
     public static float resolveKnobRatio(String channelKey, float targetRatio, boolean dragging, UiAnimProfile profile)
     {
         UiAnimProfile resolved = profile == null ? UiAnimProfile.defaults() : profile;
-        float speed = UiMotion.clamp(resolved.sliderSpeed() * 1.20F + 0.08F, 0.05F, 1.0F);
+        float speed = UiMotion.clamp(resolved.sliderSpeed() * 1.38F + 0.12F, 0.05F, 1.0F);
         return resolveDisplayRatio(channelKey + ".knob", targetRatio, dragging, resolved.isEnabled(), speed, resolved.smooth(), resolved.type());
     }
 
@@ -64,6 +64,7 @@ public final class NanoSliderController
     {
         UiAnimProfile resolved = profile == null ? UiAnimProfile.defaults() : profile;
         float speed = UiMotion.clamp(resolved.controlSpeed() * 1.10F + 0.06F, 0.05F, 1.0F);
-        return UiAnimationBus.animate(channelKey + ".glow", hovered || dragging ? 1.0F : 0.0F, speed, resolved.smooth(), resolved.type(), resolved.isEnabled());
+        float target = dragging ? 1.0F : (hovered ? 0.72F : 0.0F);
+        return UiAnimationBus.animate(channelKey + ".glow", target, speed, resolved.smooth(), resolved.type(), resolved.isEnabled());
     }
 }

@@ -1,6 +1,6 @@
 package dwgx.ui.ext;
 
-import org.lwjgl.opengl.Display;
+import client.runtime.lwjgl.GlfwWindow;
 
 /**
  * FlappyBird 风格主菜单背景场景。
@@ -236,7 +236,7 @@ public final class FlappyBirdBackgroundScene implements MainMenuBackgroundScene
 
     private float resolveLevelHeight()
     {
-        float levelHeight = (float)Math.max(1, Display.getHeight()) / 2.0F;
+        float levelHeight = (float)Math.max(1, GlfwWindow.getHeight()) / 2.0F;
 
         if (levelHeight >= 320.0F)
         {

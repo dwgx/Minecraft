@@ -23,7 +23,7 @@ import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.EnumSkyBlock;
 import net.minecraft.world.WorldType;
 import net.minecraft.world.chunk.Chunk;
-import org.lwjgl.opengl.Display;
+import client.runtime.lwjgl.GlfwWindow;
 import org.lwjgl.opengl.GL11;
 
 public class GuiOverlayDebug extends Gui
@@ -174,7 +174,7 @@ public class GuiOverlayDebug extends Gui
         long j = Runtime.getRuntime().totalMemory();
         long k = Runtime.getRuntime().freeMemory();
         long l = j - k;
-        List<String> list = Lists.newArrayList(new String[] {String.format("Java: %s %dbit", new Object[]{System.getProperty("java.version"), Integer.valueOf(this.mc.isJava64bit() ? 64 : 32)}), String.format("Mem: % 2d%% %03d/%03dMB", new Object[]{Long.valueOf(l * 100L / i), Long.valueOf(bytesToMb(l)), Long.valueOf(bytesToMb(i))}), String.format("Allocated: % 2d%% %03dMB", new Object[]{Long.valueOf(j * 100L / i), Long.valueOf(bytesToMb(j))}), "", String.format("CPU: %s", new Object[]{OpenGlHelper.getCpu()}), "", String.format("Display: %dx%d (%s)", new Object[]{Integer.valueOf(Display.getWidth()), Integer.valueOf(Display.getHeight()), GL11.glGetString(GL11.GL_VENDOR)}), GL11.glGetString(GL11.GL_RENDERER), GL11.glGetString(GL11.GL_VERSION)});
+        List<String> list = Lists.newArrayList(new String[] {String.format("Java: %s %dbit", new Object[]{System.getProperty("java.version"), Integer.valueOf(this.mc.isJava64bit() ? 64 : 32)}), String.format("Mem: % 2d%% %03d/%03dMB", new Object[]{Long.valueOf(l * 100L / i), Long.valueOf(bytesToMb(l)), Long.valueOf(bytesToMb(i))}), String.format("Allocated: % 2d%% %03dMB", new Object[]{Long.valueOf(j * 100L / i), Long.valueOf(bytesToMb(j))}), "", String.format("CPU: %s", new Object[]{OpenGlHelper.getCpu()}), "", String.format("Display: %dx%d (%s)", new Object[]{Integer.valueOf(GlfwWindow.getWidth()), Integer.valueOf(GlfwWindow.getHeight()), GL11.glGetString(GL11.GL_VENDOR)}), GL11.glGetString(GL11.GL_RENDERER), GL11.glGetString(GL11.GL_VERSION)});
 
         if (this.isReducedDebug())
         {

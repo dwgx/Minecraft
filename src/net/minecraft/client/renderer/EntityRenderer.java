@@ -60,11 +60,11 @@ import net.minecraft.world.WorldSettings;
 import net.minecraft.world.biome.BiomeGenBase;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.lwjgl.input.Mouse;
-import org.lwjgl.opengl.Display;
+import client.runtime.lwjgl.GlfwMouse;
+import client.runtime.lwjgl.GlfwWindow;
+import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GLContext;
-import org.lwjgl.util.glu.Project;
+import client.runtime.lwjgl.GluMath;
 
 public class EntityRenderer implements IResourceManagerReloadListener
 {
@@ -763,7 +763,7 @@ public class EntityRenderer implements IResourceManagerReloadListener
             GlStateManager.scale(this.cameraZoom, this.cameraZoom, 1.0D);
         }
 
-        Project.gluPerspective(this.getFOVModifier(partialTicks, true), (float)this.mc.displayWidth / (float)this.mc.displayHeight, 0.05F, this.farPlaneDistance * MathHelper.SQRT_2);
+        GluMath.gluPerspective(this.getFOVModifier(partialTicks, true), (float)this.mc.displayWidth / (float)this.mc.displayHeight, 0.05F, this.farPlaneDistance * MathHelper.SQRT_2);
         GlStateManager.matrixMode(5888);
         GlStateManager.loadIdentity();
 
@@ -841,7 +841,7 @@ public class EntityRenderer implements IResourceManagerReloadListener
                 GlStateManager.translate((float)(-(xOffset * 2 - 1)) * f, 0.0F, 0.0F);
             }
 
-            Project.gluPerspective(this.getFOVModifier(partialTicks, false), (float)this.mc.displayWidth / (float)this.mc.displayHeight, 0.05F, this.farPlaneDistance * 2.0F);
+            GluMath.gluPerspective(this.getFOVModifier(partialTicks, false), (float)this.mc.displayWidth / (float)this.mc.displayHeight, 0.05F, this.farPlaneDistance * 2.0F);
             GlStateManager.matrixMode(5888);
             GlStateManager.loadIdentity();
 
@@ -1068,9 +1068,9 @@ public class EntityRenderer implements IResourceManagerReloadListener
 
     public void updateCameraAndRender(float partialTicks, long nanoTime)
     {
-        boolean flag = Display.isActive();
+        boolean flag = GlfwWindow.isActive();
 
-        if (!flag && this.mc.gameSettings.pauseOnLostFocus && (!this.mc.gameSettings.touchscreen || !Mouse.isButtonDown(1)))
+        if (!flag && this.mc.gameSettings.pauseOnLostFocus && (!this.mc.gameSettings.touchscreen || !GlfwMouse.isButtonDown(1)))
         {
             if (Minecraft.getSystemTime() - this.prevFrameTime > 500L)
             {
@@ -1084,11 +1084,11 @@ public class EntityRenderer implements IResourceManagerReloadListener
 
         this.mc.mcProfiler.startSection("mouse");
 
-        if (flag && Minecraft.isRunningOnMac && this.mc.inGameHasFocus && !Mouse.isInsideWindow())
+        if (flag && Minecraft.isRunningOnMac && this.mc.inGameHasFocus && !GlfwMouse.isInsideWindow())
         {
-            Mouse.setGrabbed(false);
-            Mouse.setCursorPosition(Display.getWidth() / 2, Display.getHeight() / 2);
-            Mouse.setGrabbed(true);
+            GlfwMouse.setGrabbed(false);
+            GlfwMouse.setCursorPosition(GlfwWindow.getWidth() / 2, GlfwWindow.getHeight() / 2);
+            GlfwMouse.setGrabbed(true);
         }
 
         if (this.mc.inGameHasFocus && flag)
@@ -1131,8 +1131,8 @@ public class EntityRenderer implements IResourceManagerReloadListener
             final ScaledResolution scaledresolution = new ScaledResolution(this.mc);
             int i1 = scaledresolution.getScaledWidth();
             int j1 = scaledresolution.getScaledHeight();
-            final int k1 = Mouse.getX() * i1 / this.mc.displayWidth;
-            final int l1 = j1 - Mouse.getY() * j1 / this.mc.displayHeight - 1;
+            final int k1 = GlfwMouse.getX() * i1 / this.mc.displayWidth;
+            final int l1 = j1 - GlfwMouse.getY() * j1 / this.mc.displayHeight - 1;
             int i2 = this.mc.gameSettings.limitFramerate;
 
             if (this.mc.theWorld != null)
@@ -1205,7 +1205,7 @@ public class EntityRenderer implements IResourceManagerReloadListener
                     {
                         public String call() throws Exception
                         {
-                            return String.format("Scaled: (%d, %d). Absolute: (%d, %d)", new Object[] {Integer.valueOf(k1), Integer.valueOf(l1), Integer.valueOf(Mouse.getX()), Integer.valueOf(Mouse.getY())});
+                            return String.format("Scaled: (%d, %d). Absolute: (%d, %d)", new Object[] {Integer.valueOf(k1), Integer.valueOf(l1), Integer.valueOf(GlfwMouse.getX()), Integer.valueOf(GlfwMouse.getY())});
                         }
                     });
                     crashreportcategory.addCrashSectionCallable("Screen size", new Callable<String>()
@@ -1349,12 +1349,12 @@ public class EntityRenderer implements IResourceManagerReloadListener
             this.mc.mcProfiler.endStartSection("sky");
             GlStateManager.matrixMode(5889);
             GlStateManager.loadIdentity();
-            Project.gluPerspective(this.getFOVModifier(partialTicks, true), (float)this.mc.displayWidth / (float)this.mc.displayHeight, 0.05F, this.farPlaneDistance * 2.0F);
+            GluMath.gluPerspective(this.getFOVModifier(partialTicks, true), (float)this.mc.displayWidth / (float)this.mc.displayHeight, 0.05F, this.farPlaneDistance * 2.0F);
             GlStateManager.matrixMode(5888);
             renderglobal.renderSky(partialTicks, pass);
             GlStateManager.matrixMode(5889);
             GlStateManager.loadIdentity();
-            Project.gluPerspective(this.getFOVModifier(partialTicks, true), (float)this.mc.displayWidth / (float)this.mc.displayHeight, 0.05F, this.farPlaneDistance * MathHelper.SQRT_2);
+            GluMath.gluPerspective(this.getFOVModifier(partialTicks, true), (float)this.mc.displayWidth / (float)this.mc.displayHeight, 0.05F, this.farPlaneDistance * MathHelper.SQRT_2);
             GlStateManager.matrixMode(5888);
         }
 
@@ -1494,7 +1494,7 @@ public class EntityRenderer implements IResourceManagerReloadListener
             this.mc.mcProfiler.endStartSection("clouds");
             GlStateManager.matrixMode(5889);
             GlStateManager.loadIdentity();
-            Project.gluPerspective(this.getFOVModifier(partialTicks, true), (float)this.mc.displayWidth / (float)this.mc.displayHeight, 0.05F, this.farPlaneDistance * 4.0F);
+            GluMath.gluPerspective(this.getFOVModifier(partialTicks, true), (float)this.mc.displayWidth / (float)this.mc.displayHeight, 0.05F, this.farPlaneDistance * 4.0F);
             GlStateManager.matrixMode(5888);
             GlStateManager.pushMatrix();
             this.setupFog(0, partialTicks);
@@ -1503,7 +1503,7 @@ public class EntityRenderer implements IResourceManagerReloadListener
             GlStateManager.popMatrix();
             GlStateManager.matrixMode(5889);
             GlStateManager.loadIdentity();
-            Project.gluPerspective(this.getFOVModifier(partialTicks, true), (float)this.mc.displayWidth / (float)this.mc.displayHeight, 0.05F, this.farPlaneDistance * MathHelper.SQRT_2);
+            GluMath.gluPerspective(this.getFOVModifier(partialTicks, true), (float)this.mc.displayWidth / (float)this.mc.displayHeight, 0.05F, this.farPlaneDistance * MathHelper.SQRT_2);
             GlStateManager.matrixMode(5888);
         }
     }
@@ -1971,7 +1971,7 @@ public class EntityRenderer implements IResourceManagerReloadListener
                 GlStateManager.setFogEnd(f1);
             }
 
-            if (GLContext.getCapabilities().GL_NV_fog_distance)
+            if (GL.getCapabilities().GL_NV_fog_distance)
             {
                 GL11.glFogi(34138, 34139);
             }
@@ -2015,7 +2015,7 @@ public class EntityRenderer implements IResourceManagerReloadListener
                 GlStateManager.setFogEnd(f);
             }
 
-            if (GLContext.getCapabilities().GL_NV_fog_distance)
+            if (GL.getCapabilities().GL_NV_fog_distance)
             {
                 GL11.glFogi(34138, 34139);
             }

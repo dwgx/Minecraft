@@ -21,6 +21,7 @@ public class Framebuffer
     public int depthBuffer;
     public float[] framebufferColor;
     public int framebufferFilter;
+    private static int currentlyBoundFbo = -1;
 
     public Framebuffer(int p_i45078_1_, int p_i45078_2_, boolean p_i45078_3_)
     {
@@ -58,6 +59,7 @@ public class Framebuffer
 
             this.checkFramebufferComplete();
             OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, 0);
+            currentlyBoundFbo = 0;
         }
     }
 
@@ -83,6 +85,7 @@ public class Framebuffer
             if (this.framebufferObject > -1)
             {
                 OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, 0);
+                currentlyBoundFbo = 0;
                 OpenGlHelper.glDeleteFramebuffers(this.framebufferObject);
                 this.framebufferObject = -1;
             }
@@ -136,6 +139,7 @@ public class Framebuffer
         this.framebufferTextureHeight = height;
 
         OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, this.framebufferObject);
+        currentlyBoundFbo = this.framebufferObject;
         GlStateManager.bindTexture(this.framebufferTexture);
         GL11.glTexImage2D(
             GL11.GL_TEXTURE_2D,
@@ -227,7 +231,11 @@ public class Framebuffer
     {
         if (OpenGlHelper.isFramebufferEnabled())
         {
-            OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, this.framebufferObject);
+            if (currentlyBoundFbo != this.framebufferObject)
+            {
+                OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, this.framebufferObject);
+                currentlyBoundFbo = this.framebufferObject;
+            }
 
             if (p_147610_1_)
             {
@@ -240,7 +248,11 @@ public class Framebuffer
     {
         if (OpenGlHelper.isFramebufferEnabled())
         {
-            OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, 0);
+            if (currentlyBoundFbo != 0)
+            {
+                OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, 0);
+                currentlyBoundFbo = 0;
+            }
         }
     }
 
@@ -259,6 +271,12 @@ public class Framebuffer
 
     public void framebufferRenderExt(int p_178038_1_, int p_178038_2_, boolean p_178038_3_)
     {
+        if (p_178038_1_ <= 0 || p_178038_2_ <= 0
+                || this.framebufferTextureWidth <= 0 || this.framebufferTextureHeight <= 0)
+        {
+            return;
+        }
+
         if (OpenGlHelper.isFramebufferEnabled())
         {
             GlStateManager.colorMask(true, true, true, false);

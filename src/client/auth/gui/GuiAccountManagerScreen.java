@@ -10,8 +10,11 @@ import client.module.impl.client.ClickGuiModule;
 import client.render.RenderContext2D;
 import client.setting.StringSetting;
 import client.ui.NanoRenderableScreen;
+import client.config.ConfigManager;
+import client.ui.template.NanoScreenKit;
 import client.ui.template.NanoTextInput;
 import client.ui.template.UiAnimProfile;
+import client.ui.template.UiLayoutProfile;
 import client.ui.template.UiAnimProfiles;
 import client.ui.template.UiAnimationBus;
 import client.ui.template.UiControlAnimations;
@@ -32,8 +35,8 @@ import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.util.Session;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
+import client.runtime.lwjgl.GlfwKeyboard;
+import client.runtime.lwjgl.GlfwMouse;
 import org.lwjgl.system.MemoryStack;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
@@ -104,9 +107,10 @@ public final class GuiAccountManagerScreen extends GuiScreen implements NanoRend
 
     public void initGui()
     {
-        Keyboard.enableRepeatEvents(true);
+        GlfwKeyboard.enableRepeatEvents(true);
         this.window.endInteraction();
         this.offlineNameInput.blur();
+        this.loadWindowPosition();
         this.repository.load();
         this.reloadAccounts();
         this.scrollVisual = (float)this.scrollOffset;
@@ -123,10 +127,11 @@ public final class GuiAccountManagerScreen extends GuiScreen implements NanoRend
 
     public void onGuiClosed()
     {
-        Keyboard.enableRepeatEvents(false);
+        GlfwKeyboard.enableRepeatEvents(false);
         this.window.endInteraction();
         this.offlineNameInput.onMouseUp();
         this.offlineNameInput.blur();
+        this.saveWindowPosition();
     }
 
     public void drawScreen(int mouseX, int mouseY, float partialTicks)
@@ -297,7 +302,7 @@ public final class GuiAccountManagerScreen extends GuiScreen implements NanoRend
     public void handleMouseInput() throws IOException
     {
         super.handleMouseInput();
-        int wheel = Mouse.getEventDWheel();
+        int wheel = GlfwMouse.getEventDWheel();
 
         if (wheel == 0)
         {
@@ -360,8 +365,13 @@ public final class GuiAccountManagerScreen extends GuiScreen implements NanoRend
             }
 
             NanoUi.drawWindow(vg, stack, l.window.x, l.window.y, l.window.w, l.window.h, theme);
-            NanoUi.drawLeftText(vg, stack, bold, l.header.x + scaled(12.0F, l.scale), l.header.y + l.header.h * 0.5F, scaled(16.0F, l.scale), theme.textArgb(), this.tr("account.manager.title", "Account Manager"));
-            NanoUi.drawRightText(vg, stack, regular, l.header.x2() - scaled(12.0F, l.scale), l.header.y + l.header.h * 0.5F, scaled(10.5F, l.scale), theme.textWeakArgb(), this.tr("account.manager.subtitle", "Module-based multi-account login"));
+            float headerPad = scaled(12.0F, l.scale);
+            float titleSize = scaled(16.0F, l.scale);
+            String title = this.tr("account.manager.title", "Account Manager");
+            float titleW = NanoRenderUtils.textWidth(vg, bold, titleSize, title);
+            NanoUi.drawLeftText(vg, stack, bold, l.header.x + headerPad, l.header.y + l.header.h * 0.5F, titleSize, theme.textArgb(), title);
+            float subtitleMaxW = l.header.w - headerPad * 2.0F - titleW - scaled(16.0F, l.scale);
+            NanoUi.drawRightText(vg, stack, regular, l.header.x2() - headerPad, l.header.y + l.header.h * 0.5F, scaled(10.5F, l.scale), theme.textWeakArgb(), NanoScreenKit.ellipsize(vg, regular, scaled(10.5F, l.scale), this.tr("account.manager.subtitle", "Module-based multi-account login"), subtitleMaxW));
             NanoUi.drawSurface(vg, stack, l.body.x, l.body.y, l.body.w, l.body.h, theme.surfaceRadius(), theme.mainArgb(), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 55));
             this.drawAccountList(vg, stack, regular, bold, theme, l, clickGui, animProfile);
             this.drawControls(vg, stack, regular, theme, l, inputProfile, animProfile);
@@ -429,9 +439,9 @@ public final class GuiAccountManagerScreen extends GuiScreen implements NanoRend
             boolean isSelected = index == selected;
             float hoverRatio = UiControlAnimations.hover(rowKey + ".hover", hovered, animProfile);
             float selectRatio = UiAnimationBus.animateControl(rowKey + ".select", isSelected ? 1.0F : 0.0F, animProfile);
-            int fill = this.mixArgb(theme.rowArgb(), theme.rowHoverArgb(), UiMotion.clamp01(hoverRatio * 0.80F));
-            fill = this.mixArgb(fill, theme.rowSelectedArgb(), UiMotion.clamp01(selectRatio * 0.88F));
-            int border = this.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 72), NanoRenderUtils.withAlpha(theme.accentArgb(), 146), UiMotion.clamp01(selectRatio * 0.72F + hoverRatio * 0.20F));
+            int fill = NanoScreenKit.mixArgb(theme.rowArgb(), theme.rowHoverArgb(), UiMotion.clamp01(hoverRatio * 0.80F));
+            fill = NanoScreenKit.mixArgb(fill, theme.rowSelectedArgb(), UiMotion.clamp01(selectRatio * 0.88F));
+            int border = NanoScreenKit.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 72), NanoRenderUtils.withAlpha(theme.accentArgb(), 146), UiMotion.clamp01(selectRatio * 0.72F + hoverRatio * 0.20F));
             fill = NanoRenderUtils.mulAlpha(fill, reveal);
             border = NanoRenderUtils.mulAlpha(border, reveal);
             NanoUi.drawSurface(vg, stack, visualRow.x, visualRow.y, visualRow.w, visualRow.h, Math.min(theme.controlRadius(), visualRow.h * 0.36F), fill, border);
@@ -439,15 +449,15 @@ public final class GuiAccountManagerScreen extends GuiScreen implements NanoRend
             Rect typeChip = new Rect(visualRow.x + scaled(7.0F, l.scale), visualRow.y + (visualRow.h - scaled(14.0F, l.scale)) * 0.5F, scaled(32.0F, l.scale), scaled(14.0F, l.scale));
             boolean microsoft = entry.isMicrosoft();
             int typeFill = microsoft
-                ? this.mixArgb(theme.controlArgb(), theme.accentArgb(), 0.62F)
-                : this.mixArgb(theme.controlArgb(), theme.successArgb(), 0.42F);
+                ? NanoScreenKit.mixArgb(theme.controlArgb(), theme.accentArgb(), 0.62F)
+                : NanoScreenKit.mixArgb(theme.controlArgb(), theme.successArgb(), 0.42F);
             typeFill = NanoRenderUtils.mulAlpha(typeFill, reveal);
             NanoUi.drawSurface(vg, stack, typeChip.x, typeChip.y, typeChip.w, typeChip.h, Math.min(typeChip.h * 0.5F, theme.controlRadius()), typeFill, 0);
             NanoUi.drawCenterText(vg, stack, regular, typeChip.x + typeChip.w * 0.5F, typeChip.y + typeChip.h * 0.5F, scaled(9.0F, l.scale), NanoRenderUtils.mulAlpha(theme.textArgb(), reveal), microsoft ? "MS" : "OFF");
 
             float textX = typeChip.x2() + scaled(8.0F, l.scale);
             float textW = visualRow.x2() - textX - scaled(8.0F, l.scale);
-            String name = this.ellipsize(vg, bold, scaled(10.8F, l.scale), entry.getName(), textW);
+            String name = NanoScreenKit.ellipsize(vg, bold, scaled(10.8F, l.scale), entry.getName(), textW);
             String detail = microsoft
                 ? this.tr("account.manager.type.microsoft", "Microsoft Account")
                 : this.tr("account.manager.type.offline", "Offline Account");
@@ -504,9 +514,9 @@ public final class GuiAccountManagerScreen extends GuiScreen implements NanoRend
         float lineH = scaled(11.6F, l.scale);
         float lineY = content.y + scaled(3.0F, l.scale);
         NanoUi.beginClip(vg, content.x, content.y, content.w, content.h);
-        NanoUi.drawLeftText(vg, stack, regular, content.x, lineY, scaled(10.1F, l.scale), theme.textWeakArgb(), this.ellipsize(vg, regular, scaled(10.1F, l.scale), this.currentSessionLine(), content.w));
+        NanoUi.drawLeftText(vg, stack, regular, content.x, lineY, scaled(10.1F, l.scale), theme.textWeakArgb(), NanoScreenKit.ellipsize(vg, regular, scaled(10.1F, l.scale), this.currentSessionLine(), content.w));
         lineY += lineH;
-        NanoUi.drawLeftText(vg, stack, regular, content.x, lineY, scaled(10.1F, l.scale), this.statusColor, this.ellipsize(vg, regular, scaled(10.1F, l.scale), this.status, content.w));
+        NanoUi.drawLeftText(vg, stack, regular, content.x, lineY, scaled(10.1F, l.scale), this.statusColor, NanoScreenKit.ellipsize(vg, regular, scaled(10.1F, l.scale), this.status, content.w));
 
         if (!this.deviceCode.isEmpty())
         {
@@ -514,13 +524,13 @@ public final class GuiAccountManagerScreen extends GuiScreen implements NanoRend
             int leftSec = (int)(leftMs / 1000L);
             lineY += lineH;
             String codeLine = "MS Code: " + this.deviceCode + " (" + leftSec + "s)";
-            NanoUi.drawLeftText(vg, stack, regular, content.x, lineY, scaled(10.1F, l.scale), COLOR_STATUS_MS, this.ellipsize(vg, regular, scaled(10.1F, l.scale), codeLine, content.w));
+            NanoUi.drawLeftText(vg, stack, regular, content.x, lineY, scaled(10.1F, l.scale), COLOR_STATUS_MS, NanoScreenKit.ellipsize(vg, regular, scaled(10.1F, l.scale), codeLine, content.w));
             lineY += lineH;
             String copiedLine = "Verification code copied to clipboard automatically.";
-            NanoUi.drawLeftText(vg, stack, regular, content.x, lineY, scaled(10.1F, l.scale), COLOR_STATUS_MS, this.ellipsize(vg, regular, scaled(10.1F, l.scale), copiedLine, content.w));
+            NanoUi.drawLeftText(vg, stack, regular, content.x, lineY, scaled(10.1F, l.scale), COLOR_STATUS_MS, NanoScreenKit.ellipsize(vg, regular, scaled(10.1F, l.scale), copiedLine, content.w));
             lineY += lineH;
             String uriLine = "Open: " + this.deviceUri;
-            NanoUi.drawLeftText(vg, stack, regular, content.x, lineY, scaled(10.1F, l.scale), COLOR_STATUS_MS, this.ellipsize(vg, regular, scaled(10.1F, l.scale), uriLine, content.w));
+            NanoUi.drawLeftText(vg, stack, regular, content.x, lineY, scaled(10.1F, l.scale), COLOR_STATUS_MS, NanoScreenKit.ellipsize(vg, regular, scaled(10.1F, l.scale), uriLine, content.w));
         }
 
         NanoUi.endClip(vg);
@@ -537,31 +547,35 @@ public final class GuiAccountManagerScreen extends GuiScreen implements NanoRend
 
         if (!enabled)
         {
-            fill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), 0.40F);
+            fill = NanoScreenKit.mixArgb(theme.cardAltArgb(), theme.controlArgb(), 0.40F);
             border = NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 58);
             textColor = NanoRenderUtils.withAlpha(theme.textWeakArgb(), 136);
         }
         else if (danger)
         {
-            fill = this.mixArgb(theme.controlArgb(), theme.dangerArgb(), UiMotion.clamp01(0.26F + hover * 0.54F));
-            border = this.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 82), NanoRenderUtils.withAlpha(theme.dangerArgb(), 168), UiMotion.clamp01(hover * 0.80F + focus * 0.20F));
+            fill = NanoScreenKit.mixArgb(theme.controlArgb(), theme.dangerArgb(), UiMotion.clamp01(0.26F + hover * 0.54F));
+            border = NanoScreenKit.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 82), NanoRenderUtils.withAlpha(theme.dangerArgb(), 168), UiMotion.clamp01(hover * 0.80F + focus * 0.20F));
             textColor = theme.textArgb();
         }
         else if (primary)
         {
-            fill = this.mixArgb(theme.controlArgb(), theme.controlActiveArgb(), UiMotion.clamp01(0.52F + hover * 0.38F));
-            border = this.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 86), NanoRenderUtils.withAlpha(theme.accentArgb(), 166), UiMotion.clamp01(0.36F + hover * 0.46F + focus * 0.18F));
+            fill = NanoScreenKit.mixArgb(theme.controlArgb(), theme.controlActiveArgb(), UiMotion.clamp01(0.52F + hover * 0.38F));
+            border = NanoScreenKit.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 86), NanoRenderUtils.withAlpha(theme.accentArgb(), 166), UiMotion.clamp01(0.36F + hover * 0.46F + focus * 0.18F));
             textColor = theme.textArgb();
         }
         else
         {
-            fill = this.mixArgb(theme.controlArgb(), theme.controlHoverArgb(), UiMotion.clamp01(0.30F + hover * 0.56F));
-            border = this.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 86), NanoRenderUtils.withAlpha(theme.accentArgb(), 132), UiMotion.clamp01(hover * 0.64F + focus * 0.24F));
+            fill = NanoScreenKit.mixArgb(theme.controlArgb(), theme.controlHoverArgb(), UiMotion.clamp01(0.30F + hover * 0.56F));
+            border = NanoScreenKit.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 86), NanoRenderUtils.withAlpha(theme.accentArgb(), 132), UiMotion.clamp01(hover * 0.64F + focus * 0.24F));
             textColor = theme.textArgb();
         }
 
         NanoUi.drawSurface(vg, stack, rect.x, rect.y, rect.w, rect.h, Math.min(theme.controlRadius(), rect.h * 0.5F), fill, border);
-        NanoUi.drawCenterText(vg, stack, regular, rect.x + rect.w * 0.5F, rect.y + rect.h * 0.5F, scaled(10.4F, UiMotion.clamp(rect.h / 22.0F, 0.35F, 1.85F)), textColor, label);
+        float btnScale = UiMotion.clamp(rect.h / 22.0F, 0.35F, 1.85F);
+        float btnFontSize = scaled(10.4F, btnScale);
+        float btnTextMaxW = rect.w - scaled(8.0F, btnScale);
+        String btnLabel = NanoScreenKit.ellipsize(vg, regular, btnFontSize, label, btnTextMaxW);
+        NanoUi.drawCenterText(vg, stack, regular, rect.x + rect.w * 0.5F, rect.y + rect.h * 0.5F, btnFontSize, textColor, btnLabel);
     }
 
     private void drawResizeHandle(long vg, MemoryStack stack, NanoTheme theme, Rect handle)
@@ -611,8 +625,10 @@ public final class GuiAccountManagerScreen extends GuiScreen implements NanoRend
 
     private void syncWindowTarget()
     {
-        float targetWidth = UiMotion.clamp(BASE_WIDTH * this.windowScale, MIN_WIDTH, (float)this.width - SCREEN_MARGIN * 2.0F);
-        float targetHeight = UiMotion.clamp(BASE_HEIGHT * this.windowScale, MIN_HEIGHT, (float)this.height - SCREEN_MARGIN * 2.0F);
+        float baseW = this.profileBaseWidth();
+        float baseH = this.profileBaseHeight();
+        float targetWidth = UiMotion.clamp(baseW * this.windowScale, MIN_WIDTH, (float)this.width - SCREEN_MARGIN * 2.0F);
+        float targetHeight = UiMotion.clamp(baseH * this.windowScale, MIN_HEIGHT, (float)this.height - SCREEN_MARGIN * 2.0F);
         float targetX = this.windowAnchorX * (float)this.width - targetWidth * 0.5F;
         float targetY = this.windowAnchorY * (float)this.height - targetHeight * 0.5F;
 
@@ -636,9 +652,11 @@ public final class GuiAccountManagerScreen extends GuiScreen implements NanoRend
 
     private void syncWindowProfileFromWindow()
     {
-        float minScale = MIN_WIDTH / BASE_WIDTH;
-        float widthRatio = this.window.getTargetWidth() / BASE_WIDTH;
-        float heightRatio = this.window.getTargetHeight() / BASE_HEIGHT;
+        float baseW = this.profileBaseWidth();
+        float baseH = this.profileBaseHeight();
+        float minScale = MIN_WIDTH / baseW;
+        float widthRatio = this.window.getTargetWidth() / baseW;
+        float heightRatio = this.window.getTargetHeight() / baseH;
         this.windowScale = UiMotion.clamp(Math.min(widthRatio, heightRatio), minScale, 1.85F);
         float cx = this.window.getTargetX() + this.window.getTargetWidth() * 0.5F;
         float cy = this.window.getTargetY() + this.window.getTargetHeight() * 0.5F;
@@ -1082,7 +1100,7 @@ public final class GuiAccountManagerScreen extends GuiScreen implements NanoRend
         }
 
         int displayWidth = Math.max(1, this.mc.displayWidth);
-        float raw = (float)Mouse.getX() * (float)this.width / (float)displayWidth;
+        float raw = (float)GlfwMouse.getX() * (float)this.width / (float)displayWidth;
         return UiMotion.clamp(raw, 0.0F, Math.max(0.0F, (float)this.width - 1.0F));
     }
 
@@ -1094,7 +1112,7 @@ public final class GuiAccountManagerScreen extends GuiScreen implements NanoRend
         }
 
         int displayHeight = Math.max(1, this.mc.displayHeight);
-        float raw = (float)this.height - (float)Mouse.getY() * (float)this.height / (float)displayHeight - 1.0F;
+        float raw = (float)this.height - (float)GlfwMouse.getY() * (float)this.height / (float)displayHeight - 1.0F;
         return UiMotion.clamp(raw, 0.0F, Math.max(0.0F, (float)this.height - 1.0F));
     }
 
@@ -1149,56 +1167,61 @@ public final class GuiAccountManagerScreen extends GuiScreen implements NanoRend
         return i18n == null ? fallback : i18n.translateOrDefault(key, fallback, args);
     }
 
-    private int mixArgb(int from, int to, float t)
+    private float profileBaseWidth()
     {
-        float k = UiMotion.clamp01(t);
-        int a = this.lerpChannel((from >>> 24) & 255, (to >>> 24) & 255, k);
-        int r = this.lerpChannel((from >>> 16) & 255, (to >>> 16) & 255, k);
-        int g = this.lerpChannel((from >>> 8) & 255, (to >>> 8) & 255, k);
-        int b = this.lerpChannel(from & 255, to & 255, k);
-        return (a & 255) << 24 | (r & 255) << 16 | (g & 255) << 8 | b & 255;
+        ConfigManager cfg = ClientBootstrap.instance().getConfigManager();
+        return cfg != null && cfg.getUiLayout() != null ? cfg.getUiLayout().accountWidth() : BASE_WIDTH;
     }
 
-    private int lerpChannel(int from, int to, float t)
+    private float profileBaseHeight()
     {
-        return NanoRenderUtils.clamp255(Math.round((float)from + (float)(to - from) * UiMotion.clamp01(t)));
+        ConfigManager cfg = ClientBootstrap.instance().getConfigManager();
+        return cfg != null && cfg.getUiLayout() != null ? cfg.getUiLayout().accountHeight() : BASE_HEIGHT;
     }
 
-    private String ellipsize(long vg, int fontId, float size, String text, float maxWidth)
+    private void loadWindowPosition()
     {
-        String value = text == null ? "" : text;
+        ConfigManager cfg = ClientBootstrap.instance().getConfigManager();
 
-        if (maxWidth <= 0.0F || value.isEmpty())
+        if (cfg == null || cfg.getUiLayout() == null)
         {
-            return "";
+            return;
         }
 
-        if (NanoRenderUtils.textWidth(vg, fontId, size, value) <= maxWidth)
+        UiLayoutProfile layout = cfg.getUiLayout();
+        this.windowScale = layout.accountScale();
+        this.windowAnchorX = layout.accountAnchorX();
+        this.windowAnchorY = layout.accountAnchorY();
+    }
+
+    private void saveWindowPosition()
+    {
+        ConfigManager cfg = ClientBootstrap.instance().getConfigManager();
+
+        if (cfg == null)
         {
-            return value;
+            return;
         }
 
-        String suffix = "...";
-        float suffixWidth = NanoRenderUtils.textWidth(vg, fontId, size, suffix);
-        String out = value;
+        UiLayoutProfile layout = cfg.getUiLayout();
 
-        while (!out.isEmpty() && NanoRenderUtils.textWidth(vg, fontId, size, out) + suffixWidth > maxWidth)
+        if (layout == null)
         {
-            out = out.substring(0, out.length() - 1);
+            layout = new UiLayoutProfile();
         }
 
-        if (out.isEmpty())
-        {
-            return suffixWidth <= maxWidth ? suffix : "";
-        }
-
-        return out + suffix;
+        layout.setAccountScale(this.windowScale);
+        layout.setAccountAnchorX(this.windowAnchorX);
+        layout.setAccountAnchorY(this.windowAnchorY);
+        cfg.setUiLayout(layout);
     }
 
     private Rect fallbackWindow()
     {
-        float width = Math.min(Math.max(MIN_WIDTH, BASE_WIDTH), (float)this.width - SCREEN_MARGIN * 2.0F);
-        float height = Math.min(Math.max(MIN_HEIGHT, BASE_HEIGHT), (float)this.height - SCREEN_MARGIN * 2.0F);
+        float baseW = this.profileBaseWidth();
+        float baseH = this.profileBaseHeight();
+        float width = Math.min(Math.max(MIN_WIDTH, baseW), (float)this.width - SCREEN_MARGIN * 2.0F);
+        float height = Math.min(Math.max(MIN_HEIGHT, baseH), (float)this.height - SCREEN_MARGIN * 2.0F);
         return new Rect(((float)this.width - width) * 0.5F, ((float)this.height - height) * 0.5F, width, height);
     }
 
@@ -1207,7 +1230,7 @@ public final class GuiAccountManagerScreen extends GuiScreen implements NanoRend
         Rect windowRect = this.window.isInitialized()
             ? new Rect(this.window.getX(), this.window.getY(), this.window.getWidth(), this.window.getHeight())
             : this.fallbackWindow();
-        float k = UiMotion.clamp(windowRect.w / BASE_WIDTH, 0.35F, 1.85F);
+        float k = UiMotion.clamp(windowRect.w / this.profileBaseWidth(), 0.35F, 1.85F);
         float headerHeight = scaled(HEADER_HEIGHT, k);
         float outerPad = scaled(OUTER_PAD, k);
         Rect header = new Rect(windowRect.x + scaled(1.0F, k), windowRect.y + scaled(1.0F, k), windowRect.w - scaled(2.0F, k), headerHeight - scaled(2.0F, k));

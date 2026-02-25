@@ -1,6 +1,6 @@
 package net.minecraft.client.shader;
 
-import org.lwjgl.util.vector.Matrix4f;
+import client.runtime.lwjgl.LegacyMatrix4f;
 
 public class ShaderDefault extends ShaderUniform
 {
@@ -41,7 +41,7 @@ public class ShaderDefault extends ShaderUniform
     {
     }
 
-    public void set(Matrix4f p_148088_1_)
+    public void set(LegacyMatrix4f p_148088_1_)
     {
     }
 }

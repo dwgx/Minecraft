@@ -13,8 +13,8 @@ import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemSword;
 import net.minecraft.item.ItemTool;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
+import client.runtime.lwjgl.GlfwKeyboard;
+import client.runtime.lwjgl.GlfwMouse;
 
 /**
  * Lightweight CPS scheduler inspired by modern combat modules.
@@ -105,11 +105,11 @@ public final class AutoClickerModule extends Module
     {
         if (keyCode >= 0)
         {
-            return keyCode < 256 && Keyboard.isKeyDown(keyCode);
+            return keyCode < 256 && GlfwKeyboard.isKeyDown(keyCode);
         }
 
         int mouseButton = keyCode + 100;
-        return mouseButton >= 0 && mouseButton < 16 && Mouse.isButtonDown(mouseButton);
+        return mouseButton >= 0 && mouseButton < 16 && GlfwMouse.isButtonDown(mouseButton);
     }
 }
 

@@ -22,11 +22,14 @@ import client.setting.MultiSelectSetting;
 import client.setting.NumberSetting;
 import client.setting.Setting;
 import client.setting.StringSetting;
+import client.ui.template.UiAnimProfile;
+import client.ui.template.UiLayoutProfile;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import dwgx.ui.ext.UiExtensionManager;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -60,11 +63,14 @@ public final class ConfigManager implements ModuleStateListener
     private final ConfigIO io = new ConfigIO();
     private final ConfigMigrator migrator = new ConfigMigrator();
     private final List<String> loadIssues = new ArrayList<String>();
+    // Dirty flags: accessed only from the main game thread (tick/save path).
     private boolean autosaveOnModuleChange = true;
     private boolean dirtyTrackingSuspended;
     private boolean dirtyClient = true;
     private boolean dirtyModules = true;
     private boolean dirtyHud = true;
+    private UiLayoutProfile uiLayout = new UiLayoutProfile();
+    private UiAnimProfile uiAnimProfile = UiAnimProfile.defaults();
 
     public ConfigManager(Path configRoot, ClientInfo clientInfo, ModuleManager moduleManager, HudManager hudManager, I18nManager i18n)
     {
@@ -126,6 +132,28 @@ public final class ConfigManager implements ModuleStateListener
         }
     }
 
+    public UiLayoutProfile getUiLayout()
+    {
+        return this.uiLayout;
+    }
+
+    public void setUiLayout(UiLayoutProfile layout)
+    {
+        this.uiLayout = layout == null ? new UiLayoutProfile() : layout;
+        this.markClientDirty();
+    }
+
+    public UiAnimProfile getUiAnimProfile()
+    {
+        return this.uiAnimProfile;
+    }
+
+    public void setUiAnimProfile(UiAnimProfile profile)
+    {
+        this.uiAnimProfile = profile == null ? UiAnimProfile.defaults() : profile;
+        this.markClientDirty();
+    }
+
     public void saveAll() throws IOException
     {
         this.saveClient();
@@ -174,6 +202,10 @@ public final class ConfigManager implements ModuleStateListener
             root.addProperty("locale", this.i18n.getCurrentLocale());
         }
 
+        root.add("ui_layout", this.uiLayout.toJson());
+        root.add("ui_animation", this.uiAnimProfile.toJson());
+        root.add("main_menu_background", this.serializeMainMenuBackground());
+
         this.io.writeAtomicIfChanged(this.pathClient(), root);
         this.dirtyClient = false;
     }
@@ -211,6 +243,22 @@ public final class ConfigManager implements ModuleStateListener
         }
 
         this.maybeWriteMigrated(this.pathClient(), root, changed);
+
+        if (root.has("ui_layout") && root.get("ui_layout").isJsonObject())
+        {
+            this.uiLayout = UiLayoutProfile.fromJson(root.getAsJsonObject("ui_layout"));
+        }
+
+        if (root.has("ui_animation") && root.get("ui_animation").isJsonObject())
+        {
+            this.uiAnimProfile = UiAnimProfile.fromJson(root.getAsJsonObject("ui_animation"));
+        }
+
+        if (root.has("main_menu_background") && root.get("main_menu_background").isJsonObject())
+        {
+            this.applyMainMenuBackground(root.getAsJsonObject("main_menu_background"));
+        }
+
         this.dirtyClient = false;
     }
 
@@ -885,6 +933,66 @@ public final class ConfigManager implements ModuleStateListener
         }
         catch (RuntimeException ignored)
         {
+        }
+    }
+
+    private JsonObject serializeMainMenuBackground()
+    {
+        JsonObject bg = new JsonObject();
+        UiExtensionManager.MainMenuBackgroundMode mode = UiExtensionManager.getMainMenuBackgroundMode();
+        bg.addProperty("mode", mode.id());
+        bg.addProperty("imagePath", UiExtensionManager.getMainMenuBackgroundImagePath());
+        bg.addProperty("videoPath", UiExtensionManager.getMainMenuBackgroundVideoPath());
+        bg.addProperty("glslPath", UiExtensionManager.getMainMenuBackgroundGlslPath());
+        bg.addProperty("gameOnly", Boolean.valueOf(UiExtensionManager.isMainMenuGameOnlyEnabled()));
+        return bg;
+    }
+
+    private void applyMainMenuBackground(JsonObject bg)
+    {
+        String modeId = this.readString(bg, "mode");
+
+        if (modeId != null)
+        {
+            UiExtensionManager.MainMenuBackgroundMode mode = UiExtensionManager.MainMenuBackgroundMode.fromId(modeId);
+
+            if (mode != null)
+            {
+                UiExtensionManager.setMainMenuBackgroundMode(mode);
+
+                if (mode.usesShader())
+                {
+                    UiExtensionManager.setMainMenuBackgroundShaderEnabled(true);
+                }
+            }
+        }
+
+        String imagePath = this.readString(bg, "imagePath");
+
+        if (imagePath != null)
+        {
+            UiExtensionManager.setMainMenuBackgroundImagePath(imagePath);
+        }
+
+        String videoPath = this.readString(bg, "videoPath");
+
+        if (videoPath != null)
+        {
+            UiExtensionManager.setMainMenuBackgroundVideoPath(videoPath);
+        }
+
+        String glslPath = this.readString(bg, "glslPath");
+
+        if (glslPath != null)
+        {
+            UiExtensionManager.setMainMenuBackgroundGlslPath(glslPath);
+        }
+
+        Boolean gameOnly = this.readBoolean(bg, "gameOnly");
+
+        if (gameOnly != null)
+        {
+            UiExtensionManager.setMainMenuGameOnlyEnabled(gameOnly.booleanValue());
         }
     }
 

@@ -10,7 +10,7 @@ import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.gen.ChunkProviderSettings;
-import org.lwjgl.input.Keyboard;
+import client.runtime.lwjgl.GlfwKeyboard;
 
 public class GuiScreenCustomizePresets extends GuiScreen
 {
@@ -35,7 +35,7 @@ public class GuiScreenCustomizePresets extends GuiScreen
     public void initGui()
     {
         this.buttonList.clear();
-        Keyboard.enableRepeatEvents(true);
+        GlfwKeyboard.enableRepeatEvents(true);
         this.field_175315_a = I18n.format("createWorld.customize.custom.presets.title", new Object[0]);
         this.field_175313_s = I18n.format("createWorld.customize.presets.share", new Object[0]);
         this.field_175312_t = I18n.format("createWorld.customize.presets.list", new Object[0]);
@@ -62,7 +62,7 @@ public class GuiScreenCustomizePresets extends GuiScreen
      */
     public void onGuiClosed()
     {
-        Keyboard.enableRepeatEvents(false);
+        GlfwKeyboard.enableRepeatEvents(false);
     }
 
     /**

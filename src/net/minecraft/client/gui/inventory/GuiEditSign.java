@@ -13,7 +13,7 @@ import net.minecraft.network.play.client.C12PacketUpdateSign;
 import net.minecraft.tileentity.TileEntitySign;
 import net.minecraft.util.ChatAllowedCharacters;
 import net.minecraft.util.ChatComponentText;
-import org.lwjgl.input.Keyboard;
+import client.runtime.lwjgl.GlfwKeyboard;
 
 public class GuiEditSign extends GuiScreen
 {
@@ -41,7 +41,7 @@ public class GuiEditSign extends GuiScreen
     public void initGui()
     {
         this.buttonList.clear();
-        Keyboard.enableRepeatEvents(true);
+        GlfwKeyboard.enableRepeatEvents(true);
         this.buttonList.add(this.doneBtn = new GuiButton(0, this.width / 2 - 100, this.height / 4 + 120, I18n.format("gui.done", new Object[0])));
         this.tileSign.setEditable(false);
     }
@@ -51,7 +51,7 @@ public class GuiEditSign extends GuiScreen
      */
     public void onGuiClosed()
     {
-        Keyboard.enableRepeatEvents(false);
+        GlfwKeyboard.enableRepeatEvents(false);
         NetHandlerPlayClient nethandlerplayclient = this.mc.getNetHandler();
 
         if (nethandlerplayclient != null)

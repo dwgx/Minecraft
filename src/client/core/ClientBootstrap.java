@@ -1,5 +1,9 @@
 package client.core;
 
+import client.auth.AccountRepository;
+import client.auth.MicrosoftAuthResult;
+import client.auth.MicrosoftAuthService;
+import client.auth.MicrosoftSessionManager;
 import client.command.ClientCommandManager;
 import client.config.ConfigManager;
 import client.event.EventBus;
@@ -16,6 +20,7 @@ import client.module.ModuleRegistry;
 import client.render.RenderContext2D;
 import client.render.NanoVGContext;
 import client.ui.NanoRenderableScreen;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
@@ -43,12 +48,13 @@ public final class ClientBootstrap
     private final ShutdownHook shutdownHook = new ShutdownHook();
 
     private ConfigManager configManager;
-    private boolean initialized;
+    // Main-thread-only flags; synchronized in initialize() for safe publication.
+    private volatile boolean initialized;
     private boolean modulesRegistered;
     private boolean hudElementsRegistered;
     private boolean jvmShutdownHookRegistered;
     private long lastAutosaveAtMs;
-    private boolean nanoAvailable;
+    private volatile boolean nanoAvailable;
 
     private ClientBootstrap()
     {
@@ -98,6 +104,7 @@ public final class ClientBootstrap
         this.installJvmShutdownHook();
         this.lastAutosaveAtMs = System.currentTimeMillis();
         this.initialized = true;
+        this.attemptAutoLogin(configRoot);
     }
 
     private void registerBuiltinModules()
@@ -145,6 +152,93 @@ public final class ClientBootstrap
         }
         catch (SecurityException ignored)
         {
+        }
+    }
+
+    private void attemptAutoLogin(Path configRoot)
+    {
+        try
+        {
+            File mcDataDir = configRoot.toFile().getParentFile();
+            AccountRepository repo = new AccountRepository(mcDataDir);
+            repo.load();
+            String selectedId = repo.getSelectedId();
+
+            if (selectedId == null || selectedId.isEmpty())
+            {
+                return;
+            }
+
+            AccountRepository.AccountEntry entry = repo.findById(selectedId);
+
+            if (entry == null)
+            {
+                return;
+            }
+
+            if (entry.isMicrosoft())
+            {
+                String refresh = entry.getRefreshToken();
+
+                if (refresh == null || refresh.isEmpty())
+                {
+                    LOGGER.info("Auto-login skipped: Microsoft account '{}' has no refresh token.", entry.getName());
+                    return;
+                }
+
+                LOGGER.info("Auto-login: attempting Microsoft re-auth for '{}'...", entry.getName());
+                final AccountRepository finalRepo = repo;
+                final AccountRepository.AccountEntry finalEntry = entry;
+                final String finalRefresh = refresh;
+
+                Thread worker = new Thread(new Runnable()
+                {
+                    public void run()
+                    {
+                        ClientBootstrap.this.doMicrosoftAutoLogin(finalRepo, finalEntry, finalRefresh);
+                    }
+                }, "Auto-Login");
+                worker.setDaemon(true);
+                worker.start();
+            }
+            else
+            {
+                Minecraft mc = Minecraft.getMinecraft();
+
+                if (mc != null)
+                {
+                    MicrosoftSessionManager.applyOfflineSession(mc, entry.getName());
+                    LOGGER.info("Auto-login: applied offline session for '{}'.", entry.getName());
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            LOGGER.warn("Auto-login failed.", ex);
+        }
+    }
+
+    private void doMicrosoftAutoLogin(AccountRepository repo, AccountRepository.AccountEntry entry, String refreshToken)
+    {
+        try
+        {
+            MicrosoftAuthService authService = new MicrosoftAuthService();
+            MicrosoftAuthResult result = authService.loginWithRefreshToken(refreshToken);
+            Minecraft mc = Minecraft.getMinecraft();
+
+            if (mc == null)
+            {
+                return;
+            }
+
+            MicrosoftSessionManager.applyMicrosoftSession(mc, result);
+            repo.upsertMicrosoft(result);
+            repo.save();
+            LOGGER.info("Auto-login: Microsoft session applied for '{}'.", result.getPlayerName());
+        }
+        catch (Exception ex)
+        {
+            LOGGER.warn("Auto-login: Microsoft re-auth failed for '{}'. User must login manually.", entry.getName(), ex);
         }
     }
 
@@ -254,12 +348,12 @@ public final class ClientBootstrap
         }
     }
 
-    public synchronized void setNanoAvailable(boolean available)
+    public void setNanoAvailable(boolean available)
     {
         this.nanoAvailable = available;
     }
 
-    public synchronized boolean isNanoAvailable()
+    public boolean isNanoAvailable()
     {
         return this.nanoAvailable;
     }

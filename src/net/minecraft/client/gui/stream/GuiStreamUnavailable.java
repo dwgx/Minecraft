@@ -18,8 +18,8 @@ import net.minecraft.util.Session;
 import net.minecraft.util.Util;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GLContext;
 import tv.twitch.ErrorCode;
 
 public class GuiStreamUnavailable extends GuiScreen
@@ -162,9 +162,9 @@ public class GuiStreamUnavailable extends GuiScreen
         {
             List<ChatComponentTranslation> list = Lists.<ChatComponentTranslation>newArrayList();
             list.add(new ChatComponentTranslation("stream.unavailable.no_fbo.version", new Object[] {GL11.glGetString(GL11.GL_VERSION)}));
-            list.add(new ChatComponentTranslation("stream.unavailable.no_fbo.blend", new Object[] {Boolean.valueOf(GLContext.getCapabilities().GL_EXT_blend_func_separate)}));
-            list.add(new ChatComponentTranslation("stream.unavailable.no_fbo.arb", new Object[] {Boolean.valueOf(GLContext.getCapabilities().GL_ARB_framebuffer_object)}));
-            list.add(new ChatComponentTranslation("stream.unavailable.no_fbo.ext", new Object[] {Boolean.valueOf(GLContext.getCapabilities().GL_EXT_framebuffer_object)}));
+            list.add(new ChatComponentTranslation("stream.unavailable.no_fbo.blend", new Object[] {Boolean.valueOf(GL.getCapabilities().GL_EXT_blend_func_separate)}));
+            list.add(new ChatComponentTranslation("stream.unavailable.no_fbo.arb", new Object[] {Boolean.valueOf(GL.getCapabilities().GL_ARB_framebuffer_object)}));
+            list.add(new ChatComponentTranslation("stream.unavailable.no_fbo.ext", new Object[] {Boolean.valueOf(GL.getCapabilities().GL_EXT_framebuffer_object)}));
             minecraft.displayGuiScreen(new GuiStreamUnavailable(p_152321_0_, GuiStreamUnavailable.Reason.NO_FBO, list));
         }
         else if (istream instanceof NullStream)

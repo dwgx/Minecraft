@@ -1,7 +1,7 @@
 package net.minecraft.util;
 
-import org.lwjgl.input.Mouse;
-import org.lwjgl.opengl.Display;
+import client.runtime.lwjgl.GlfwMouse;
+import client.runtime.lwjgl.GlfwWindow;
 
 public class MouseHelper
 {
@@ -16,7 +16,7 @@ public class MouseHelper
      */
     public void grabMouseCursor()
     {
-        Mouse.setGrabbed(true);
+        GlfwMouse.setGrabbed(true);
         this.deltaX = 0;
         this.deltaY = 0;
     }
@@ -26,13 +26,13 @@ public class MouseHelper
      */
     public void ungrabMouseCursor()
     {
-        Mouse.setCursorPosition(Display.getWidth() / 2, Display.getHeight() / 2);
-        Mouse.setGrabbed(false);
+        GlfwMouse.setCursorPosition(GlfwWindow.getWidth() / 2, GlfwWindow.getHeight() / 2);
+        GlfwMouse.setGrabbed(false);
     }
 
     public void mouseXYChange()
     {
-        this.deltaX = Mouse.getDX();
-        this.deltaY = Mouse.getDY();
+        this.deltaX = GlfwMouse.getDX();
+        this.deltaY = GlfwMouse.getDY();
     }
 }

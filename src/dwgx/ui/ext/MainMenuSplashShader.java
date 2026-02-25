@@ -6,9 +6,9 @@ import net.minecraft.client.renderer.OpenGlHelper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.lwjgl.opengl.ARBShaderObjects;
-import org.lwjgl.opengl.Display;
+import client.runtime.lwjgl.GlfwWindow;
+import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL20;
-import org.lwjgl.opengl.GLContext;
 
 /**
  * Shared shader program used by main-menu splash text and shader-driven backgrounds.
@@ -193,7 +193,7 @@ public final class MainMenuSplashShader
 
             this.setUniform1f(this.uniformUseTexAlpha, mode == TextureAlphaMode.USE_SOURCE_ALPHA ? 1.0F : 0.0F);
             this.setUniform1f(this.uniformTime, (float)(System.currentTimeMillis() - this.startAtMs) / 1000.0F);
-            this.setUniform2f(this.uniformResolution, (float)Math.max(1, Display.getWidth()), (float)Math.max(1, Display.getHeight()));
+            this.setUniform2f(this.uniformResolution, (float)Math.max(1, GlfwWindow.getWidth()), (float)Math.max(1, GlfwWindow.getHeight()));
 
             this.setUniform1f(this.uniformGameTick, this.flappyGameTick);
             this.setUniform1f(this.uniformBirdY, this.flappyBirdY);
@@ -402,7 +402,7 @@ public final class MainMenuSplashShader
             return false;
         }
 
-        return GLContext.getCapabilities().OpenGL20 || GLContext.getCapabilities().GL_ARB_shader_objects;
+        return GL.getCapabilities().OpenGL20 || GL.getCapabilities().GL_ARB_shader_objects;
     }
 
     private void setUniform1f(int location, float value)
@@ -412,7 +412,7 @@ public final class MainMenuSplashShader
             return;
         }
 
-        if (GLContext.getCapabilities().OpenGL20)
+        if (GL.getCapabilities().OpenGL20)
         {
             GL20.glUniform1f(location, value);
         }
@@ -429,7 +429,7 @@ public final class MainMenuSplashShader
             return;
         }
 
-        if (GLContext.getCapabilities().OpenGL20)
+        if (GL.getCapabilities().OpenGL20)
         {
             GL20.glUniform2f(location, x, y);
         }
@@ -446,7 +446,7 @@ public final class MainMenuSplashShader
             return;
         }
 
-        if (GLContext.getCapabilities().OpenGL20)
+        if (GL.getCapabilities().OpenGL20)
         {
             GL20.glUniform3f(location, x, y, z);
         }
@@ -463,7 +463,7 @@ public final class MainMenuSplashShader
             return;
         }
 
-        if (GLContext.getCapabilities().OpenGL20)
+        if (GL.getCapabilities().OpenGL20)
         {
             GL20.glUniform4f(location, x, y, z, w);
         }

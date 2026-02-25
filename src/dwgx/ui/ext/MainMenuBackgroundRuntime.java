@@ -4,6 +4,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.imageio.ImageIO;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
@@ -16,7 +17,6 @@ import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.ResourceLocation;
 import org.apache.logging.log4j.Logger;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL13;
 
 /**
  * Orchestrates input/tick/update and renders one main-menu background backend.
@@ -42,6 +42,10 @@ public final class MainMenuBackgroundRuntime
     private boolean imageLoadWarned;
     private boolean imageRenderWarned;
 
+    private final AtomicReference<BufferedImage> asyncImageResult = new AtomicReference<>(null);
+    private volatile boolean asyncImageLoading;
+    private volatile String asyncImageKey = "";
+
     private String videoSourceKey = "";
     private UiExtensionManager.MainMenuVideoFrameProvider videoFrameProvider;
     private DynamicTexture videoTexture;
@@ -50,8 +54,6 @@ public final class MainMenuBackgroundRuntime
     private int videoTextureHeight = -1;
     private boolean videoProviderWarned;
     private boolean videoRenderWarned;
-
-    private boolean textureUnitWarned;
 
     public MainMenuBackgroundRuntime(MainMenuBackgroundScene scene)
     {
@@ -385,6 +387,129 @@ public final class MainMenuBackgroundRuntime
             return true;
         }
 
+        // Check if an async load just completed
+        BufferedImage asyncResult = this.asyncImageResult.getAndSet(null);
+
+        if (asyncResult != null && normalized.equals(this.asyncImageKey))
+        {
+            this.closeImageOnly(mc);
+            this.imageSourceKey = normalized;
+            this.asyncImageLoading = false;
+
+            try
+            {
+                this.imageTexture = new DynamicTexture(asyncResult.getWidth(), asyncResult.getHeight());
+                int[] textureData = this.imageTexture.getTextureData();
+                asyncResult.getRGB(0, 0, asyncResult.getWidth(), asyncResult.getHeight(), textureData, 0, asyncResult.getWidth());
+                this.imageTexture.updateDynamicTexture();
+                this.imageTextureLocation = mc.getTextureManager().getDynamicTextureLocation(IMAGE_TEXTURE_KEY, this.imageTexture);
+                this.imageLoadWarned = false;
+                return true;
+            }
+            catch (Throwable throwable)
+            {
+                if (!this.imageLoadWarned && logger != null)
+                {
+                    this.imageLoadWarned = true;
+                    logger.warn("Main-menu image texture upload failed: {}", normalized, throwable);
+                }
+
+                return false;
+            }
+        }
+
+        // For HTTP URLs, load asynchronously to avoid blocking the render thread
+        boolean isRemote = normalized.startsWith("http://") || normalized.startsWith("https://");
+
+        if (isRemote)
+        {
+            if (this.asyncImageLoading && normalized.equals(this.asyncImageKey))
+            {
+                return false;
+            }
+
+            this.closeImageOnly(mc);
+            this.imageSourceKey = normalized;
+            this.asyncImageLoading = true;
+            this.asyncImageKey = normalized;
+            final String loadKey = normalized;
+            Thread loader = new Thread(new Runnable()
+            {
+                public void run()
+                {
+                    try (InputStream input = new URL(loadKey).openStream())
+                    {
+                        BufferedImage image = ImageIO.read(input);
+
+                        if (image != null && loadKey.equals(asyncImageKey))
+                        {
+                            asyncImageResult.set(image);
+                        }
+                    }
+                    catch (Throwable ignored)
+                    {
+                    }
+                    finally
+                    {
+                        if (loadKey.equals(asyncImageKey))
+                        {
+                            asyncImageLoading = false;
+                        }
+                    }
+                }
+            }, "MainMenu-ImageLoader");
+            loader.setDaemon(true);
+            loader.start();
+            return false;
+        }
+
+        // Local file — also load asynchronously to avoid blocking the render thread
+        // (large JPEG decoding can take 200-500ms)
+        File localFile = new File(normalized);
+
+        if (localFile.isFile())
+        {
+            if (this.asyncImageLoading && normalized.equals(this.asyncImageKey))
+            {
+                return false;
+            }
+
+            this.closeImageOnly(mc);
+            this.imageSourceKey = normalized;
+            this.asyncImageLoading = true;
+            this.asyncImageKey = normalized;
+            final String loadKey = normalized;
+            Thread loader = new Thread(new Runnable()
+            {
+                public void run()
+                {
+                    try
+                    {
+                        BufferedImage image = ImageIO.read(new File(loadKey));
+
+                        if (image != null && loadKey.equals(asyncImageKey))
+                        {
+                            asyncImageResult.set(image);
+                        }
+                    }
+                    catch (Throwable ignored)
+                    {
+                    }
+                    finally
+                    {
+                        if (loadKey.equals(asyncImageKey))
+                        {
+                            asyncImageLoading = false;
+                        }
+                    }
+                }
+            }, "MainMenu-ImageLoader");
+            loader.setDaemon(true);
+            loader.start();
+            return false;
+        }
+
+        // Resource path — load synchronously (fast, from jar)
         this.closeImageOnly(mc);
         this.imageSourceKey = normalized;
 
@@ -550,6 +675,9 @@ public final class MainMenuBackgroundRuntime
         this.imageTexture = null;
         this.imageTextureLocation = null;
         this.imageSourceKey = "";
+        this.asyncImageResult.set(null);
+        this.asyncImageLoading = false;
+        this.asyncImageKey = "";
     }
 
     private void closeVideoTextureOnly(Minecraft mc)
@@ -592,20 +720,8 @@ public final class MainMenuBackgroundRuntime
 
     private void guardTextureUnit(Logger logger)
     {
-        int activeTexUnit = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
-
-        if (activeTexUnit != OpenGlHelper.defaultTexUnit && !this.textureUnitWarned)
-        {
-            this.textureUnitWarned = true;
-
-            if (logger != null)
-            {
-                logger.info(
-                    "Main-menu background fixed unexpected active texture unit (active={}, expected={}).",
-                    Integer.valueOf(activeTexUnit),
-                    Integer.valueOf(OpenGlHelper.defaultTexUnit)
-                );
-            }
-        }
+        // Avoid glGetInteger — it stalls the GPU pipeline.
+        // Instead, just ensure the correct unit is active unconditionally.
+        OpenGlHelper.setActiveTexture(OpenGlHelper.defaultTexUnit);
     }
 }

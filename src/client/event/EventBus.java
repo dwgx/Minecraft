@@ -15,13 +15,23 @@ import org.apache.logging.log4j.Logger;
 
 /**
  * Synchronous event bus with typed registration and annotation-driven listeners.
+ *
+ * Snapshot arrays are rebuilt only on register/unregister (dirty-flag cache).
+ * {@link #post(Event)} reads volatile array references with zero allocation.
  */
 public final class EventBus
 {
     private static final Logger LOGGER = LogManager.getLogger(EventBus.class);
+    private static final Listener<?>[] EMPTY_SNAPSHOT = new Listener<?>[0];
+
     private final Map<Class<?>, List<Listener<?>>> listeners = new HashMap<Class<?>, List<Listener<?>>>();
     private final Map<Class<?>, List<CallSite>> callSiteMap = new HashMap<Class<?>, List<CallSite>>();
     private final Map<Class<?>, List<Listener<?>>> listenerCache = new HashMap<Class<?>, List<Listener<?>>>();
+
+    /** Frozen snapshots: rebuilt on mutation, read lock-free during dispatch. */
+    private volatile Map<Class<?>, Listener<?>[]> directSnapshots = Collections.<Class<?>, Listener<?>[]>emptyMap();
+    private volatile Map<Class<?>, Listener<?>[]> linkedSnapshots = Collections.<Class<?>, Listener<?>[]>emptyMap();
+
     private long dispatchFailureCount;
 
     public synchronized <T extends Event> void register(Class<T> eventType, Listener<T> listener)
@@ -40,6 +50,7 @@ public final class EventBus
         }
 
         list.add(listener);
+        this.rebuildDirectSnapshots();
     }
 
     public synchronized <T extends Event> void unregister(Class<T> eventType, Listener<T> listener)
@@ -57,6 +68,8 @@ public final class EventBus
         {
             this.listeners.remove(eventType);
         }
+
+        this.rebuildDirectSnapshots();
     }
 
     public synchronized void register(Object subscriber)
@@ -179,6 +192,8 @@ public final class EventBus
         this.listeners.clear();
         this.callSiteMap.clear();
         this.listenerCache.clear();
+        this.directSnapshots = Collections.<Class<?>, Listener<?>[]>emptyMap();
+        this.linkedSnapshots = Collections.<Class<?>, Listener<?>[]>emptyMap();
     }
 
     public void post(Event event)
@@ -189,26 +204,70 @@ public final class EventBus
         }
 
         Class<?> eventClass = event.getClass();
-        this.dispatch(event, this.getDirectSnapshot(eventClass));
-        this.dispatch(event, this.getLinkedSnapshot(eventClass));
+        Map<Class<?>, Listener<?>[]> direct = this.directSnapshots;
+        Map<Class<?>, Listener<?>[]> linked = this.linkedSnapshots;
+
+        this.dispatchArray(event, direct.get(eventClass));
+        this.dispatchArray(event, linked.get(eventClass));
 
         if (eventClass != Event.class)
         {
-            this.dispatch(event, this.getDirectSnapshot(Event.class));
-            this.dispatch(event, this.getLinkedSnapshot(Event.class));
+            this.dispatchArray(event, direct.get(Event.class));
+            this.dispatchArray(event, linked.get(Event.class));
         }
     }
 
-    private synchronized List<Listener<?>> getDirectSnapshot(Class<?> eventType)
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void dispatchArray(Event event, Listener<?>[] snapshot)
     {
-        List<Listener<?>> list = this.listeners.get(eventType);
-        return list == null ? Collections.<Listener<?>>emptyList() : new ArrayList<Listener<?>>(list);
+        if (snapshot == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < snapshot.length; ++i)
+        {
+            Listener listener = snapshot[i];
+
+            if (listener != null)
+            {
+                this.dispatchSafely(event, listener);
+            }
+        }
     }
 
-    private synchronized List<Listener<?>> getLinkedSnapshot(Class<?> eventType)
+    private synchronized void rebuildDirectSnapshots()
     {
-        List<Listener<?>> list = this.listenerCache.get(eventType);
-        return list == null ? Collections.<Listener<?>>emptyList() : new ArrayList<Listener<?>>(list);
+        Map<Class<?>, Listener<?>[]> map = new HashMap<Class<?>, Listener<?>[]>(this.listeners.size());
+
+        for (Map.Entry<Class<?>, List<Listener<?>>> entry : this.listeners.entrySet())
+        {
+            List<Listener<?>> list = entry.getValue();
+
+            if (list != null && !list.isEmpty())
+            {
+                map.put(entry.getKey(), list.toArray(EMPTY_SNAPSHOT));
+            }
+        }
+
+        this.directSnapshots = map;
+    }
+
+    private synchronized void rebuildLinkedSnapshots()
+    {
+        Map<Class<?>, Listener<?>[]> map = new HashMap<Class<?>, Listener<?>[]>(this.listenerCache.size());
+
+        for (Map.Entry<Class<?>, List<Listener<?>>> entry : this.listenerCache.entrySet())
+        {
+            List<Listener<?>> list = entry.getValue();
+
+            if (list != null && !list.isEmpty())
+            {
+                map.put(entry.getKey(), list.toArray(EMPTY_SNAPSHOT));
+            }
+        }
+
+        this.linkedSnapshots = map;
     }
 
     private synchronized void populateListenerCache()
@@ -244,6 +303,8 @@ public final class EventBus
                 this.listenerCache.put(entry.getKey(), cached);
             }
         }
+
+        this.rebuildLinkedSnapshots();
     }
 
     private static boolean containsCallSite(List<CallSite> callSites, Object owner, String fieldName)
@@ -270,22 +331,6 @@ public final class EventBus
                 return right.priority - left.priority;
             }
         });
-    }
-
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private void dispatch(Event event, List<Listener<?>> listenersForType)
-    {
-        for (int i = 0; i < listenersForType.size(); ++i)
-        {
-            Listener listener = listenersForType.get(i);
-
-            if (listener == null)
-            {
-                continue;
-            }
-
-            this.dispatchSafely(event, listener);
-        }
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

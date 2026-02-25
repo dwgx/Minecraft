@@ -14,12 +14,15 @@ import client.setting.IntSetting;
 import client.setting.NumberSetting;
 import client.setting.Setting;
 import client.setting.StringSetting;
+import client.ui.component.NanoColorPicker;
+import client.ui.template.NanoScreenKit;
 import client.ui.template.NanoSliderController;
 import client.ui.template.NanoTextInput;
 import client.ui.template.UiAnimProfile;
 import client.ui.template.UiAnimProfiles;
 import client.ui.template.UiAnimation;
 import client.ui.template.UiAnimationBus;
+import client.ui.template.UiLayoutProfile;
 import client.ui.template.UiMotion;
 import client.ui.template.UiWindowState;
 import dwgx.nano.NanoFontBook;
@@ -34,7 +37,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import net.minecraft.client.gui.GuiScreen;
-import org.lwjgl.input.Mouse;
+import client.runtime.lwjgl.GlfwMouse;
 import org.lwjgl.system.MemoryStack;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
@@ -59,18 +62,19 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
     private static final float BASE_HEIGHT = 620.0F;
     private static final float MIN_WIDTH = 520.0F;
     private static final float MIN_HEIGHT = 340.0F;
-    private static final float SCREEN_MARGIN = 8.0F;
-    private static final float HEADER_HEIGHT = 36.0F;
-    private static final float OUTER_PAD = 12.0F;
-    private static final float ROW_SETTING = 26.0F;
+    private static final UiLayoutProfile LAYOUT = new UiLayoutProfile();
+    private static final float SCREEN_MARGIN = LAYOUT.screenMargin();
+    private static final float HEADER_HEIGHT = LAYOUT.headerHeight();
+    private static final float OUTER_PAD = LAYOUT.outerPad();
+    private static final float ROW_SETTING = LAYOUT.rowSetting();
     private static final float INFO_CARD_HEIGHT = 62.0F;
     private static final float DEBUG_CARD_HEIGHT = 34.0F;
-    private static final float RADIUS_WINDOW = 9.0F;
-    private static final float RADIUS_PANEL = 8.0F;
-    private static final float RADIUS_ROW = 6.0F;
-    private static final float RADIUS_CONTROL = 6.0F;
-    private static final float VALUE_COL_WIDTH = 132.0F;
-    private static final float RESET_COL_WIDTH = 38.0F;
+    private static final float RADIUS_WINDOW = LAYOUT.radiusWindow();
+    private static final float RADIUS_PANEL = LAYOUT.radiusPanel();
+    private static final float RADIUS_ROW = LAYOUT.radiusRow();
+    private static final float RADIUS_CONTROL = LAYOUT.radiusControl();
+    private static final float VALUE_COL_WIDTH = LAYOUT.valueColWidth();
+    private static final float RESET_COL_WIDTH = LAYOUT.resetColWidth();
 
     private final ModuleManager modules;
     private final GuiScreen parentScreen;
@@ -90,23 +94,26 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
     private final NanoTextInput numberInput = new NanoTextInput();
 
     private ColorSetting activeColor;
-    private boolean draggingSv;
-    private boolean draggingHue;
-    private boolean draggingAlpha;
+    private final NanoColorPicker colorPicker = new NanoColorPicker("settings.picker");
     private boolean draggingPicker;
     private float pickerDragDx;
     private float pickerDragDy;
     private float pickerOffsetRelX = Float.NaN;
     private float pickerOffsetRelY = Float.NaN;
-    private float pickerHue;
-    private float pickerSat;
-    private float pickerVal;
-    private float pickerAlpha;
     private boolean pickerFloating;
-    private long lastPickerCommitNanos;
     private long lastNanoAt;
     private long lastNanoVg;
     private SettingsSection section = SettingsSection.THEME;
+
+    // Persisted across screen opens (static so they survive re-creation)
+    private static SettingsSection lastSection = SettingsSection.THEME;
+    private static int lastThemeScroll;
+    private static int lastAnimationScroll;
+
+    // Section switch transition
+    private float sectionFade = 1.0F;
+    private boolean sectionSwitching;
+    private SettingsSection sectionSwitchTarget;
 
     private TransitionMode transitionMode = TransitionMode.NONE;
     private GuiScreen transitionTarget;
@@ -134,34 +141,49 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         this.transitionExecuted = false;
         this.transitionProgress = 0.0F;
         this.transitionLastNanos = System.nanoTime();
-        this.settingScroll = 0;
-        this.settingScrollVisual = 0.0F;
+        this.section = lastSection;
+        this.settingScroll = this.section == SettingsSection.THEME ? lastThemeScroll : lastAnimationScroll;
+        this.settingScrollVisual = (float)this.settingScroll;
         this.draggingSettingSlider = null;
         this.clearSliderTrackLock();
         this.lastSliderDragNanos = 0L;
         this.activeNumberSetting = null;
         this.numberInput.blur();
-        this.lastPickerCommitNanos = 0L;
+        this.colorPicker.stopDragging();
         this.pickerFloating = false;
         this.draggingPicker = false;
         this.pickerDragDx = 0.0F;
         this.pickerDragDy = 0.0F;
         this.pickerOffsetRelX = Float.NaN;
         this.pickerOffsetRelY = Float.NaN;
+        this.sectionFade = 0.0F;
+        this.sectionSwitching = false;
+        this.sectionSwitchTarget = null;
     }
 
     public void onGuiClosed()
     {
+        this.saveCurrentScroll();
         this.window.endInteraction();
         this.draggingSettingSlider = null;
         this.clearSliderTrackLock();
         this.commitActiveNumberInput();
         this.activeNumberSetting = null;
         this.numberInput.blur();
-        this.draggingSv = false;
-        this.draggingHue = false;
-        this.draggingAlpha = false;
+        this.colorPicker.stopDragging();
         this.draggingPicker = false;
+    }
+
+    private void saveCurrentScroll()
+    {
+        if (this.section == SettingsSection.THEME)
+        {
+            lastThemeScroll = this.settingScroll;
+        }
+        else
+        {
+            lastAnimationScroll = this.settingScroll;
+        }
     }
 
     public void drawScreen(int mouseX, int mouseY, float partialTicks)
@@ -269,18 +291,26 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
             if (l.themeTab.contains(mouseX, mouseY))
             {
-                this.section = SettingsSection.THEME;
-                this.settingScroll = 0;
-                this.settingScrollVisual = 0.0F;
+                if (this.section != SettingsSection.THEME && !this.sectionSwitching)
+                {
+                    this.saveCurrentScroll();
+                    this.sectionSwitching = true;
+                    this.sectionSwitchTarget = SettingsSection.THEME;
+                }
+
                 return;
             }
 
             if (l.animationTab.contains(mouseX, mouseY))
             {
-                this.section = SettingsSection.ANIMATION;
-                this.settingScroll = 0;
-                this.settingScrollVisual = 0.0F;
-                this.activeColor = null;
+                if (this.section != SettingsSection.ANIMATION && !this.sectionSwitching)
+                {
+                    this.saveCurrentScroll();
+                    this.sectionSwitching = true;
+                    this.sectionSwitchTarget = SettingsSection.ANIMATION;
+                    this.activeColor = null;
+                }
+
                 return;
             }
 
@@ -292,30 +322,17 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
             if (l.hasPicker)
             {
-                if (l.pickerSv.contains(mouseX, mouseY))
-                {
-                    this.draggingSv = true;
-                    this.updatePickerSv(l, mouseX, mouseY);
-                    return;
-                }
+                this.syncPickerSubBounds(l);
 
-                if (l.pickerHue.contains(mouseX, mouseY))
+                if (this.colorPicker.mouseClicked(mouseX, mouseY, 0))
                 {
-                    this.draggingHue = true;
-                    this.updatePickerHue(l, mouseY);
-                    return;
-                }
-
-                if (l.pickerAlpha.contains(mouseX, mouseY))
-                {
-                    this.draggingAlpha = true;
-                    this.updatePickerAlpha(l, mouseX);
+                    this.commitPickerColor(false);
                     return;
                 }
             }
         }
 
-        if (clickGui != null && l.settingsRows.contains(mouseX, mouseY))
+        if (clickGui != null && !this.sectionSwitching && this.sectionFade >= 0.5F && l.settingsRows.contains(mouseX, mouseY))
         {
             List<Setting<?>> settings = this.visibleSettings(clickGui);
             int scrollBase = (int)Math.floor((double)this.settingScrollVisual);
@@ -417,27 +434,19 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
             this.updateDraggedSettingSlider(l, mouseX);
         }
 
-        if (this.draggingSv)
+        if (this.colorPicker.isDragging())
         {
-            this.updatePickerSv(l, mouseX, mouseY);
-        }
-
-        if (this.draggingHue)
-        {
-            this.updatePickerHue(l, mouseY);
-        }
-
-        if (this.draggingAlpha)
-        {
-            this.updatePickerAlpha(l, mouseX);
+            this.colorPicker.mouseDragged(mouseX, mouseY);
+            this.commitPickerColor(false);
         }
     }
 
     protected void mouseReleased(int mouseX, int mouseY, int state)
     {
-        if (this.draggingSv || this.draggingHue || this.draggingAlpha)
+        if (this.colorPicker.isDragging())
         {
             this.commitPickerColor(true);
+            this.colorPicker.mouseReleased(mouseX, mouseY, 0);
         }
 
         if (this.draggingPicker)
@@ -452,10 +461,6 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         this.window.endInteraction();
         this.draggingSettingSlider = null;
         this.clearSliderTrackLock();
-        this.draggingSv = false;
-        this.draggingHue = false;
-        this.draggingAlpha = false;
-        this.draggingPicker = false;
         this.numberInput.onMouseUp();
         super.mouseReleased(mouseX, mouseY, state);
     }
@@ -463,15 +468,15 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
     public void handleMouseInput() throws IOException
     {
         super.handleMouseInput();
-        int wheel = Mouse.getEventDWheel();
+        int wheel = GlfwMouse.getEventDWheel();
 
         if (wheel == 0)
         {
             return;
         }
 
-        int x = Mouse.getEventX() * this.width / this.mc.displayWidth;
-        int y = this.height - Mouse.getEventY() * this.height / this.mc.displayHeight - 1;
+        int x = GlfwMouse.getEventX() * this.width / this.mc.displayWidth;
+        int y = this.height - GlfwMouse.getEventY() * this.height / this.mc.displayHeight - 1;
         Layout l = this.layout();
 
         if (l.settingsRows.contains(x, y))
@@ -502,6 +507,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         this.validateActiveColor(clickGui);
         this.validateActiveNumberSetting(clickGui);
         this.updateTransition(clickGui);
+        this.updateSectionTransition();
 
         if (this.transitioningOut && this.transitionExecuted)
         {
@@ -563,14 +569,17 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
     private void drawSettingRows(long vg, MemoryStack stack, Layout l, NanoTheme theme, ClickGuiModule clickGui, int regular, int bold)
     {
         this.drawSectionTabs(vg, stack, l, theme, regular);
-        NanoUi.drawLeftText(vg, stack, bold, l.settingsCard.x + scaled(12.0F, l.scale), l.themeTab.y - scaled(9.0F, l.scale), scaled(12.5F, l.scale), theme.textArgb(), this.tr("client.settings.section_title", "{0} Settings", this.sectionLabel(this.section)));
+        float fade = UiMotion.clamp01(this.sectionFade);
+        NanoTheme contentTheme = fade >= 0.999F ? theme : this.applyThemeTransition(theme, fade);
+        float contentShiftX = (1.0F - fade) * scaled(8.0F, l.scale) * (this.sectionSwitching ? -1.0F : 1.0F);
+        NanoUi.drawLeftText(vg, stack, bold, l.settingsCard.x + scaled(12.0F, l.scale) + contentShiftX, l.themeTab.y - scaled(9.0F, l.scale), scaled(12.5F, l.scale), NanoRenderUtils.mulAlpha(theme.textArgb(), fade), this.tr("client.settings.section_title", "{0} Settings", this.sectionLabel(this.section)));
         List<Setting<?>> settings = this.visibleSettings(clickGui);
         boolean hasModified = this.hasModifiedSettings(settings);
         this.drawButton(vg, stack, l.resetSectionButton, hasModified ? this.tr("client.settings.reset_group", "Reset Group") : this.tr("client.settings.clean", "Clean"), hasModified, regular, theme);
 
         if (settings.isEmpty())
         {
-            NanoUi.drawCenterText(vg, stack, regular, l.settingsRows.x + l.settingsRows.w * 0.5F, l.settingsRows.y + l.settingsRows.h * 0.5F, scaled(11.0F, l.scale), theme.textWeakArgb(), this.section == SettingsSection.ANIMATION ? this.tr("client.settings.empty.animation", "No animation settings") : this.tr("client.settings.empty.theme", "No theme settings"));
+            NanoUi.drawCenterText(vg, stack, regular, l.settingsRows.x + l.settingsRows.w * 0.5F + contentShiftX, l.settingsRows.y + l.settingsRows.h * 0.5F, scaled(11.0F, l.scale), NanoRenderUtils.mulAlpha(theme.textWeakArgb(), fade), this.section == SettingsSection.ANIMATION ? this.tr("client.settings.empty.animation", "No animation settings") : this.tr("client.settings.empty.theme", "No theme settings"));
             return;
         }
 
@@ -592,7 +601,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
             Setting<?> setting = settings.get(idx);
             Rect row = this.settingRowRect(l, i, scrollOffset);
-            boolean hovered = row.contains(this.mouseX, this.mouseY);
+            boolean hovered = fade >= 0.5F && row.contains(this.mouseX, this.mouseY);
             boolean modified = this.isSettingModified(setting);
             String group = this.sectionGroupLabel(setting);
             String prevGroup = idx > 0 ? this.sectionGroupLabel(settings.get(idx - 1)) : "";
@@ -601,13 +610,13 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
             // Group labels are hidden to avoid overlapping with row content.
 
-            int base = i % 2 == 0 ? theme.rowArgb() : theme.cardAltArgb();
+            int base = i % 2 == 0 ? contentTheme.rowArgb() : contentTheme.cardAltArgb();
             NanoUi.drawSurface(vg, stack, row.x, row.y, row.w, row.h, rowRadius, base, 0);
             float hoverRatio = UiAnimationBus.animateControl("client.settings.hover." + setting.getKey(), hovered ? 1.0F : 0.0F, animProfile);
 
             if (hoverRatio > 0.001F)
             {
-                NanoUi.drawSurface(vg, stack, row.x, row.y, row.w, row.h, rowRadius, NanoRenderUtils.mulAlpha(theme.rowHoverArgb(), UiMotion.clamp01(hoverRatio * 0.66F)), 0);
+                NanoUi.drawSurface(vg, stack, row.x, row.y, row.w, row.h, rowRadius, NanoRenderUtils.mulAlpha(contentTheme.rowHoverArgb(), UiMotion.clamp01(hoverRatio * 0.66F)), 0);
             }
 
             float nameX = row.x + scaled(10.0F, l.scale);
@@ -615,12 +624,12 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
             if (modified)
             {
                 float md = scaled(4.0F, l.scale);
-                NanoUi.drawSurface(vg, stack, nameX, row.y + row.h * 0.5F - md * 0.5F, md, md, md * 0.5F, theme.accentArgb(), 0);
+                NanoUi.drawSurface(vg, stack, nameX, row.y + row.h * 0.5F - md * 0.5F, md, md, md * 0.5F, contentTheme.accentArgb(), 0);
                 nameX += scaled(8.0F, l.scale);
             }
 
-            NanoUi.drawLeftText(vg, stack, regular, nameX, row.y + row.h * 0.5F, scaled(11.4F, l.scale), theme.textArgb(), this.settingDisplayName(setting));
-            this.drawResetButton(vg, stack, resetRect, modified, regular, theme);
+            NanoUi.drawLeftText(vg, stack, regular, nameX, row.y + row.h * 0.5F, scaled(11.4F, l.scale), contentTheme.textArgb(), this.settingDisplayName(setting));
+            this.drawResetButton(vg, stack, resetRect, modified, regular, contentTheme);
 
             if (setting instanceof ColorSetting)
             {
@@ -629,28 +638,28 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
                 if (editing)
                 {
-                    NanoUi.drawAccentFlag(vg, stack, row.x + scaled(4.0F, l.scale), row.y + scaled(5.0F, l.scale), scaled(2.5F, l.scale), row.h - scaled(10.0F, l.scale), theme.accentArgb());
+                    NanoUi.drawAccentFlag(vg, stack, row.x + scaled(4.0F, l.scale), row.y + scaled(5.0F, l.scale), scaled(2.5F, l.scale), row.h - scaled(10.0F, l.scale), contentTheme.accentArgb());
                 }
 
-                NanoUi.drawRightText(vg, stack, regular, valueRect.x2() - scaled(14.0F, l.scale), row.y + row.h * 0.5F, scaled(9.8F, l.scale), theme.textWeakArgb(), this.settingValue(setting));
-                NanoUi.drawColorSwatch(vg, stack, valueRect.x2() - scaled(9.0F, l.scale), row.y + scaled(5.0F, l.scale), scaled(11.0F, l.scale), colorSetting.get().toArgb(), true);
+                NanoUi.drawRightText(vg, stack, regular, valueRect.x2() - scaled(14.0F, l.scale), row.y + row.h * 0.5F, scaled(9.8F, l.scale), contentTheme.textWeakArgb(), this.settingValue(setting));
+                NanoUi.drawColorSwatch(vg, stack, valueRect.x2() - scaled(9.0F, l.scale), row.y + scaled(5.0F, l.scale), scaled(11.0F, l.scale), NanoRenderUtils.mulAlpha(colorSetting.get().toArgb(), fade), true);
             }
             else if (this.isPaletteSetting(setting))
             {
-                this.drawPaletteRow(vg, stack, row, l.scale, regular, theme, clickGui);
+                this.drawPaletteRow(vg, stack, row, l.scale, regular, contentTheme, clickGui);
             }
             else if (setting instanceof BoolSetting)
             {
                 boolean enabled = ((BoolSetting)setting).isEnabled();
-                this.drawStateLabel(vg, stack, valueRect, enabled, hovered, theme, l.scale, "client.settings.bool." + setting.getKey(), regular);
+                this.drawStateLabel(vg, stack, valueRect, enabled, hovered, contentTheme, l.scale, "client.settings.bool." + setting.getKey(), regular);
             }
             else if (this.isSliderSetting(setting))
             {
-                this.drawSettingSlider(vg, stack, row, setting, hovered, theme, l.scale, regular, clickGui);
+                this.drawSettingSlider(vg, stack, row, setting, hovered, contentTheme, l.scale, regular, clickGui);
             }
             else
             {
-                NanoUi.drawRightText(vg, stack, regular, valueRect.x2() - scaled(3.0F, l.scale), row.y + row.h * 0.5F, scaled(10.3F, l.scale), theme.textMutedArgb(), this.settingValue(setting));
+                NanoUi.drawRightText(vg, stack, regular, valueRect.x2() - scaled(3.0F, l.scale), row.y + row.h * 0.5F, scaled(10.3F, l.scale), contentTheme.textMutedArgb(), this.settingValue(setting));
             }
         }
 
@@ -736,12 +745,8 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         String key = "client.settings.tab." + tab.name().toLowerCase(Locale.ROOT);
         ClickGuiModule clickGui = this.resolveClickGuiModule();
         UiAnimProfile animProfile = this.resolveAnimationProfile(clickGui);
-        float ratio = UiAnimationBus.animateControl(key, (active || hovered) ? 1.0F : 0.0F, animProfile);
-        int fill = active ? theme.controlActiveArgb() : this.mixArgb(theme.controlArgb(), theme.controlHoverArgb(), UiMotion.clamp01(0.28F + ratio * 0.72F));
-        NanoUi.drawSurface(vg, stack, rect.x, rect.y, rect.w, rect.h, this.stableControlRadius(rect.h / 18.0F), fill, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 80));
         float k = UiMotion.clamp(rect.h / 18.0F, 0.35F, 1.85F);
-        int textColor = active ? theme.textArgb() : this.mixArgb(theme.textWeakArgb(), theme.textArgb(), UiMotion.clamp01(ratio * 0.75F));
-        NanoUi.drawCenterText(vg, stack, font, rect.x + rect.w * 0.5F, rect.y + rect.h * 0.5F, scaled(10.8F, k), textColor, this.sectionLabel(tab));
+        NanoScreenKit.drawTab(vg, stack, theme, rect.x, rect.y, rect.w, rect.h, active, hovered, key, animProfile, font, scaled(10.8F, k), this.sectionLabel(tab));
     }
 
     private void drawResetButton(long vg, MemoryStack stack, Rect rect, boolean visible, int font, NanoTheme theme)
@@ -775,13 +780,13 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         float thumbY = py + scaled(1.0F, k);
         float thumbH = pillH - scaled(2.0F, k);
         float thumbExpand = scaled(1.3F, k) * focus;
-        int base = this.mixArgb(theme.controlArgb(), theme.controlHoverArgb(), UiMotion.clamp01(0.18F + focus * 0.48F));
+        int base = NanoScreenKit.mixArgb(theme.controlArgb(), theme.controlHoverArgb(), UiMotion.clamp01(0.18F + focus * 0.48F));
         NanoUi.drawSurface(vg, stack, px, py, pillW, pillH, pillH * 0.5F, base, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 98));
         NanoUi.drawSurface(vg, stack, px + pillW * 0.5F, py + scaled(1.0F, k), scaled(1.0F, k), pillH - scaled(2.0F, k), scaled(0.5F, k), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 74), 0);
-        int thumb = this.mixArgb(this.mixArgb(theme.cardAltArgb(), theme.controlHoverArgb(), 0.48F), theme.controlActiveArgb(), UiMotion.clamp01(ratio));
+        int thumb = NanoScreenKit.mixArgb(NanoScreenKit.mixArgb(theme.cardAltArgb(), theme.controlHoverArgb(), 0.48F), theme.controlActiveArgb(), UiMotion.clamp01(ratio));
         NanoUi.drawSurface(vg, stack, thumbX - thumbExpand * 0.5F, thumbY - thumbExpand * 0.5F, thumbW + thumbExpand, thumbH + thumbExpand, (thumbH + thumbExpand) * 0.5F, thumb, NanoRenderUtils.withAlpha(0xFFFFFFFF, 84));
-        int disableText = this.mixArgb(theme.textArgb(), theme.textMutedArgb(), UiMotion.clamp01(ratio * 0.95F));
-        int enableText = this.mixArgb(theme.textMutedArgb(), theme.textArgb(), UiMotion.clamp01(ratio * 0.95F));
+        int disableText = NanoScreenKit.mixArgb(theme.textArgb(), theme.textMutedArgb(), UiMotion.clamp01(ratio * 0.95F));
+        int enableText = NanoScreenKit.mixArgb(theme.textMutedArgb(), theme.textArgb(), UiMotion.clamp01(ratio * 0.95F));
         float textCenterY = py + pillH * 0.5F;
         NanoUi.drawCenterText(vg, stack, font, px + pillW * 0.25F, textCenterY, scaled(8.2F, k), disableText, this.tr("clickgui.state.disable", "DISABLE"));
         NanoUi.drawCenterText(vg, stack, font, px + pillW * 0.75F, textCenterY, scaled(8.2F, k), enableText, this.tr("clickgui.state.enable", "ENABLE"));
@@ -803,7 +808,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         float knobRatio = NanoSliderController.resolveKnobRatio(key, visualTarget, dragging, animProfile);
         float focus = NanoSliderController.resolveFocus(key + ".focus", hovered, dragging, animProfile);
         float glowRatio = NanoSliderController.resolveGlow(key + ".glow", hovered, dragging, animProfile);
-        int trackFill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.44F + focus * 0.30F));
+        int trackFill = NanoScreenKit.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.44F + focus * 0.30F));
         float trackRadius = Math.min(track.h * 0.5F, this.stableControlRadius(k));
         NanoUi.drawSurface(vg, stack, track.x, track.y, track.w, track.h, trackRadius, trackFill, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 114));
         float rawHandleX = track.x + knobRatio * track.w;
@@ -817,7 +822,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         float fillTargetEnd = trackInnerX + trackInnerW * fillRatio;
         float fillEnd = Math.min(fillTargetEnd, knobLeadX);
         float fillW = Math.max(0.0F, fillEnd - trackInnerX);
-        int activeFill = this.mixArgb(theme.controlActiveArgb(), theme.accentArgb(), 0.74F);
+        int activeFill = NanoScreenKit.mixArgb(theme.controlActiveArgb(), theme.accentArgb(), 0.74F);
         NanoUi.drawSurface(vg, stack, trackInnerX, track.y + scaled(1.0F, k), fillW, track.h - scaled(2.0F, k), Math.max(scaled(1.6F, k), trackRadius - scaled(1.6F, k)), activeFill, 0);
         float lineGlowTargetEnd = trackInnerX + trackInnerW * displayRatio;
         float lineGlowEnd = Math.min(lineGlowTargetEnd, knobLeadX);
@@ -825,7 +830,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         NanoUi.drawSurface(vg, stack, trackInnerX, track.y + scaled(1.0F, k), lineGlowW, track.h - scaled(2.0F, k), Math.max(scaled(1.2F, k), trackRadius - scaled(2.2F, k)), NanoRenderUtils.withAlpha(theme.accentSoftArgb(), 40 + Math.round(glowRatio * 56.0F)), 0);
         float glow = knobSize + scaled(1.2F, k) * focus + scaled(1.8F, k) * glowRatio;
         NanoUi.drawSurface(vg, stack, handleX - glow * 0.5F, track.y + (track.h - glow) * 0.5F, glow, glow, glow * 0.5F, NanoRenderUtils.withAlpha(0xFFF5F9FF, 48 + Math.round((focus * 0.52F + glowRatio * 0.48F) * 74.0F)), 0);
-        int knobColor = this.mixArgb(theme.accentArgb(), 0xFFF8FBFF, UiMotion.clamp01(0.40F + focus * 0.52F));
+        int knobColor = NanoScreenKit.mixArgb(theme.accentArgb(), 0xFFF8FBFF, UiMotion.clamp01(0.40F + focus * 0.52F));
         NanoUi.drawSurface(vg, stack, knobX, knobY, knobSize, knobSize, knobSize * 0.5F, knobColor, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 110));
         this.drawNumberValueInput(vg, stack, valueRect, row, setting, hovered, theme, k, font, "client.settings.number." + setting.getKey());
     }
@@ -849,8 +854,8 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         }
 
         float focus = UiAnimationBus.animateControl(animKey + ".idle.focus", fieldHovered ? 1.0F : 0.0F, animProfile);
-        int fill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.38F + focus * 0.32F));
-        int border = this.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 92), NanoRenderUtils.withAlpha(theme.accentArgb(), 142), UiMotion.clamp01(focus * 0.72F));
+        int fill = NanoScreenKit.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.38F + focus * 0.32F));
+        int border = NanoScreenKit.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 92), NanoRenderUtils.withAlpha(theme.accentArgb(), 142), UiMotion.clamp01(focus * 0.72F));
         float radius = Math.min(valueRect.h * 0.5F, this.stableControlRadius(scale));
         NanoUi.drawSurface(vg, stack, valueRect.x, valueRect.y, valueRect.w, valueRect.h, radius, fill, border);
         NanoUi.drawRightText(vg, stack, font, valueRect.x2() - scaled(4.0F, scale), row.y + row.h * 0.5F + scaled(0.45F, scale), scaled(10.2F, scale), theme.textMutedArgb(), this.settingValue(setting));
@@ -895,47 +900,33 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         NanoUi.drawSurface(vg, stack, l.pickerCard.x, l.pickerCard.y, l.pickerCard.w, l.pickerCard.h, this.stableControlRadius(k), theme.cardArgb(), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 72));
         NanoUi.drawLeftText(vg, stack, regular, l.pickerCard.x + scaled(8.0F, k), l.pickerCard.y + scaled(11.0F, k), scaled(10.5F, k), theme.textWeakArgb(), this.tr("clickgui.picker.title", "HSV Color Picker"));
 
-        int hueBase = hsvToArgb(this.pickerHue, 1.0F, 1.0F, 255);
-        NanoRenderUtils.fillRoundedRect(vg, l.pickerSv.x, l.pickerSv.y, l.pickerSv.w, l.pickerSv.h, scaled(4.0F, k), NanoRenderUtils.argb(stack, hueBase));
-        NanoRenderUtils.fillRoundedRectGradient(vg, stack, l.pickerSv.x, l.pickerSv.y, l.pickerSv.w, l.pickerSv.h, scaled(4.0F, k), 0xFFFFFFFF, 0x00FFFFFF, false);
-        NanoRenderUtils.fillRoundedRectGradient(vg, stack, l.pickerSv.x, l.pickerSv.y, l.pickerSv.w, l.pickerSv.h, scaled(4.0F, k), 0x00000000, 0xFF000000, true);
-        NanoRenderUtils.strokeRoundedRect(vg, l.pickerSv.x, l.pickerSv.y, l.pickerSv.w, l.pickerSv.h, scaled(4.0F, k), 1.0F, NanoRenderUtils.argb(stack, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 112)));
-        float svX = l.pickerSv.x + this.pickerSat * l.pickerSv.w;
-        float svY = l.pickerSv.y + (1.0F - this.pickerVal) * l.pickerSv.h;
-        NanoUi.drawSurface(vg, stack, svX - scaled(4.0F, k), svY - scaled(4.0F, k), scaled(8.0F, k), scaled(8.0F, k), scaled(4.0F, k), 0xCCFFFFFF, NanoRenderUtils.withAlpha(0xFF000000, 140));
+        this.syncPickerSubBounds(l);
+        this.colorPicker.setBounds(l.pickerCard.x, l.pickerCard.y, l.pickerCard.w, l.pickerCard.h);
+        this.colorPicker.setVisible(true);
+        this.colorPicker.render(vg, stack, theme, this.resolveAnimationProfile(this.resolveClickGuiModule()), k, this.mouseX, this.mouseY);
 
-        this.drawHueBar(vg, stack, l.pickerHue, theme);
-        float hueY = l.pickerHue.y + this.pickerHue * l.pickerHue.h;
-        NanoUi.drawSurface(vg, stack, l.pickerHue.x - scaled(2.0F, k), hueY - scaled(2.0F, k), l.pickerHue.w + scaled(4.0F, k), scaled(4.0F, k), scaled(2.0F, k), 0xCCFFFFFF, NanoRenderUtils.withAlpha(0xFF000000, 120));
-
-        int rgb = hsvToArgb(this.pickerHue, this.pickerSat, this.pickerVal, 255) & 0x00FFFFFF;
-        int alphaFrom = rgb;
-        int alphaTo = 0xFF000000 | rgb;
-        NanoRenderUtils.fillRoundedRectGradient(vg, stack, l.pickerAlpha.x, l.pickerAlpha.y, l.pickerAlpha.w, l.pickerAlpha.h, scaled(3.0F, k), alphaFrom, alphaTo, false);
-        NanoRenderUtils.strokeRoundedRect(vg, l.pickerAlpha.x, l.pickerAlpha.y, l.pickerAlpha.w, l.pickerAlpha.h, scaled(3.0F, k), 1.0F, NanoRenderUtils.argb(stack, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 112)));
-        float alphaX = l.pickerAlpha.x + this.pickerAlpha * l.pickerAlpha.w;
-        NanoUi.drawSurface(vg, stack, alphaX - scaled(2.0F, k), l.pickerAlpha.y - scaled(2.0F, k), scaled(4.0F, k), l.pickerAlpha.h + scaled(4.0F, k), scaled(2.0F, k), 0xCCFFFFFF, NanoRenderUtils.withAlpha(0xFF000000, 120));
-
-        int previewArgb = hsvToArgb(this.pickerHue, this.pickerSat, this.pickerVal, Math.round(this.pickerAlpha * 255.0F));
+        int previewArgb = this.colorPicker.getCurrentArgb();
         NanoUi.drawSurface(vg, stack, l.pickerPreview.x, l.pickerPreview.y, l.pickerPreview.w, l.pickerPreview.h, scaled(4.0F, k), previewArgb, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 98));
         NanoUi.drawLeftText(vg, stack, regular, l.pickerPreview.x2() + scaled(8.0F, k), l.pickerPreview.y + scaled(7.0F, k), scaled(10.0F, k), theme.textMutedArgb(), String.format(Locale.ROOT, "#%08X", Integer.valueOf(previewArgb)));
-        NanoUi.drawLeftText(vg, stack, regular, l.pickerPreview.x2() + scaled(8.0F, k), l.pickerPreview.y + scaled(20.0F, k), scaled(10.0F, k), theme.textWeakArgb(), this.tr("clickgui.picker.hsva", "H {0} S {1} V {2} A {3}", this.trimDecimal((double)this.pickerHue, 2), this.trimDecimal((double)this.pickerSat, 2), this.trimDecimal((double)this.pickerVal, 2), this.trimDecimal((double)this.pickerAlpha, 2)));
+        float hue = this.colorPicker.getHue();
+        float sat = this.colorPicker.getSaturation();
+        float val = this.colorPicker.getBrightness();
+        float alpha = (float)this.colorPicker.getAlpha() / 255.0F;
+        NanoUi.drawLeftText(vg, stack, regular, l.pickerPreview.x2() + scaled(8.0F, k), l.pickerPreview.y + scaled(20.0F, k), scaled(10.0F, k), theme.textWeakArgb(), this.tr("clickgui.picker.hsva", "H {0} S {1} V {2} A {3}", this.trimDecimal((double)hue, 2), this.trimDecimal((double)sat, 2), this.trimDecimal((double)val, 2), this.trimDecimal((double)alpha, 2)));
     }
 
-    private void drawHueBar(long vg, MemoryStack stack, Rect rect, NanoTheme theme)
+    private void syncPickerSubBounds(Layout l)
     {
-        int[] colors = new int[] {0xFFFF0000, 0xFFFFFF00, 0xFF00FF00, 0xFF00FFFF, 0xFF0000FF, 0xFFFF00FF, 0xFFFF0000};
-        float segment = rect.h / 6.0F;
-
-        for (int i = 0; i < 6; ++i)
+        if (l.pickerSv == null || l.pickerHue == null || l.pickerAlpha == null)
         {
-            float y = rect.y + segment * (float)i;
-            float h = i == 5 ? rect.h - segment * 5.0F : segment + 0.5F;
-            float radius = (i == 0 || i == 5) ? 3.0F : 0.0F;
-            NanoRenderUtils.fillRoundedRectGradient(vg, stack, rect.x, y, rect.w, h, radius, colors[i], colors[i + 1], true);
+            return;
         }
 
-        NanoRenderUtils.strokeRoundedRect(vg, rect.x, rect.y, rect.w, rect.h, 3.0F, 1.0F, NanoRenderUtils.argb(stack, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 112)));
+        this.colorPicker.setSubBounds(
+            l.pickerSv.x, l.pickerSv.y, l.pickerSv.w, l.pickerSv.h,
+            l.pickerHue.x, l.pickerHue.y, l.pickerHue.w, l.pickerHue.h,
+            l.pickerAlpha.x, l.pickerAlpha.y, l.pickerAlpha.w, l.pickerAlpha.h,
+            true);
     }
 
     private void drawResizeHandle(long vg, MemoryStack stack, Layout l, NanoTheme theme)
@@ -1002,44 +993,6 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         }
     }
 
-    private void updatePickerSv(Layout l, int mouseX, int mouseY)
-    {
-        if (!l.hasPicker || this.activeColor == null)
-        {
-            return;
-        }
-
-        float sat = ((float)mouseX - l.pickerSv.x) / Math.max(1.0F, l.pickerSv.w);
-        float val = 1.0F - (((float)mouseY - l.pickerSv.y) / Math.max(1.0F, l.pickerSv.h));
-        this.pickerSat = UiMotion.clamp01(sat);
-        this.pickerVal = UiMotion.clamp01(val);
-        this.commitPickerColor(false);
-    }
-
-    private void updatePickerHue(Layout l, int mouseY)
-    {
-        if (!l.hasPicker || this.activeColor == null)
-        {
-            return;
-        }
-
-        float hue = ((float)mouseY - l.pickerHue.y) / Math.max(1.0F, l.pickerHue.h);
-        this.pickerHue = UiMotion.clamp01(hue);
-        this.commitPickerColor(false);
-    }
-
-    private void updatePickerAlpha(Layout l, int mouseX)
-    {
-        if (!l.hasPicker || this.activeColor == null)
-        {
-            return;
-        }
-
-        float alpha = ((float)mouseX - l.pickerAlpha.x) / Math.max(1.0F, l.pickerAlpha.w);
-        this.pickerAlpha = UiMotion.clamp01(alpha);
-        this.commitPickerColor(false);
-    }
-
     private void commitPickerColor(boolean force)
     {
         if (this.activeColor == null)
@@ -1047,24 +1000,19 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
             return;
         }
 
-        long now = System.nanoTime();
-
-        if (!force && this.lastPickerCommitNanos != 0L && now - this.lastPickerCommitNanos < 3_500_000L)
-        {
-            return;
-        }
-
-        int[] rgb = hsvToRgb(this.pickerHue, this.pickerSat, this.pickerVal);
-        int a = NanoRenderUtils.clamp255(Math.round(this.pickerAlpha * 255.0F));
+        int rgb = this.colorPicker.getCurrentArgb();
+        int r = (rgb >> 16) & 0xFF;
+        int g = (rgb >> 8) & 0xFF;
+        int b = rgb & 0xFF;
+        int a = this.colorPicker.getAlpha();
         ColorValue current = this.activeColor.get();
 
-        if (!force && current.getR() == rgb[0] && current.getG() == rgb[1] && current.getB() == rgb[2] && current.getA() == a && !current.isRainbow())
+        if (!force && current.getR() == r && current.getG() == g && current.getB() == b && current.getA() == a && !current.isRainbow())
         {
             return;
         }
 
-        this.activeColor.set(new ColorValue(rgb[0], rgb[1], rgb[2], a, false));
-        this.lastPickerCommitNanos = now;
+        this.activeColor.set(new ColorValue(r, g, b, a, false));
     }
 
     private void updatePickerManual(Layout l, int mouseX, int mouseY)
@@ -1127,11 +1075,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
     private void loadPickerFrom(ColorValue color)
     {
-        float[] hsv = rgbToHsv(color.getR(), color.getG(), color.getB());
-        this.pickerHue = hsv[0];
-        this.pickerSat = hsv[1];
-        this.pickerVal = hsv[2];
-        this.pickerAlpha = UiMotion.clamp01((float)color.getA() / 255.0F);
+        this.colorPicker.setColor(color.getR(), color.getG(), color.getB(), color.getA(), color.isRainbow());
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -1793,19 +1737,10 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
             }
         }
 
-        if (this.draggingSv)
+        if (this.colorPicker.isDragging())
         {
-            this.updatePickerSv(l, this.mouseX, this.mouseY);
-        }
-
-        if (this.draggingHue)
-        {
-            this.updatePickerHue(l, this.mouseY);
-        }
-
-        if (this.draggingAlpha)
-        {
-            this.updatePickerAlpha(l, this.mouseX);
+            this.colorPicker.mouseDragged(this.mouseX, this.mouseY);
+            this.commitPickerColor(false);
         }
     }
 
@@ -2077,6 +2012,28 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         }
     }
 
+    private void updateSectionTransition()
+    {
+        if (this.sectionSwitching)
+        {
+            this.sectionFade -= 0.08F;
+
+            if (this.sectionFade <= 0.0F)
+            {
+                this.sectionFade = 0.0F;
+                this.section = this.sectionSwitchTarget;
+                lastSection = this.section;
+                this.settingScroll = this.section == SettingsSection.THEME ? lastThemeScroll : lastAnimationScroll;
+                this.settingScrollVisual = (float)this.settingScroll;
+                this.sectionSwitching = false;
+            }
+        }
+        else if (this.sectionFade < 1.0F)
+        {
+            this.sectionFade = Math.min(1.0F, this.sectionFade + 0.07F);
+        }
+    }
+
     private UiAnimation.Type resolveTransitionType(ClickGuiModule clickGui)
     {
         if (clickGui == null)
@@ -2235,26 +2192,12 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
     private float liveMouseX()
     {
-        if (this.mc == null)
-        {
-            return (float)this.mouseX;
-        }
-
-        int displayWidth = Math.max(1, this.mc.displayWidth);
-        float raw = (float)Mouse.getX() * (float)this.width / (float)displayWidth;
-        return UiMotion.clamp(raw, 0.0F, Math.max(0.0F, (float)this.width - 1.0F));
+        return NanoScreenKit.liveMouseX(this.mc, this.mouseX, this.width);
     }
 
     private float liveMouseY()
     {
-        if (this.mc == null)
-        {
-            return (float)this.mouseY;
-        }
-
-        int displayHeight = Math.max(1, this.mc.displayHeight);
-        float raw = (float)this.height - (float)Mouse.getY() * (float)this.height / (float)displayHeight - 1.0F;
-        return UiMotion.clamp(raw, 0.0F, Math.max(0.0F, (float)this.height - 1.0F));
+        return NanoScreenKit.liveMouseY(this.mc, this.mouseY, this.height);
     }
 
     private String sectionLabel(SettingsSection section)
@@ -2300,7 +2243,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
     private UiAnimProfile resolveWindowAnimationProfile(ClickGuiModule clickGui)
     {
-        boolean interacting = this.window.isInteracting() || this.draggingSettingSlider != null || this.draggingSv || this.draggingHue || this.draggingAlpha;
+        boolean interacting = this.window.isInteracting() || this.draggingSettingSlider != null || this.colorPicker.isDragging();
         return UiAnimProfiles.settingsWindowProfile(clickGui, interacting);
     }
 
@@ -2511,21 +2454,6 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
         float corner = UiMotion.clamp(clickGui.getCornerRadius(), 6.0F, 26.0F);
         return UiMotion.clamp(corner / 12.0F, 0.5F, 2.2F);
-    }
-
-    private int mixArgb(int from, int to, float t)
-    {
-        float k = UiMotion.clamp01(t);
-        int a = this.lerpChannel((from >>> 24) & 255, (to >>> 24) & 255, k);
-        int r = this.lerpChannel((from >>> 16) & 255, (to >>> 16) & 255, k);
-        int g = this.lerpChannel((from >>> 8) & 255, (to >>> 8) & 255, k);
-        int b = this.lerpChannel(from & 255, to & 255, k);
-        return (a & 255) << 24 | (r & 255) << 16 | (g & 255) << 8 | b & 255;
-    }
-
-    private int lerpChannel(int from, int to, float t)
-    {
-        return NanoRenderUtils.clamp255(Math.round((float)from + (float)(to - from) * UiMotion.clamp01(t)));
     }
 
     private static float scaled(float value, float scale)

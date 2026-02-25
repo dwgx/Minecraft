@@ -11,7 +11,8 @@ import org.lwjgl.opengl.ARBMultitexture;
 import org.lwjgl.opengl.ARBShaderObjects;
 import org.lwjgl.opengl.ARBVertexBufferObject;
 import org.lwjgl.opengl.ARBVertexShader;
-import org.lwjgl.opengl.ContextCapabilities;
+import org.lwjgl.opengl.GL;
+import org.lwjgl.opengl.GLCapabilities;
 import org.lwjgl.opengl.EXTBlendFuncSeparate;
 import org.lwjgl.opengl.EXTFramebufferObject;
 import org.lwjgl.opengl.GL11;
@@ -20,7 +21,6 @@ import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
-import org.lwjgl.opengl.GLContext;
 import oshi.SystemInfo;
 import oshi.hardware.Processor;
 
@@ -97,7 +97,7 @@ public class OpenGlHelper
     public static void initializeTextures()
     {
         logText = "";
-        ContextCapabilities contextcapabilities = GLContext.getCapabilities();
+        GLCapabilities contextcapabilities = GL.getCapabilities();
         arbMultitexture = contextcapabilities.GL_ARB_multitexture && !contextcapabilities.OpenGL13;
         arbTextureEnvCombine = contextcapabilities.GL_ARB_texture_env_combine && !contextcapabilities.OpenGL13;
 

@@ -20,7 +20,7 @@ import java.util.Locale;
 import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.ChatComponentText;
-import org.lwjgl.input.Keyboard;
+import client.runtime.lwjgl.GlfwKeyboard;
 
 /**
  * Local client command:
@@ -683,7 +683,7 @@ public final class ClientCommandManager
 
         for (int key = 1; key < 256; ++key)
         {
-            String name = Keyboard.getKeyName(key);
+            String name = GlfwKeyboard.getKeyName(key);
 
             if (name != null && !name.trim().isEmpty())
             {
@@ -703,7 +703,7 @@ public final class ClientCommandManager
 
         for (int key = 1; key < 256; ++key)
         {
-            if (normalize(Keyboard.getKeyName(key)).equals(normalizedKeyName))
+            if (normalize(GlfwKeyboard.getKeyName(key)).equals(normalizedKeyName))
             {
                 return key;
             }

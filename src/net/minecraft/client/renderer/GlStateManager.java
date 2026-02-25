@@ -2,6 +2,9 @@ package net.minecraft.client.renderer;
 
 import java.nio.FloatBuffer;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL15;
+import org.lwjgl.opengl.GL20;
+import org.lwjgl.opengl.GL30;
 
 public class GlStateManager
 {
@@ -25,6 +28,15 @@ public class GlStateManager
     private static GlStateManager.BooleanState rescaleNormalState = new GlStateManager.BooleanState(32826);
     private static GlStateManager.ColorMask colorMaskState = new GlStateManager.ColorMask();
     private static GlStateManager.Color colorState = new GlStateManager.Color();
+
+    // --- Modern GL state tracking (Phase 1 upgrade) ---
+    private static int currentProgram = 0;
+    private static int currentVao = 0;
+    private static int currentArrayBuffer = 0;
+    private static int currentElementBuffer = 0;
+
+    // --- State snapshot for NanoVG frame isolation ---
+    private static GlStateManager.StateSnapshot savedSnapshot;
 
     public static void pushAttrib()
     {
@@ -382,9 +394,21 @@ public class GlStateManager
         rescaleNormalState.setDisabled();
     }
 
+    private static int viewportX;
+    private static int viewportY;
+    private static int viewportW;
+    private static int viewportH;
+
     public static void viewport(int x, int y, int width, int height)
     {
-        GL11.glViewport(x, y, width, height);
+        if (x != viewportX || y != viewportY || width != viewportW || height != viewportH)
+        {
+            viewportX = x;
+            viewportY = y;
+            viewportW = width;
+            viewportH = height;
+            GL11.glViewport(x, y, width, height);
+        }
     }
 
     public static void colorMask(boolean red, boolean green, boolean blue, boolean alpha)
@@ -507,9 +531,242 @@ public class GlStateManager
         colorState.red = colorState.green = colorState.blue = colorState.alpha = -1.0F;
     }
 
+    /**
+     * @deprecated Display lists are a legacy GL pattern. Prefer VBO rendering.
+     *             Still used by RenderGlobal (sky/stars) and ModelRenderer (entity models).
+     */
+    @Deprecated
     public static void callList(int list)
     {
         GL11.glCallList(list);
+    }
+
+    // ========== Modern GL state management (Phase 1) ==========
+
+    /**
+     * Bind a shader program with redundancy elimination.
+     */
+    public static void useProgram(int program)
+    {
+        if (program != currentProgram)
+        {
+            currentProgram = program;
+            GL20.glUseProgram(program);
+        }
+    }
+
+    /**
+     * Bind a VAO with redundancy elimination.
+     */
+    public static void bindVertexArray(int vao)
+    {
+        if (vao != currentVao)
+        {
+            currentVao = vao;
+
+            try
+            {
+                GL30.glBindVertexArray(vao);
+            }
+            catch (Throwable ignored)
+            {
+            }
+        }
+    }
+
+    /**
+     * Bind an array buffer (GL_ARRAY_BUFFER) with redundancy elimination.
+     */
+    public static void bindArrayBuffer(int buffer)
+    {
+        if (buffer != currentArrayBuffer)
+        {
+            currentArrayBuffer = buffer;
+            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, buffer);
+        }
+    }
+
+    /**
+     * Bind an element buffer (GL_ELEMENT_ARRAY_BUFFER) with redundancy elimination.
+     */
+    public static void bindElementBuffer(int buffer)
+    {
+        if (buffer != currentElementBuffer)
+        {
+            currentElementBuffer = buffer;
+            GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, buffer);
+        }
+    }
+
+    /**
+     * Invalidate tracked program/VAO/buffer state.
+     * Call after external code (NanoVG) may have changed these bindings.
+     */
+    public static void invalidateModernState()
+    {
+        currentProgram = -1;
+        currentVao = -1;
+        currentArrayBuffer = -1;
+        currentElementBuffer = -1;
+    }
+
+    // ========== Stencil state (deobfuscated) ==========
+
+    public static void stencilFunc(int func, int ref, int mask)
+    {
+        GlStateManager.StencilFunc sf = stencilState.stencilFunc;
+
+        if (func != sf.func || ref != sf.ref || mask != sf.mask)
+        {
+            sf.func = func;
+            sf.ref = ref;
+            sf.mask = mask;
+            GL11.glStencilFunc(func, ref, mask);
+        }
+    }
+
+    public static void stencilOp(int sfail, int dpfail, int dppass)
+    {
+        if (sfail != stencilState.sfail || dpfail != stencilState.dpfail || dppass != stencilState.dppass)
+        {
+            stencilState.sfail = sfail;
+            stencilState.dpfail = dpfail;
+            stencilState.dppass = dppass;
+            GL11.glStencilOp(sfail, dpfail, dppass);
+        }
+    }
+
+    public static void stencilMask(int mask)
+    {
+        if (mask != stencilState.writeMask)
+        {
+            stencilState.writeMask = mask;
+            GL11.glStencilMask(mask);
+        }
+    }
+
+    // ========== State snapshot / restore (for NanoVG isolation) ==========
+
+    /**
+     * Save current GL state tracked by GlStateManager.
+     * Used before NanoVG frame to preserve Minecraft's rendering state.
+     */
+    public static void saveState()
+    {
+        savedSnapshot = new StateSnapshot(
+            alphaState.alphaTest.currentState,
+            alphaState.func,
+            alphaState.ref,
+            blendState.blend.currentState,
+            blendState.srcFactor,
+            blendState.dstFactor,
+            blendState.srcFactorAlpha,
+            blendState.dstFactorAlpha,
+            depthState.depthTest.currentState,
+            depthState.maskEnabled,
+            depthState.depthFunc,
+            cullState.cullFace.currentState,
+            cullState.mode,
+            colorState.red,
+            colorState.green,
+            colorState.blue,
+            colorState.alpha,
+            activeTextureUnit,
+            textureState[0].textureName,
+            textureState[0].texture2DState.currentState,
+            currentProgram,
+            currentVao,
+            currentArrayBuffer,
+            currentElementBuffer
+        );
+    }
+
+    /**
+     * Restore GL state from the last {@link #saveState()} call.
+     * Used after NanoVG frame to restore Minecraft's rendering state.
+     */
+    public static void restoreState()
+    {
+        if (savedSnapshot == null)
+        {
+            return;
+        }
+
+        StateSnapshot s = savedSnapshot;
+        savedSnapshot = null;
+
+        // Force-reset tracked state so the next set call actually issues GL commands.
+        // NanoVG may have changed real GL state without going through GlStateManager.
+
+        // Program / VAO / buffers
+        currentProgram = -1;
+        useProgram(s.program);
+        currentVao = -1;
+        bindVertexArray(s.vao);
+        currentArrayBuffer = -1;
+        bindArrayBuffer(s.arrayBuffer);
+        currentElementBuffer = -1;
+        bindElementBuffer(s.elementBuffer);
+
+        // Texture unit 0
+        if (activeTextureUnit != s.activeTexUnit)
+        {
+            activeTextureUnit = -1;
+            setActiveTexture(s.activeTexUnit + OpenGlHelper.defaultTexUnit);
+        }
+
+        textureState[0].textureName = -1;
+        bindTexture(s.texture0Name);
+        textureState[0].texture2DState.currentState = !s.texture2DEnabled;
+        textureState[0].texture2DState.setState(s.texture2DEnabled);
+
+        // Alpha
+        alphaState.alphaTest.currentState = !s.alphaEnabled;
+        alphaState.alphaTest.setState(s.alphaEnabled);
+        alphaState.func = -1;
+        alphaState.ref = -1.0F;
+        alphaFunc(s.alphaFunc, s.alphaRef);
+
+        // Blend
+        blendState.blend.currentState = !s.blendEnabled;
+        blendState.blend.setState(s.blendEnabled);
+        blendState.srcFactor = -1;
+        blendState.dstFactor = -1;
+        blendState.srcFactorAlpha = -1;
+        blendState.dstFactorAlpha = -1;
+        tryBlendFuncSeparate(s.blendSrc, s.blendDst, s.blendSrcAlpha, s.blendDstAlpha);
+
+        // Depth
+        depthState.depthTest.currentState = !s.depthEnabled;
+        depthState.depthTest.setState(s.depthEnabled);
+        depthState.maskEnabled = !s.depthMask;
+        depthMask(s.depthMask);
+        depthState.depthFunc = -1;
+        depthFunc(s.depthFunc);
+
+        // Cull
+        cullState.cullFace.currentState = !s.cullEnabled;
+        cullState.cullFace.setState(s.cullEnabled);
+        cullState.mode = -1;
+        cullFace(s.cullMode);
+
+        // Color
+        colorState.red = -1.0F;
+        color(s.colorR, s.colorG, s.colorB, s.colorA);
+    }
+
+    /**
+     * Drain any accumulated GL errors to prevent stale error state.
+     */
+    public static void drainGlErrors()
+    {
+        for (int i = 0; i < 64; ++i)
+        {
+            if (GL11.glGetError() == GL11.GL_NO_ERROR)
+            {
+                break;
+            }
+        }
     }
 
     static
@@ -733,33 +990,33 @@ public class GlStateManager
 
     static class StencilFunc
     {
-        public int field_179081_a;
-        public int field_179079_b;
-        public int field_179080_c;
+        public int func;
+        public int ref;
+        public int mask;
 
         private StencilFunc()
         {
-            this.field_179081_a = 519;
-            this.field_179079_b = 0;
-            this.field_179080_c = -1;
+            this.func = 519;
+            this.ref = 0;
+            this.mask = -1;
         }
     }
 
     static class StencilState
     {
-        public GlStateManager.StencilFunc field_179078_a;
-        public int field_179076_b;
-        public int field_179077_c;
-        public int field_179074_d;
-        public int field_179075_e;
+        public GlStateManager.StencilFunc stencilFunc;
+        public int writeMask;
+        public int sfail;
+        public int dpfail;
+        public int dppass;
 
         private StencilState()
         {
-            this.field_179078_a = new GlStateManager.StencilFunc();
-            this.field_179076_b = -1;
-            this.field_179077_c = 7680;
-            this.field_179074_d = 7680;
-            this.field_179075_e = 7680;
+            this.stencilFunc = new GlStateManager.StencilFunc();
+            this.writeMask = -1;
+            this.sfail = 7680;
+            this.dpfail = 7680;
+            this.dppass = 7680;
         }
     }
 
@@ -809,6 +1066,72 @@ public class GlStateManager
         {
             this.texture2DState = new GlStateManager.BooleanState(3553);
             this.textureName = 0;
+        }
+    }
+
+    /**
+     * Immutable snapshot of tracked GL state for save/restore cycles.
+     */
+    static class StateSnapshot
+    {
+        final boolean alphaEnabled;
+        final int alphaFunc;
+        final float alphaRef;
+        final boolean blendEnabled;
+        final int blendSrc;
+        final int blendDst;
+        final int blendSrcAlpha;
+        final int blendDstAlpha;
+        final boolean depthEnabled;
+        final boolean depthMask;
+        final int depthFunc;
+        final boolean cullEnabled;
+        final int cullMode;
+        final float colorR;
+        final float colorG;
+        final float colorB;
+        final float colorA;
+        final int activeTexUnit;
+        final int texture0Name;
+        final boolean texture2DEnabled;
+        final int program;
+        final int vao;
+        final int arrayBuffer;
+        final int elementBuffer;
+
+        StateSnapshot(
+            boolean alphaEnabled, int alphaFunc, float alphaRef,
+            boolean blendEnabled, int blendSrc, int blendDst, int blendSrcAlpha, int blendDstAlpha,
+            boolean depthEnabled, boolean depthMask, int depthFunc,
+            boolean cullEnabled, int cullMode,
+            float colorR, float colorG, float colorB, float colorA,
+            int activeTexUnit, int texture0Name, boolean texture2DEnabled,
+            int program, int vao, int arrayBuffer, int elementBuffer)
+        {
+            this.alphaEnabled = alphaEnabled;
+            this.alphaFunc = alphaFunc;
+            this.alphaRef = alphaRef;
+            this.blendEnabled = blendEnabled;
+            this.blendSrc = blendSrc;
+            this.blendDst = blendDst;
+            this.blendSrcAlpha = blendSrcAlpha;
+            this.blendDstAlpha = blendDstAlpha;
+            this.depthEnabled = depthEnabled;
+            this.depthMask = depthMask;
+            this.depthFunc = depthFunc;
+            this.cullEnabled = cullEnabled;
+            this.cullMode = cullMode;
+            this.colorR = colorR;
+            this.colorG = colorG;
+            this.colorB = colorB;
+            this.colorA = colorA;
+            this.activeTexUnit = activeTexUnit;
+            this.texture0Name = texture0Name;
+            this.texture2DEnabled = texture2DEnabled;
+            this.program = program;
+            this.vao = vao;
+            this.arrayBuffer = arrayBuffer;
+            this.elementBuffer = elementBuffer;
         }
     }
 }

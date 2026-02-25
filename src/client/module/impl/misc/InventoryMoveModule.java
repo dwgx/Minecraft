@@ -7,7 +7,7 @@ import client.setting.SettingGroup;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiChat;
 import net.minecraft.client.settings.KeyBinding;
-import org.lwjgl.input.Keyboard;
+import client.runtime.lwjgl.GlfwKeyboard;
 
 /**
  * Allows movement keys while inventory/container screens are open.
@@ -111,7 +111,7 @@ public final class InventoryMoveModule extends Module
 
     private boolean isPhysicalKeyDown(int keyCode)
     {
-        return keyCode > 0 && keyCode < 256 && Keyboard.isKeyDown(keyCode);
+        return keyCode > 0 && keyCode < 256 && GlfwKeyboard.isKeyDown(keyCode);
     }
 }
 

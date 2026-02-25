@@ -1,7 +1,7 @@
 package client.setting;
 
 import java.util.Locale;
-import org.lwjgl.input.Keyboard;
+import client.runtime.lwjgl.GlfwKeyboard;
 
 public class KeybindSetting extends Setting<Integer>
 {
@@ -59,7 +59,7 @@ public class KeybindSetting extends Setting<Integer>
             return "NONE";
         }
 
-        String keyName = Keyboard.getKeyName(keyCode);
+        String keyName = GlfwKeyboard.getKeyName(keyCode);
         return keyName == null || keyName.isEmpty() ? String.valueOf(keyCode) : keyName.toUpperCase(Locale.ROOT);
     }
 }

@@ -29,8 +29,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.ResourceLocation;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
+import client.runtime.lwjgl.GlfwKeyboard;
+import client.runtime.lwjgl.GlfwMouse;
 
 public class GuiContainerCreative extends InventoryEffectRenderer
 {
@@ -266,7 +266,7 @@ public class GuiContainerCreative extends InventoryEffectRenderer
         {
             super.initGui();
             this.buttonList.clear();
-            Keyboard.enableRepeatEvents(true);
+            GlfwKeyboard.enableRepeatEvents(true);
             this.searchField = new GuiTextField(0, this.fontRendererObj, this.guiLeft + 82, this.guiTop + 6, 89, this.fontRendererObj.FONT_HEIGHT);
             this.searchField.setMaxStringLength(15);
             this.searchField.setEnableBackgroundDrawing(false);
@@ -296,7 +296,7 @@ public class GuiContainerCreative extends InventoryEffectRenderer
             this.mc.thePlayer.inventoryContainer.removeCraftingFromCrafters(this.field_147059_E);
         }
 
-        Keyboard.enableRepeatEvents(false);
+        GlfwKeyboard.enableRepeatEvents(false);
     }
 
     /**
@@ -546,7 +546,7 @@ public class GuiContainerCreative extends InventoryEffectRenderer
     public void handleMouseInput() throws IOException
     {
         super.handleMouseInput();
-        int i = Mouse.getEventDWheel();
+        int i = GlfwMouse.getEventDWheel();
 
         if (i != 0 && this.needsScrollBars())
         {
@@ -573,7 +573,7 @@ public class GuiContainerCreative extends InventoryEffectRenderer
      */
     public void drawScreen(int mouseX, int mouseY, float partialTicks)
     {
-        boolean flag = Mouse.isButtonDown(0);
+        boolean flag = GlfwMouse.isButtonDown(0);
         int i = this.guiLeft;
         int j = this.guiTop;
         int k = i + 175;

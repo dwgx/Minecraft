@@ -6,6 +6,7 @@ import client.module.impl.client.ClickGuiModule;
 import client.render.RenderContext2D;
 import client.setting.StringSetting;
 import client.ui.NanoRenderableScreen;
+import client.ui.template.NanoScreenKit;
 import client.ui.template.NanoSliderController;
 import client.ui.template.NanoTextInput;
 import client.ui.template.UiAnimProfile;
@@ -21,8 +22,8 @@ import dwgx.nano.NanoUi;
 import java.io.IOException;
 import java.util.List;
 import net.minecraft.client.gui.GuiScreen;
-import org.lwjgl.input.Mouse;
-import org.lwjgl.opengl.Display;
+import client.runtime.lwjgl.GlfwMouse;
+import client.runtime.lwjgl.GlfwWindow;
 import org.lwjgl.system.MemoryStack;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
@@ -420,7 +421,7 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
     public void handleMouseInput() throws IOException
     {
         super.handleMouseInput();
-        int wheel = Mouse.getEventDWheel();
+        int wheel = GlfwMouse.getEventDWheel();
 
         if (wheel == 0)
         {
@@ -460,7 +461,7 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
     {
         super.updateScreen();
 
-        if (!Display.isActive())
+        if (!GlfwWindow.isActive())
         {
             this.closeConfigPanel();
 
@@ -585,26 +586,7 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         NanoUi.drawLeftText(vg, stack, bold, track.x, track.y - scaled(8.0F, scale), scaled(11.5F, scale), theme.textArgb(), label);
         this.drawSliderValueInput(vg, stack, regular, theme, valueRect, track, sliderKey, value, scale, hovered);
 
-        NanoUi.drawSurface(vg, stack, track.x, track.y, track.w, track.h, theme.controlRadius(), theme.controlArgb(), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 98));
-        float rawHandleX = track.x + track.w * knobRatio;
-        float knobSize = 8.0F + 2.0F * focus + 1.8F * glowRatio + (dragging ? 1.3F : 0.0F);
-        float handleX = UiMotion.clamp(rawHandleX, track.x + knobSize * 0.5F, track.x + track.w - knobSize * 0.5F);
-        float knobX = handleX - knobSize * 0.5F;
-        float knobY = track.y + (track.h - knobSize) * 0.5F;
-        float trackInnerX = track.x + 1.0F;
-        float trackInnerW = Math.max(0.0F, track.w - 2.0F);
-        float knobLeadX = handleX - knobSize * 0.5F;
-        float fillTargetEnd = trackInnerX + trackInnerW * fillRatio;
-        float fillEnd = Math.min(fillTargetEnd, knobLeadX);
-        float fillW = Math.max(0.0F, fillEnd - trackInnerX);
-        NanoUi.drawSurface(vg, stack, trackInnerX, track.y + 1.0F, fillW, Math.max(0.0F, track.h - 2.0F), Math.max(2.0F, theme.controlRadius() - 1.0F), this.mixArgb(theme.controlActiveArgb(), theme.accentArgb(), 0.74F), 0);
-        float lineGlowTargetEnd = trackInnerX + trackInnerW * displayRatio;
-        float lineGlowEnd = Math.min(lineGlowTargetEnd, knobLeadX);
-        float lineGlowW = Math.max(0.0F, lineGlowEnd - trackInnerX);
-        NanoUi.drawSurface(vg, stack, trackInnerX, track.y + 1.0F, lineGlowW, Math.max(0.0F, track.h - 2.0F), Math.max(2.0F, theme.controlRadius() - 1.5F), NanoRenderUtils.withAlpha(theme.accentSoftArgb(), 34 + Math.round(glowRatio * 58.0F)), 0);
-        float glow = knobSize + 1.8F * focus + 2.2F * glowRatio;
-        NanoUi.drawSurface(vg, stack, handleX - glow * 0.5F, track.y + (track.h - glow) * 0.5F, glow, glow, glow * 0.5F, NanoRenderUtils.withAlpha(0xFFF5F9FF, 46 + Math.round((focus * 0.48F + glowRatio * 0.52F) * 74.0F)), 0);
-        NanoUi.drawSurface(vg, stack, knobX, knobY, knobSize, knobSize, knobSize * 0.5F, this.mixArgb(theme.accentArgb(), 0xFFF8FBFF, 0.55F), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 110));
+        NanoScreenKit.drawSliderTrack(vg, stack, theme, track.x, track.y, track.w, track.h, scale, fillRatio, knobRatio, displayRatio, focus, glowRatio, dragging);
     }
 
     private void drawSliderValueInput(long vg, MemoryStack stack, int font, NanoTheme theme, Rect valueRect, Rect track, String sliderKey, float value, float scale, boolean hoveredTrack)
@@ -628,8 +610,8 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         }
 
         float focus = UiAnimationBus.animateControl(animKey + ".idle.focus", fieldHovered ? 1.0F : 0.0F, animProfile);
-        int fill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.38F + focus * 0.32F));
-        int border = this.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 92), NanoRenderUtils.withAlpha(theme.accentArgb(), 142), UiMotion.clamp01(focus * 0.72F));
+        int fill = NanoScreenKit.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.38F + focus * 0.32F));
+        int border = NanoScreenKit.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 92), NanoRenderUtils.withAlpha(theme.accentArgb(), 142), UiMotion.clamp01(focus * 0.72F));
         float radius = Math.min(valueRect.h * 0.5F, Math.max(2.0F, theme.controlRadius()));
         NanoUi.drawSurface(vg, stack, valueRect.x, valueRect.y, valueRect.w, valueRect.h, radius, fill, border);
         NanoUi.drawRightText(vg, stack, font, valueRect.x2() - scaled(4.0F, scale), valueRect.y + valueRect.h * 0.5F + scaled(0.45F, scale), scaled(10.2F, scale), theme.textMutedArgb(), formatSliderValue(sliderKey, value));
@@ -885,8 +867,8 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
 
         int displayWidth = Math.max(1, this.mc.displayWidth);
         int displayHeight = Math.max(1, this.mc.displayHeight);
-        float rawX = (float)Mouse.getX() * (float)this.width / (float)displayWidth;
-        float rawY = (float)this.height - (float)Mouse.getY() * (float)this.height / (float)displayHeight - 1.0F;
+        float rawX = (float)GlfwMouse.getX() * (float)this.width / (float)displayWidth;
+        float rawY = (float)this.height - (float)GlfwMouse.getY() * (float)this.height / (float)displayHeight - 1.0F;
         this.mouseX = Math.round(UiMotion.clamp(rawX, 0.0F, Math.max(0.0F, (float)this.width - 1.0F)));
         this.mouseY = Math.round(UiMotion.clamp(rawY, 0.0F, Math.max(0.0F, (float)this.height - 1.0F)));
     }
@@ -932,21 +914,6 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         }
 
         return NanoThemes.create(NanoPalette.COBALT, 220, 56, 12.0F, null);
-    }
-
-    private int mixArgb(int from, int to, float t)
-    {
-        float k = UiMotion.clamp01(t);
-        int a = this.lerpChannel((from >>> 24) & 255, (to >>> 24) & 255, k);
-        int r = this.lerpChannel((from >>> 16) & 255, (to >>> 16) & 255, k);
-        int g = this.lerpChannel((from >>> 8) & 255, (to >>> 8) & 255, k);
-        int b = this.lerpChannel(from & 255, to & 255, k);
-        return (a & 255) << 24 | (r & 255) << 16 | (g & 255) << 8 | b & 255;
-    }
-
-    private int lerpChannel(int from, int to, float t)
-    {
-        return NanoRenderUtils.clamp255(Math.round((float)from + (float)(to - from) * UiMotion.clamp01(t)));
     }
 
     private static float scaled(float value, float scale)

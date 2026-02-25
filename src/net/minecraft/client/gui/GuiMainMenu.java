@@ -49,10 +49,10 @@ import net.minecraft.world.storage.WorldInfo;
 import org.apache.commons.io.Charsets;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.lwjgl.input.Mouse;
+import client.runtime.lwjgl.GlfwMouse;
+import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GLContext;
-import org.lwjgl.util.glu.Project;
+import client.runtime.lwjgl.GluMath;
 
 public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback, NanoRenderableScreen
 {
@@ -176,7 +176,7 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback, NanoRend
         this.openGLWarning2 = field_96138_a;
         this.openGLWarningLink = "";
 
-        if (!GLContext.getCapabilities().OpenGL20 && !OpenGlHelper.areShadersSupported())
+        if (!GL.getCapabilities().OpenGL20 && !OpenGlHelper.areShadersSupported())
         {
             this.openGLWarning1 = OPENGL_WARNING_LINE1;
             this.openGLWarning2 = OPENGL_WARNING_LINE2;
@@ -449,7 +449,7 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback, NanoRend
         GlStateManager.matrixMode(5889);
         GlStateManager.pushMatrix();
         GlStateManager.loadIdentity();
-        Project.gluPerspective(120.0F, 1.0F, 0.05F, 10.0F);
+        GluMath.gluPerspective(120.0F, 1.0F, 0.05F, 10.0F);
         GlStateManager.matrixMode(5888);
         GlStateManager.pushMatrix();
         GlStateManager.loadIdentity();
@@ -794,7 +794,7 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback, NanoRend
     public void handleMouseInput() throws IOException
     {
         super.handleMouseInput();
-        MenuFxController.handleWheel(this.menuFxState, this.menuFxLayout(), Mouse.getEventDWheel(), this.nanoMouseX, this.nanoMouseY);
+        MenuFxController.handleWheel(this.menuFxState, this.menuFxLayout(), GlfwMouse.getEventDWheel(), this.nanoMouseX, this.nanoMouseY);
     }
 
     /**
@@ -851,6 +851,7 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback, NanoRend
         if (result.toggleGameOnly())
         {
             UiExtensionManager.setMainMenuGameOnlyEnabled(!UiExtensionManager.isMainMenuGameOnlyEnabled());
+            this.persistBackgroundState();
         }
 
         return true;
@@ -866,6 +867,17 @@ public class GuiMainMenu extends GuiScreen implements GuiYesNoCallback, NanoRend
         }
 
         this.syncBackgroundMode(true);
+        this.persistBackgroundState();
+    }
+
+    private void persistBackgroundState()
+    {
+        client.config.ConfigManager config = ClientBootstrap.instance().getConfigManager();
+
+        if (config != null)
+        {
+            config.markClientDirty();
+        }
     }
 
     private void syncBackgroundMode(boolean force)

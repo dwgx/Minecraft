@@ -19,7 +19,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.world.biome.BiomeGenBase;
 import net.minecraft.world.gen.FlatGeneratorInfo;
 import net.minecraft.world.gen.FlatLayerInfo;
-import org.lwjgl.input.Keyboard;
+import client.runtime.lwjgl.GlfwKeyboard;
 
 public class GuiFlatPresets extends GuiScreen
 {
@@ -46,7 +46,7 @@ public class GuiFlatPresets extends GuiScreen
     public void initGui()
     {
         this.buttonList.clear();
-        Keyboard.enableRepeatEvents(true);
+        GlfwKeyboard.enableRepeatEvents(true);
         this.presetsTitle = I18n.format("createWorld.customize.presets.title", new Object[0]);
         this.presetsShare = I18n.format("createWorld.customize.presets.share", new Object[0]);
         this.field_146436_r = I18n.format("createWorld.customize.presets.list", new Object[0]);
@@ -73,7 +73,7 @@ public class GuiFlatPresets extends GuiScreen
      */
     public void onGuiClosed()
     {
-        Keyboard.enableRepeatEvents(false);
+        GlfwKeyboard.enableRepeatEvents(false);
     }
 
     /**

@@ -10,7 +10,7 @@ import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.BlockPos;
-import org.lwjgl.input.Keyboard;
+import client.runtime.lwjgl.GlfwKeyboard;
 
 public class EagleModule extends Module
 {
@@ -156,6 +156,6 @@ public class EagleModule extends Module
 
     private boolean isPhysicalKeyDown(int keyCode)
     {
-        return keyCode > 0 && keyCode < 256 && Keyboard.isKeyDown(keyCode);
+        return keyCode > 0 && keyCode < 256 && GlfwKeyboard.isKeyDown(keyCode);
     }
 }

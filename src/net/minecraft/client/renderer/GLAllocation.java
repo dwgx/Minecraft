@@ -5,7 +5,7 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.util.glu.GLU;
+import client.runtime.lwjgl.GluMath;
 
 public class GLAllocation
 {
@@ -24,7 +24,7 @@ public class GLAllocation
 
             if (j != 0)
             {
-                s = GLU.gluErrorString(j);
+                s = GluMath.gluErrorString(j);
             }
 
             throw new IllegalStateException("glGenLists returned an ID of 0 for a count of " + range + ", GL error (" + j + "): " + s);

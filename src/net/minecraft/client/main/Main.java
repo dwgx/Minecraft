@@ -17,6 +17,7 @@ import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Session;
+import client.runtime.lwjgl.DisplayDefaults;
 
 public class Main
 {
@@ -42,8 +43,8 @@ public class Main
         OptionSpec<String> optionspec10 = optionparser.accepts("uuid").withRequiredArg();
         OptionSpec<String> optionspec11 = optionparser.accepts("accessToken").withRequiredArg().required();
         OptionSpec<String> optionspec12 = optionparser.accepts("version").withRequiredArg().required();
-        OptionSpec<Integer> optionspec13 = optionparser.accepts("width").withRequiredArg().ofType(Integer.class).defaultsTo(854);
-        OptionSpec<Integer> optionspec14 = optionparser.accepts("height").withRequiredArg().ofType(Integer.class).defaultsTo(480);
+        OptionSpec<Integer> optionspec13 = optionparser.accepts("width").withRequiredArg().ofType(Integer.class).defaultsTo(DisplayDefaults.WIDTH);
+        OptionSpec<Integer> optionspec14 = optionparser.accepts("height").withRequiredArg().ofType(Integer.class).defaultsTo(DisplayDefaults.HEIGHT);
         OptionSpec<String> optionspec15 = optionparser.accepts("userProperties").withRequiredArg().defaultsTo("{}");
         OptionSpec<String> optionspec16 = optionparser.accepts("profileProperties").withRequiredArg().defaultsTo("{}");
         OptionSpec<String> optionspec17 = optionparser.accepts("assetIndex").withRequiredArg();

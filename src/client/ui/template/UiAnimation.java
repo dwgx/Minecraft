@@ -77,6 +77,10 @@ public final class UiAnimation
         return UiMotion.snapIfClose(next, target, epsilon);
     }
 
+    /**
+     * @deprecated Spring animation is unused. Retained for potential future use.
+     */
+    @Deprecated
     public static SpringStep stepSpring(float current, float velocity, float target, float response, float deltaSeconds, float smooth)
     {
         float dt = UiMotion.clampDeltaSeconds(deltaSeconds);

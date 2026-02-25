@@ -179,33 +179,31 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.lwjgl.LWJGLException;
-import org.lwjgl.Sys;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
-import org.lwjgl.opengl.ContextCapabilities;
-import org.lwjgl.opengl.Display;
-import org.lwjgl.opengl.DisplayMode;
+import client.runtime.lwjgl.GlfwInitException;
+import org.lwjgl.glfw.GLFW;
+import client.runtime.lwjgl.GlfwKeyboard;
+import client.runtime.lwjgl.GlfwMouse;
+import client.runtime.lwjgl.GlfwWindow;
+import client.runtime.lwjgl.GlfwWindowMode;
+import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
-import org.lwjgl.opengl.GLContext;
-import org.lwjgl.opengl.OpenGLException;
-import org.lwjgl.opengl.PixelFormat;
-import org.lwjgl.util.glu.GLU;
+import org.lwjgl.opengl.GLCapabilities;
+import client.runtime.lwjgl.GluMath;
 
 @SuppressWarnings({"deprecation", "removal", "rawtypes", "unchecked", "FieldMayBeFinal", "FieldCanBeLocal", "unused"})
 public class Minecraft implements IThreadListener, IPlayerUsage
 {
     private static final Logger logger = LogManager.getLogger();
     private static final boolean RESIZE_DEBUG = Boolean.getBoolean("dwgx.render.resizeDebug");
-    private static final int NANO_FRAME_FAILURE_DISABLE_THRESHOLD = 3;
+    private static final int NANO_FRAME_FAILURE_DISABLE_THRESHOLD = Integer.getInteger("dwgx.nano.failureThreshold", 3).intValue();
     private static final long RESIZE_PRESENT_BOOST_MS = 500L;
     private static final ResourceLocation locationMojangPng = new ResourceLocation("textures/gui/title/mojang.png");
     public static final boolean isRunningOnMac = Util.getOSType() == Util.EnumOS.OSX;
 
     /** A 10MiB preallocation to ensure the heap is reasonably sized. */
     public static byte[] memoryReserve = new byte[10485760];
-    private static final List<DisplayMode> macDisplayModes = Lists.newArrayList(new DisplayMode(2560, 1600), new DisplayMode(2880, 1800));
+    private static final List<GlfwWindowMode> macDisplayModes = Lists.newArrayList(new GlfwWindowMode(2560, 1600), new GlfwWindowMode(2880, 1800));
     private final File fileResourcepacks;
     private final PropertyMap twitchDetails;
 
@@ -491,7 +489,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     /**
      * Starts the game: initializes the canvas, the title, the settings, etcetera.
      */
-    private void startGame() throws LWJGLException, IOException
+    private void startGame() throws GlfwInitException, IOException
     {
         this.gameSettings = new GameSettings(this, this.mcDataDir);
         this.disableYield = Boolean.getBoolean("lwjgl3.disableYield");
@@ -514,7 +512,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             this.displayHeight = this.gameSettings.overrideHeight;
         }
 
-        logger.info("LWJGL Version: " + Sys.getVersion());
+        logger.info("LWJGL Version: " + org.lwjgl.Version.getVersion());
         this.setWindowIcon();
         this.setInitialDisplayMode();
         this.createDisplay();
@@ -522,6 +520,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         OpenGlHelper.initializeTextures();
         this.framebufferMc = new Framebuffer(this.displayWidth, this.displayHeight, true);
         this.framebufferMc.setFramebufferColor(0.0F, 0.0F, 0.0F, 0.0F);
+        this.registerResizeRefreshHandler();
         this.registerMetadataSerializers();
         this.mcResourcePackRepository = new ResourcePackRepository(this.fileResourcepacks, new File(this.mcDataDir, "server-resource-packs"), this.mcDefaultResourcePack, this.metadataSerializer_, this.gameSettings);
         this.mcResourceManager = new SimpleReloadableResourceManager(this.metadataSerializer_);
@@ -621,9 +620,9 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
         try
         {
-            Display.setVSyncEnabled(this.gameSettings.enableVsync);
+            GlfwWindow.setVSyncEnabled(this.gameSettings.enableVsync);
         }
-        catch (OpenGLException var2)
+        catch (RuntimeException var2)
         {
             this.gameSettings.enableVsync = false;
             this.gameSettings.saveOptions();
@@ -654,16 +653,16 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         }
     }
 
-    private void createDisplay() throws LWJGLException
+    private void createDisplay() throws GlfwInitException
     {
-        Display.setResizable(true);
-        Display.setTitle("Minecraft 1.8.9");
+        GlfwWindow.setResizable(true);
+        GlfwWindow.setTitle("Minecraft 1.8.9");
 
         try
         {
-            Display.create((new PixelFormat()).withDepthBits(24));
+            GlfwWindow.create();
         }
-        catch (LWJGLException lwjglexception)
+        catch (GlfwInitException lwjglexception)
         {
             logger.error("Couldn\'t set pixel format", (Throwable)lwjglexception);
 
@@ -681,22 +680,22 @@ public class Minecraft implements IThreadListener, IPlayerUsage
                 this.updateDisplayMode();
             }
 
-            Display.create();
+            GlfwWindow.create();
         }
     }
 
-    private void setInitialDisplayMode() throws LWJGLException
+    private void setInitialDisplayMode() throws GlfwInitException
     {
         if (this.fullscreen)
         {
-            Display.setFullscreen(true);
-            DisplayMode displaymode = Display.getDisplayMode();
+            GlfwWindow.setFullscreen(true);
+            GlfwWindowMode displaymode = GlfwWindow.getDisplayMode();
             this.displayWidth = Math.max(1, displaymode.getWidth());
             this.displayHeight = Math.max(1, displaymode.getHeight());
         }
         else
         {
-            Display.setDisplayMode(new DisplayMode(this.displayWidth, this.displayHeight));
+            GlfwWindow.setDisplayMode(new GlfwWindowMode(this.displayWidth, this.displayHeight));
         }
     }
 
@@ -716,7 +715,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
                 if (inputstream != null && inputstream1 != null)
                 {
-                    Display.setIcon(new ByteBuffer[] {this.readImageToBuffer(inputstream), this.readImageToBuffer(inputstream1)});
+                    GlfwWindow.setIcon(new ByteBuffer[] {this.readImageToBuffer(inputstream), this.readImageToBuffer(inputstream1)});
                 }
             }
             catch (IOException ioexception)
@@ -871,21 +870,21 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         return bytebuffer;
     }
 
-    private void updateDisplayMode() throws LWJGLException
+    private void updateDisplayMode() throws GlfwInitException
     {
-        Set<DisplayMode> set = Sets.<DisplayMode>newHashSet();
-        Collections.addAll(set, Display.getAvailableDisplayModes());
-        DisplayMode displaymode = Display.getDesktopDisplayMode();
+        Set<GlfwWindowMode> set = Sets.<GlfwWindowMode>newHashSet();
+        Collections.addAll(set, GlfwWindow.getAvailableDisplayModes());
+        GlfwWindowMode displaymode = GlfwWindow.getDesktopDisplayMode();
 
         if (!set.contains(displaymode) && Util.getOSType() == Util.EnumOS.OSX)
         {
             label53:
 
-            for (DisplayMode displaymode1 : macDisplayModes)
+            for (GlfwWindowMode displaymode1 : macDisplayModes)
             {
                 boolean flag = true;
 
-                for (DisplayMode displaymode2 : set)
+                for (GlfwWindowMode displaymode2 : set)
                 {
                     if (displaymode2.getBitsPerPixel() == 32 && displaymode2.getWidth() == displaymode1.getWidth() && displaymode2.getHeight() == displaymode1.getHeight())
                     {
@@ -897,7 +896,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
                 if (!flag)
                 {
                     Iterator iterator = set.iterator();
-                    DisplayMode displaymode3;
+                    GlfwWindowMode displaymode3;
 
                     while (true)
                     {
@@ -906,7 +905,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
                             continue label53;
                         }
 
-                        displaymode3 = (DisplayMode)iterator.next();
+                        displaymode3 = (GlfwWindowMode)iterator.next();
 
                         if (displaymode3.getBitsPerPixel() == 32 && displaymode3.getWidth() == displaymode1.getWidth() / 2 && displaymode3.getHeight() == displaymode1.getHeight() / 2)
                         {
@@ -919,12 +918,12 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             }
         }
 
-        Display.setDisplayMode(displaymode);
+        GlfwWindow.setDisplayMode(displaymode);
         this.displayWidth = displaymode.getWidth();
         this.displayHeight = displaymode.getHeight();
     }
 
-    private void drawSplashScreen(TextureManager textureManagerInstance) throws LWJGLException
+    private void drawSplashScreen(TextureManager textureManagerInstance) throws GlfwInitException
     {
         ScaledResolution scaledresolution = new ScaledResolution(this);
         int i = scaledresolution.getScaleFactor();
@@ -1067,7 +1066,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
             if (i != 0)
             {
-                String s = GLU.gluErrorString(i);
+                String s = GluMath.gluErrorString(i);
                 logger.error("########## GL ERROR ##########");
                 logger.error("@ " + message);
                 logger.error(i + ": " + s);
@@ -1101,7 +1100,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         }
         finally
         {
-            Display.destroy();
+            GlfwWindow.destroy();
 
             if (!this.hasCrashed)
             {
@@ -1122,14 +1121,14 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         this.windowResizedThisFrame = false;
         UiAnimationBus.beginFrame();
 
-        Display.processMessages();
+        GlfwWindow.processMessages();
         this.checkWindowResize();
         this.markResizePresentBoostIfRequested("frame-start");
-        boolean displayActive = Display.isActive();
+        boolean displayActive = GlfwWindow.isActive();
 
         if (displayActive && !this.displayActiveLastFrame)
         {
-            Display.syncDimensions();
+            GlfwWindow.syncDimensions();
             this.checkWindowResize();
             this.windowResizedThisFrame = true;
             this.resizePresentBoostUntilMs = Math.max(this.resizePresentBoostUntilMs, System.currentTimeMillis() + RESIZE_PRESENT_BOOST_MS);
@@ -1142,7 +1141,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
         this.displayActiveLastFrame = displayActive;
 
-        if (Display.isCreated() && Display.isCloseRequested())
+        if (GlfwWindow.isCreated() && GlfwWindow.isCloseRequested())
         {
             this.shutdown();
         }
@@ -1233,11 +1232,13 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
         // Window size may change in the middle of a frame (maximize/restore drag).
         // Present using the current backbuffer size to avoid uncovered black areas.
-        Display.syncDimensions();
-        this.checkWindowResize();
-        int presentDisplayWidth = Math.max(1, Display.getWidth());
-        int presentDisplayHeight = Math.max(1, Display.getHeight());
-        this.framebufferMc.framebufferRender(presentDisplayWidth, presentDisplayHeight);
+        // Do NOT call checkWindowResize() here — resizing the framebuffer mid-present
+        // would discard the rendered content and cause a black flash.
+        // The resize will be picked up at the start of the next frame instead.
+        GlfwWindow.syncDimensions();
+        int presentDisplayWidth = Math.max(1, GlfwWindow.getWidth());
+        int presentDisplayHeight = Math.max(1, GlfwWindow.getHeight());
+        this.framebufferMc.framebufferRenderExt(presentDisplayWidth, presentDisplayHeight, true);
         GlStateManager.popMatrix();
         ScaledResolution scaledresolution = new ScaledResolution(this);
         DisplayMetrics displaymetrics = new DisplayMetrics(
@@ -1308,7 +1309,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             else
             {
                 this.mcProfiler.startSection("fpslimit_wait");
-                Display.sync(this.getLimitFramerate());
+                GlfwWindow.sync(this.getLimitFramerate());
                 this.mcProfiler.endSection();
             }
         }
@@ -1319,20 +1320,45 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     public void updateDisplay()
     {
         this.mcProfiler.startSection("display_update");
-        Display.update();
+        GlfwWindow.update();
         this.mcProfiler.endSection();
-        this.checkWindowResize();
+    }
+
+    /**
+     * Registers a GLFW refresh/resize callback handler that immediately blits
+     * the current framebuffer to the screen. This prevents the black flash
+     * that occurs when the OS compositor needs to show the window at a new
+     * size before the game loop has rendered a frame at that size.
+     */
+    private void registerResizeRefreshHandler()
+    {
+        final Minecraft mc = this;
+        GlfwWindow.setRefreshPresentHandler(new Runnable()
+        {
+            public void run()
+            {
+                if (mc.framebufferMc == null)
+                {
+                    return;
+                }
+
+                int presentW = Math.max(1, GlfwWindow.getWidth());
+                int presentH = Math.max(1, GlfwWindow.getHeight());
+                mc.framebufferMc.framebufferRenderExt(presentW, presentH, true);
+                GLFW.glfwSwapBuffers(GlfwWindow.getWindow());
+            }
+        });
     }
 
     protected void checkWindowResize()
     {
-        Display.syncDimensions();
-        boolean displayActive = Display.isActive();
-        boolean resizeEvent = Display.wasResized();
+        GlfwWindow.syncDimensions();
+        boolean displayActive = GlfwWindow.isActive();
+        boolean resizeEvent = GlfwWindow.wasResized();
         int oldWidth = this.displayWidth;
         int oldHeight = this.displayHeight;
-        int currentWidth = Math.max(1, Display.getWidth());
-        int currentHeight = Math.max(1, Display.getHeight());
+        int currentWidth = Math.max(1, GlfwWindow.getWidth());
+        int currentHeight = Math.max(1, GlfwWindow.getHeight());
 
         if (currentWidth != oldWidth || currentHeight != oldHeight)
         {
@@ -1370,12 +1396,12 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
     private void markResizePresentBoostIfRequested(String stage)
     {
-        if (!Display.consumeRefreshRequested())
+        if (!GlfwWindow.consumeRefreshRequested())
         {
             return;
         }
 
-        if (!Display.isActive())
+        if (!GlfwWindow.isActive())
         {
             if (RESIZE_DEBUG)
             {
@@ -1623,7 +1649,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
      */
     public void setIngameFocus()
     {
-        if (Display.isActive())
+        if (GlfwWindow.isActive())
         {
             if (!this.inGameHasFocus)
             {
@@ -1822,17 +1848,17 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
             if (targetFullscreen)
             {
-                Display.setFullscreen(true);
+                GlfwWindow.setFullscreen(true);
             }
             else
             {
-                Display.setFullscreen(false);
-                DisplayMode windowedMode = new DisplayMode(this.tempDisplayWidth, this.tempDisplayHeight);
-                Display.setDisplayMode(windowedMode);
+                GlfwWindow.setFullscreen(false);
+                GlfwWindowMode windowedMode = new GlfwWindowMode(this.tempDisplayWidth, this.tempDisplayHeight);
+                GlfwWindow.setDisplayMode(windowedMode);
             }
 
-            this.displayWidth = Math.max(1, Display.getWidth());
-            this.displayHeight = Math.max(1, Display.getHeight());
+            this.displayWidth = Math.max(1, GlfwWindow.getWidth());
+            this.displayHeight = Math.max(1, GlfwWindow.getHeight());
 
             if (this.currentScreen != null)
             {
@@ -1843,7 +1869,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
                 this.updateFramebufferSize();
             }
 
-            Display.setVSyncEnabled(this.gameSettings.enableVsync);
+            GlfwWindow.setVSyncEnabled(this.gameSettings.enableVsync);
             this.logResizeState("toggleFullscreen:after");
         }
         catch (Exception exception)
@@ -1997,13 +2023,13 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         {
             this.mcProfiler.endStartSection("mouse");
 
-            while (Mouse.next())
+            while (GlfwMouse.next())
             {
-                int i = Mouse.getEventButton();
-                KeyBinding.setKeyBindState(i - 100, Mouse.getEventButtonState());
-                this.clientBootstrap.onMouse(i, Mouse.getEventX(), Mouse.getEventY(), Mouse.getEventButtonState());
+                int i = GlfwMouse.getEventButton();
+                KeyBinding.setKeyBindState(i - 100, GlfwMouse.getEventButtonState());
+                this.clientBootstrap.onMouse(i, GlfwMouse.getEventX(), GlfwMouse.getEventY(), GlfwMouse.getEventButtonState());
 
-                if (Mouse.getEventButtonState())
+                if (GlfwMouse.getEventButtonState())
                 {
                     if (this.thePlayer.isSpectator() && i == 2)
                     {
@@ -2019,7 +2045,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
                 if (i1 <= 200L)
                 {
-                    int j = Mouse.getEventDWheel();
+                    int j = GlfwMouse.getEventDWheel();
 
                     if (j != 0)
                     {
@@ -2045,7 +2071,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
                     if (this.currentScreen == null)
                     {
-                        if (!this.inGameHasFocus && Mouse.getEventButtonState())
+                        if (!this.inGameHasFocus && GlfwMouse.getEventButtonState())
                         {
                             this.setIngameFocus();
                         }
@@ -2064,13 +2090,13 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
             this.mcProfiler.endStartSection("keyboard");
 
-            while (Keyboard.next())
+            while (GlfwKeyboard.next())
             {
-                int k = Keyboard.getEventKey() == 0 ? Keyboard.getEventCharacter() + 256 : Keyboard.getEventKey();
-                KeyBinding.setKeyBindState(k, Keyboard.getEventKeyState());
-                this.clientBootstrap.onKey(k, Keyboard.getEventKeyState());
+                int k = GlfwKeyboard.getEventKey() == 0 ? GlfwKeyboard.getEventCharacter() + 256 : GlfwKeyboard.getEventKey();
+                KeyBinding.setKeyBindState(k, GlfwKeyboard.getEventKeyState());
+                this.clientBootstrap.onKey(k, GlfwKeyboard.getEventKeyState());
 
-                if (Keyboard.getEventKeyState())
+                if (GlfwKeyboard.getEventKeyState())
                 {
                     KeyBinding.onTick(k);
                 }
@@ -2082,19 +2108,19 @@ public class Minecraft implements IThreadListener, IPlayerUsage
                         throw new ReportedException(new CrashReport("Manually triggered debug crash", new Throwable()));
                     }
 
-                    if (!Keyboard.isKeyDown(46) || !Keyboard.isKeyDown(61))
+                    if (!GlfwKeyboard.isKeyDown(46) || !GlfwKeyboard.isKeyDown(61))
                     {
                         this.debugCrashKeyPressTime = -1L;
                     }
                 }
-                else if (Keyboard.isKeyDown(46) && Keyboard.isKeyDown(61))
+                else if (GlfwKeyboard.isKeyDown(46) && GlfwKeyboard.isKeyDown(61))
                 {
                     this.debugCrashKeyPressTime = getSystemTime();
                 }
 
                 this.dispatchKeypresses();
 
-                if (Keyboard.getEventKeyState())
+                if (GlfwKeyboard.getEventKeyState())
                 {
                     if (k == 62 && this.entityRenderer != null)
                     {
@@ -2112,68 +2138,68 @@ public class Minecraft implements IThreadListener, IPlayerUsage
                             this.displayInGameMenu();
                         }
 
-                        if (k == 32 && Keyboard.isKeyDown(61) && this.ingameGUI != null)
+                        if (k == 32 && GlfwKeyboard.isKeyDown(61) && this.ingameGUI != null)
                         {
                             this.ingameGUI.getChatGUI().clearChatMessages();
                         }
 
-                        if (k == 31 && Keyboard.isKeyDown(61))
+                        if (k == 31 && GlfwKeyboard.isKeyDown(61))
                         {
                             this.refreshResources();
                         }
 
-                        if (k == 17 && Keyboard.isKeyDown(61))
+                        if (k == 17 && GlfwKeyboard.isKeyDown(61))
                         {
                             ;
                         }
 
-                        if (k == 18 && Keyboard.isKeyDown(61))
+                        if (k == 18 && GlfwKeyboard.isKeyDown(61))
                         {
                             ;
                         }
 
-                        if (k == 47 && Keyboard.isKeyDown(61))
+                        if (k == 47 && GlfwKeyboard.isKeyDown(61))
                         {
                             ;
                         }
 
-                        if (k == 38 && Keyboard.isKeyDown(61))
+                        if (k == 38 && GlfwKeyboard.isKeyDown(61))
                         {
                             ;
                         }
 
-                        if (k == 22 && Keyboard.isKeyDown(61))
+                        if (k == 22 && GlfwKeyboard.isKeyDown(61))
                         {
                             ;
                         }
 
-                        if (k == 20 && Keyboard.isKeyDown(61))
+                        if (k == 20 && GlfwKeyboard.isKeyDown(61))
                         {
                             this.refreshResources();
                         }
 
-                        if (k == 33 && Keyboard.isKeyDown(61))
+                        if (k == 33 && GlfwKeyboard.isKeyDown(61))
                         {
                             this.gameSettings.setOptionValue(GameSettings.Options.RENDER_DISTANCE, GuiScreen.isShiftKeyDown() ? -1 : 1);
                         }
 
-                        if (k == 30 && Keyboard.isKeyDown(61))
+                        if (k == 30 && GlfwKeyboard.isKeyDown(61))
                         {
                             this.renderGlobal.loadRenderers();
                         }
 
-                        if (k == 35 && Keyboard.isKeyDown(61))
+                        if (k == 35 && GlfwKeyboard.isKeyDown(61))
                         {
                             this.gameSettings.advancedItemTooltips = !this.gameSettings.advancedItemTooltips;
                             this.gameSettings.saveOptions();
                         }
 
-                        if (k == 48 && Keyboard.isKeyDown(61))
+                        if (k == 48 && GlfwKeyboard.isKeyDown(61))
                         {
                             this.renderManager.setDebugBoundingBox(!this.renderManager.isDebugBoundingBox());
                         }
 
-                        if (k == 25 && Keyboard.isKeyDown(61))
+                        if (k == 25 && GlfwKeyboard.isKeyDown(61))
                         {
                             this.gameSettings.pauseOnLostFocus = !this.gameSettings.pauseOnLostFocus;
                             this.gameSettings.saveOptions();
@@ -2847,7 +2873,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         {
             public String call()
             {
-                return Sys.getVersion();
+                return org.lwjgl.Version.getVersion();
             }
         });
         theCrash.getCategory().addCrashSectionCallable("OpenGL", new Callable<String>()
@@ -2947,7 +2973,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             return null;
         }
 
-        if (!Display.isCreated())
+        if (!GlfwWindow.isCreated())
         {
             return crashReport;
         }
@@ -2957,14 +2983,14 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
     private String safeOpenGlInfo()
     {
-        if (!Display.isCreated())
+        if (!GlfwWindow.isCreated())
         {
             return "unavailable (display not created)";
         }
 
         try
         {
-            if (GLContext.getCapabilities() == null)
+            if (GL.getCapabilities() == null)
             {
                 return "unavailable (no active OpenGL capabilities)";
             }
@@ -3017,7 +3043,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
     {
         playerSnooper.addClientStat("fps", Integer.valueOf(debugFPS));
         playerSnooper.addClientStat("vsync_enabled", Boolean.valueOf(this.gameSettings.enableVsync));
-        playerSnooper.addClientStat("display_frequency", Integer.valueOf(Display.getDisplayMode().getFrequency()));
+        playerSnooper.addClientStat("display_frequency", Integer.valueOf(GlfwWindow.getDisplayMode().getFrequency()));
         playerSnooper.addClientStat("display_type", this.fullscreen ? "fullscreen" : "windowed");
         playerSnooper.addClientStat("run_time", Long.valueOf((MinecraftServer.getCurrentTimeMillis() - playerSnooper.getMinecraftStartTimeMillis()) / 60L * 1000L));
         playerSnooper.addClientStat("current_action", this.getCurrentAction());
@@ -3051,7 +3077,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         playerSnooper.addStatToSnooper("opengl_vendor", GL11.glGetString(GL11.GL_VENDOR));
         playerSnooper.addStatToSnooper("client_brand", ClientBrandRetriever.getClientModName());
         playerSnooper.addStatToSnooper("launched_version", this.launchedVersion);
-        ContextCapabilities contextcapabilities = GLContext.getCapabilities();
+        GLCapabilities contextcapabilities = GL.getCapabilities();
         playerSnooper.addStatToSnooper("gl_caps[ARB_arrays_of_arrays]", Boolean.valueOf(contextcapabilities.GL_ARB_arrays_of_arrays));
         playerSnooper.addStatToSnooper("gl_caps[ARB_base_instance]", Boolean.valueOf(contextcapabilities.GL_ARB_base_instance));
         playerSnooper.addStatToSnooper("gl_caps[ARB_blend_func_extended]", Boolean.valueOf(contextcapabilities.GL_ARB_blend_func_extended));
@@ -3059,10 +3085,6 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         playerSnooper.addStatToSnooper("gl_caps[ARB_color_buffer_float]", Boolean.valueOf(contextcapabilities.GL_ARB_color_buffer_float));
         playerSnooper.addStatToSnooper("gl_caps[ARB_compatibility]", Boolean.valueOf(contextcapabilities.GL_ARB_compatibility));
         playerSnooper.addStatToSnooper("gl_caps[ARB_compressed_texture_pixel_storage]", Boolean.valueOf(contextcapabilities.GL_ARB_compressed_texture_pixel_storage));
-        playerSnooper.addStatToSnooper("gl_caps[ARB_compute_shader]", Boolean.valueOf(contextcapabilities.GL_ARB_compute_shader));
-        playerSnooper.addStatToSnooper("gl_caps[ARB_copy_buffer]", Boolean.valueOf(contextcapabilities.GL_ARB_copy_buffer));
-        playerSnooper.addStatToSnooper("gl_caps[ARB_copy_image]", Boolean.valueOf(contextcapabilities.GL_ARB_copy_image));
-        playerSnooper.addStatToSnooper("gl_caps[ARB_depth_buffer_float]", Boolean.valueOf(contextcapabilities.GL_ARB_depth_buffer_float));
         playerSnooper.addStatToSnooper("gl_caps[ARB_compute_shader]", Boolean.valueOf(contextcapabilities.GL_ARB_compute_shader));
         playerSnooper.addStatToSnooper("gl_caps[ARB_copy_buffer]", Boolean.valueOf(contextcapabilities.GL_ARB_copy_buffer));
         playerSnooper.addStatToSnooper("gl_caps[ARB_copy_image]", Boolean.valueOf(contextcapabilities.GL_ARB_copy_image));
@@ -3124,10 +3146,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         playerSnooper.addStatToSnooper("gl_caps[EXT_geometry_shader4]", Boolean.valueOf(contextcapabilities.GL_EXT_geometry_shader4));
         playerSnooper.addStatToSnooper("gl_caps[EXT_gpu_program_parameters]", Boolean.valueOf(contextcapabilities.GL_EXT_gpu_program_parameters));
         playerSnooper.addStatToSnooper("gl_caps[EXT_gpu_shader4]", Boolean.valueOf(contextcapabilities.GL_EXT_gpu_shader4));
-        playerSnooper.addStatToSnooper("gl_caps[EXT_multi_draw_arrays]", Boolean.valueOf(contextcapabilities.GL_EXT_multi_draw_arrays));
         playerSnooper.addStatToSnooper("gl_caps[EXT_packed_depth_stencil]", Boolean.valueOf(contextcapabilities.GL_EXT_packed_depth_stencil));
-        playerSnooper.addStatToSnooper("gl_caps[EXT_paletted_texture]", Boolean.valueOf(contextcapabilities.GL_EXT_paletted_texture));
-        playerSnooper.addStatToSnooper("gl_caps[EXT_rescale_normal]", Boolean.valueOf(contextcapabilities.GL_EXT_rescale_normal));
         playerSnooper.addStatToSnooper("gl_caps[EXT_separate_shader_objects]", Boolean.valueOf(contextcapabilities.GL_EXT_separate_shader_objects));
         playerSnooper.addStatToSnooper("gl_caps[EXT_shader_image_load_store]", Boolean.valueOf(contextcapabilities.GL_EXT_shader_image_load_store));
         playerSnooper.addStatToSnooper("gl_caps[EXT_shadow_funcs]", Boolean.valueOf(contextcapabilities.GL_EXT_shadow_funcs));
@@ -3135,14 +3154,10 @@ public class Minecraft implements IThreadListener, IPlayerUsage
         playerSnooper.addStatToSnooper("gl_caps[EXT_stencil_clear_tag]", Boolean.valueOf(contextcapabilities.GL_EXT_stencil_clear_tag));
         playerSnooper.addStatToSnooper("gl_caps[EXT_stencil_two_side]", Boolean.valueOf(contextcapabilities.GL_EXT_stencil_two_side));
         playerSnooper.addStatToSnooper("gl_caps[EXT_stencil_wrap]", Boolean.valueOf(contextcapabilities.GL_EXT_stencil_wrap));
-        playerSnooper.addStatToSnooper("gl_caps[EXT_texture_3d]", Boolean.valueOf(contextcapabilities.GL_EXT_texture_3d));
         playerSnooper.addStatToSnooper("gl_caps[EXT_texture_array]", Boolean.valueOf(contextcapabilities.GL_EXT_texture_array));
         playerSnooper.addStatToSnooper("gl_caps[EXT_texture_buffer_object]", Boolean.valueOf(contextcapabilities.GL_EXT_texture_buffer_object));
         playerSnooper.addStatToSnooper("gl_caps[EXT_texture_integer]", Boolean.valueOf(contextcapabilities.GL_EXT_texture_integer));
-        playerSnooper.addStatToSnooper("gl_caps[EXT_texture_lod_bias]", Boolean.valueOf(contextcapabilities.GL_EXT_texture_lod_bias));
         playerSnooper.addStatToSnooper("gl_caps[EXT_texture_sRGB]", Boolean.valueOf(contextcapabilities.GL_EXT_texture_sRGB));
-        playerSnooper.addStatToSnooper("gl_caps[EXT_vertex_shader]", Boolean.valueOf(contextcapabilities.GL_EXT_vertex_shader));
-        playerSnooper.addStatToSnooper("gl_caps[EXT_vertex_weighting]", Boolean.valueOf(contextcapabilities.GL_EXT_vertex_weighting));
         playerSnooper.addStatToSnooper("gl_caps[gl_max_vertex_uniforms]", Integer.valueOf(GL11.glGetInteger(GL20.GL_MAX_VERTEX_UNIFORM_COMPONENTS)));
         GL11.glGetError();
         playerSnooper.addStatToSnooper("gl_caps[gl_max_fragment_uniforms]", Integer.valueOf(GL11.glGetInteger(GL20.GL_MAX_FRAGMENT_UNIFORM_COMPONENTS)));
@@ -3245,7 +3260,7 @@ public class Minecraft implements IThreadListener, IPlayerUsage
      */
     public static long getSystemTime()
     {
-        return Sys.getTime() * 1000L / Sys.getTimerResolution();
+        return System.nanoTime() / 1000000L;
     }
 
     /**
@@ -3337,13 +3352,13 @@ public class Minecraft implements IThreadListener, IPlayerUsage
 
     public void dispatchKeypresses()
     {
-        int i = Keyboard.getEventKey() == 0 ? Keyboard.getEventCharacter() : Keyboard.getEventKey();
+        int i = GlfwKeyboard.getEventKey() == 0 ? GlfwKeyboard.getEventCharacter() : GlfwKeyboard.getEventKey();
 
-        if (i != 0 && !Keyboard.isRepeatEvent())
+        if (i != 0 && !GlfwKeyboard.isRepeatEvent())
         {
             if (!(this.currentScreen instanceof GuiControls) || ((GuiControls)this.currentScreen).time <= getSystemTime() - 20L)
             {
-                if (Keyboard.getEventKeyState())
+                if (GlfwKeyboard.getEventKeyState())
                 {
                     if (i == this.gameSettings.keyBindStreamStartStop.getKeyCode())
                     {
@@ -3704,10 +3719,10 @@ public class Minecraft implements IThreadListener, IPlayerUsage
             Boolean.valueOf(this.fullscreen),
             Integer.valueOf(this.displayWidth),
             Integer.valueOf(this.displayHeight),
-            Integer.valueOf(Display.getWidth()),
-            Integer.valueOf(Display.getHeight()),
-            Integer.valueOf(Display.getWindowWidth()),
-            Integer.valueOf(Display.getWindowHeight()),
+            Integer.valueOf(GlfwWindow.getWidth()),
+            Integer.valueOf(GlfwWindow.getHeight()),
+            Integer.valueOf(GlfwWindow.getWindowWidth()),
+            Integer.valueOf(GlfwWindow.getWindowHeight()),
             Integer.valueOf(framebufferWidth),
             Integer.valueOf(framebufferHeight),
             screen

@@ -12,7 +12,7 @@ import net.minecraft.util.MathHelper;
 import net.minecraft.util.Vec3;
 import net.minecraft.world.World;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.util.glu.GLU;
+import client.runtime.lwjgl.GluMath;
 
 public class ActiveRenderInfo
 {
@@ -58,7 +58,7 @@ public class ActiveRenderInfo
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, VIEWPORT);
         float f = (float)((VIEWPORT.get(0) + VIEWPORT.get(2)) / 2);
         float f1 = (float)((VIEWPORT.get(1) + VIEWPORT.get(3)) / 2);
-        GLU.gluUnProject(f, f1, 0.0F, MODELVIEW, PROJECTION, VIEWPORT, OBJECTCOORDS);
+        GluMath.gluUnProject(f, f1, 0.0F, MODELVIEW, PROJECTION, VIEWPORT, OBJECTCOORDS);
         position = new Vec3((double)OBJECTCOORDS.get(0), (double)OBJECTCOORDS.get(1), (double)OBJECTCOORDS.get(2));
         int i = p_74583_1_ ? 1 : 0;
         float f2 = entityplayerIn.rotationPitch;

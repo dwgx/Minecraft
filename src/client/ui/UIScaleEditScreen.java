@@ -7,6 +7,7 @@ import client.module.impl.client.ClickGuiModule;
 import client.module.impl.client.UiScaleEditModule;
 import client.render.RenderContext2D;
 import client.setting.StringSetting;
+import client.ui.template.NanoScreenKit;
 import client.ui.template.NanoSliderController;
 import client.ui.template.NanoTextInput;
 import client.ui.template.UiAnimProfile;
@@ -24,7 +25,6 @@ import dwgx.nano.NanoUi;
 import java.io.IOException;
 import java.util.Locale;
 import net.minecraft.client.gui.GuiScreen;
-import org.lwjgl.input.Mouse;
 import org.lwjgl.system.MemoryStack;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
@@ -306,7 +306,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
 
             if (inputRect != null)
             {
-                this.numberInput.onMouseDrag(mouseX, inputRect.x, inputRect.w, this.lastNanoVg, NanoFontBook.uiRegular(), scaled(10.2F, l.scale), this.numberInputBuffer.get());
+                this.numberInput.onMouseDrag(mouseX, inputRect.x, inputRect.w, this.lastNanoVg, NanoFontBook.uiRegular(), scaled(11.5F, l.scale), this.numberInputBuffer.get());
             }
         }
     }
@@ -383,8 +383,8 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
             }
 
             NanoUi.drawWindow(vg, stack, l.window.x, l.window.y, l.window.w, l.window.h, theme);
-            NanoUi.drawLeftText(vg, stack, bold, l.header.x + scaled(12.0F, k), l.header.y + l.header.h * 0.5F, scaled(16.0F, k), theme.textArgb(), this.tr("uiscale.title", "UIScaleEdit"));
-            NanoUi.drawRightText(vg, stack, regular, l.header.x2() - scaled(12.0F, k), l.header.y + l.header.h * 0.5F, scaled(10.5F, k), theme.textWeakArgb(), this.tr("uiscale.subtitle", "Target based scale profile editor"));
+            NanoUi.drawLeftText(vg, stack, bold, l.header.x + scaled(14.0F, k), l.header.y + l.header.h * 0.5F, scaled(18.0F, k), theme.textArgb(), this.tr("uiscale.title", "UIScaleEdit"));
+            NanoUi.drawRightText(vg, stack, regular, l.header.x2() - scaled(14.0F, k), l.header.y + l.header.h * 0.5F, scaled(12.0F, k), theme.textWeakArgb(), this.tr("uiscale.subtitle", "Target based scale profile editor"));
 
             NanoUi.drawSurface(vg, stack, l.body.x, l.body.y, l.body.w, l.body.h, theme.surfaceRadius(), theme.mainArgb(), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 55));
             this.drawTargetChip(vg, stack, regular, theme, l.targetClickGui, this.tr("uiscale.target.clickgui", "ClickGUI"), target == UiScaleEditModule.UiTarget.CLICK_GUI);
@@ -393,7 +393,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
             this.drawSlider(vg, stack, regular, bold, theme, l.motionTrack, l.motionValue, "motion_speed", this.tr("uiscale.slider.motion_speed", "Motion Speed"), motion, this.module.getMotionSpeedMin(), this.module.getMotionSpeedMax(), this.tr("uiscale.hint.motion_speed", "Drag/resize response"), l.showSliderHints, this.draggingMotion, l.motionTrack.contains(this.mouseX, this.mouseY));
             this.drawSlider(vg, stack, regular, bold, theme, l.anchorXTrack, l.anchorXValue, "anchor_x", this.tr("uiscale.slider.horizontal", "Horizontal"), anchorX, 0.0F, 1.0F, this.tr("uiscale.hint.horizontal", "Left <-> Right balance"), l.showSliderHints, this.draggingAnchorX, l.anchorXTrack.contains(this.mouseX, this.mouseY));
             this.drawSlider(vg, stack, regular, bold, theme, l.anchorYTrack, l.anchorYValue, "anchor_y", this.tr("uiscale.slider.vertical", "Vertical"), anchorY, 0.0F, 1.0F, this.tr("uiscale.hint.vertical", "Top <-> Bottom balance"), l.showSliderHints, this.draggingAnchorY, l.anchorYTrack.contains(this.mouseX, this.mouseY));
-            NanoUi.drawLeftText(vg, stack, regular, l.scaleTrack.x, l.animSpeedTrack.y + scaled(4.0F, k), scaled(10.0F, k), theme.textWeakArgb(), this.tr("uiscale.animation_moved", "Animation controls moved to Setting page"));
+            NanoUi.drawLeftText(vg, stack, regular, l.scaleTrack.x, l.animSpeedTrack.y + scaled(4.0F, k), scaled(11.5F, k), theme.textWeakArgb(), this.tr("uiscale.animation_moved", "Animation controls moved to Setting page"));
             this.drawButton(vg, stack, regular, theme, l.openButton, this.tr("uiscale.open_target", "Open Target"), false);
             this.drawButton(vg, stack, regular, theme, l.backButton, this.tr("ui.back", "Back"), false);
             this.drawResizeHandle(vg, stack, theme, l.resizeHandle);
@@ -407,14 +407,14 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         boolean hovered = rect.contains(this.mouseX, this.mouseY);
         int fill = active ? theme.controlActiveArgb() : (hovered ? theme.controlHoverArgb() : theme.controlArgb());
         NanoUi.drawSurface(vg, stack, rect.x, rect.y, rect.w, rect.h, theme.controlRadius(), fill, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 75));
-        NanoUi.drawCenterText(vg, stack, regular, rect.x + rect.w * 0.5F, rect.y + rect.h * 0.5F, scaled(11.0F, k), theme.textArgb(), label);
+        NanoUi.drawCenterText(vg, stack, regular, rect.x + rect.w * 0.5F, rect.y + rect.h * 0.5F, scaled(12.5F, k), theme.textArgb(), label);
     }
 
     private void drawSlider(long vg, MemoryStack stack, int regular, int bold, NanoTheme theme, Rect track, Rect valueRect, String sliderKey, String label, float value, float min, float max, String hint, boolean showHint, boolean dragging, boolean hovered)
     {
         ClickGuiModule clickGui = this.resolveClickGuiModule();
         UiAnimProfile animProfile = this.resolveAnimationProfile(clickGui, this.module.getEditTarget());
-        float k = UiMotion.clamp(track.h / 8.0F, 0.35F, 1.85F);
+        float k = UiMotion.clamp(track.w / (BASE_WIDTH - 40.0F), 0.35F, 1.85F);
         float ratio = (value - min) / Math.max(0.0001F, max - min);
         ratio = UiMotion.clamp01(ratio);
         float visualTarget = dragging ? this.sliderRatioFromMouse(this.mouseX, track) : ratio;
@@ -423,35 +423,13 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         float knobRatio = NanoSliderController.resolveKnobRatio("uiscale.slider." + sliderKey, visualTarget, dragging, animProfile);
         float focus = NanoSliderController.resolveFocus("uiscale.slider.focus." + sliderKey, hovered, dragging, animProfile);
         float glowRatio = NanoSliderController.resolveGlow("uiscale.slider.glow." + sliderKey, hovered, dragging, animProfile);
-        NanoUi.drawLeftText(vg, stack, bold, track.x, track.y - scaled(11.0F, k), scaled(14.5F, k), theme.textArgb(), label);
+        NanoUi.drawLeftText(vg, stack, bold, track.x, track.y - scaled(13.0F, k), scaled(16.0F, k), theme.textArgb(), label);
         this.drawSliderValueInput(vg, stack, regular, theme, valueRect, track, sliderKey, value, k, hovered);
-        int trackFill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.44F + focus * 0.30F));
-        float trackRadius = Math.min(track.h * 0.5F, theme.controlRadius());
-        NanoUi.drawSurface(vg, stack, track.x, track.y, track.w, track.h, trackRadius, trackFill, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 112));
-        float rawHandleX = track.x + knobRatio * track.w;
-        float knobSize = scaled(7.2F, k) + scaled(2.0F, k) * focus + scaled(1.6F, k) * glowRatio + (dragging ? scaled(1.5F, k) : 0.0F);
-        float handleX = UiMotion.clamp(rawHandleX, track.x + knobSize * 0.5F, track.x + track.w - knobSize * 0.5F);
-        float knobX = handleX - knobSize * 0.5F;
-        float knobY = track.y + (track.h - knobSize) * 0.5F;
-        float trackInnerX = track.x + scaled(1.0F, k);
-        float trackInnerW = Math.max(0.0F, track.w - scaled(2.0F, k));
-        float knobLeadX = handleX - knobSize * 0.5F;
-        float fillTargetEnd = trackInnerX + trackInnerW * fillRatio;
-        float fillEnd = Math.min(fillTargetEnd, knobLeadX);
-        float fillW = Math.max(0.0F, fillEnd - trackInnerX);
-        NanoUi.drawSurface(vg, stack, trackInnerX, track.y + scaled(1.0F, k), fillW, track.h - scaled(2.0F, k), Math.max(scaled(1.8F, k), trackRadius - scaled(1.4F, k)), this.mixArgb(theme.controlActiveArgb(), theme.accentArgb(), 0.74F), 0);
-        float lineGlowTargetEnd = trackInnerX + trackInnerW * displayRatio;
-        float lineGlowEnd = Math.min(lineGlowTargetEnd, knobLeadX);
-        float lineGlowW = Math.max(0.0F, lineGlowEnd - trackInnerX);
-        NanoUi.drawSurface(vg, stack, trackInnerX, track.y + scaled(1.0F, k), lineGlowW, track.h - scaled(2.0F, k), Math.max(scaled(1.2F, k), trackRadius - scaled(2.0F, k)), NanoRenderUtils.withAlpha(theme.accentSoftArgb(), 38 + Math.round(glowRatio * 62.0F)), 0);
-        float glow = knobSize + scaled(2.1F, k) * focus + scaled(2.4F, k) * glowRatio;
-        NanoUi.drawSurface(vg, stack, handleX - glow * 0.5F, track.y + (track.h - glow) * 0.5F, glow, glow, glow * 0.5F, NanoRenderUtils.withAlpha(0xFFF5F9FF, 50 + Math.round((focus * 0.5F + glowRatio * 0.5F) * 78.0F)), 0);
-        int knobColor = this.mixArgb(theme.accentArgb(), 0xFFF8FBFF, UiMotion.clamp01(0.40F + focus * 0.52F));
-        NanoUi.drawSurface(vg, stack, knobX, knobY, knobSize, knobSize, knobSize * 0.5F, knobColor, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 110));
+        NanoScreenKit.drawSliderTrack(vg, stack, theme, track.x, track.y, track.w, track.h, k, fillRatio, knobRatio, displayRatio, focus, glowRatio, dragging);
 
         if (showHint && k >= 0.72F)
         {
-            NanoUi.drawLeftText(vg, stack, regular, track.x, track.y + track.h + scaled(11.0F, k), scaled(10.0F, k), theme.textWeakArgb(), hint);
+            NanoUi.drawLeftText(vg, stack, regular, track.x, track.y + track.h + scaled(13.0F, k), scaled(11.5F, k), theme.textWeakArgb(), hint);
         }
     }
 
@@ -459,7 +437,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
     {
         if (valueRect == null)
         {
-            NanoUi.drawRightText(vg, stack, font, track.x2(), track.y - scaled(11.0F, scale), scaled(12.5F, scale), theme.textMutedArgb(), this.formatSliderValue(sliderKey, value));
+            NanoUi.drawRightText(vg, stack, font, track.x2(), track.y - scaled(13.0F, scale), scaled(14.0F, scale), theme.textMutedArgb(), this.formatSliderValue(sliderKey, value));
             return;
         }
 
@@ -471,16 +449,16 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
 
         if (active)
         {
-            this.numberInput.draw(vg, stack, font, theme, valueRect.x, valueRect.y, valueRect.w, valueRect.h, scale, scaled(10.2F, scale), this.numberInputBuffer.get(), this.tr("clickgui.input.number.placeholder", "Input..."), hoveredTrack || fieldHovered, true, animKey, animProfile);
+            this.numberInput.draw(vg, stack, font, theme, valueRect.x, valueRect.y, valueRect.w, valueRect.h, scale, scaled(11.5F, scale), this.numberInputBuffer.get(), this.tr("clickgui.input.number.placeholder", "Input..."), hoveredTrack || fieldHovered, true, animKey, animProfile);
             return;
         }
 
         float focus = UiAnimationBus.animateControl(animKey + ".idle.focus", fieldHovered ? 1.0F : 0.0F, animProfile);
-        int fill = this.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.38F + focus * 0.32F));
-        int border = this.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 92), NanoRenderUtils.withAlpha(theme.accentArgb(), 142), UiMotion.clamp01(focus * 0.72F));
+        int fill = NanoScreenKit.mixArgb(theme.cardAltArgb(), theme.controlArgb(), UiMotion.clamp01(0.38F + focus * 0.32F));
+        int border = NanoScreenKit.mixArgb(NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 92), NanoRenderUtils.withAlpha(theme.accentArgb(), 142), UiMotion.clamp01(focus * 0.72F));
         float radius = Math.min(valueRect.h * 0.5F, Math.max(2.0F, theme.controlRadius()));
         NanoUi.drawSurface(vg, stack, valueRect.x, valueRect.y, valueRect.w, valueRect.h, radius, fill, border);
-        NanoUi.drawRightText(vg, stack, font, valueRect.x2() - scaled(5.0F, scale), valueRect.y + valueRect.h * 0.5F + scaled(0.40F, scale), scaled(10.3F, scale), theme.textMutedArgb(), this.formatSliderValue(sliderKey, value));
+        NanoUi.drawRightText(vg, stack, font, valueRect.x2() - scaled(6.0F, scale), valueRect.y + valueRect.h * 0.5F + scaled(0.40F, scale), scaled(11.8F, scale), theme.textMutedArgb(), this.formatSliderValue(sliderKey, value));
     }
 
     private void drawButton(long vg, MemoryStack stack, int regular, NanoTheme theme, Rect button, String label, boolean active)
@@ -489,7 +467,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         boolean hovered = button.contains(this.mouseX, this.mouseY);
         int fill = active ? theme.controlActiveArgb() : (hovered ? theme.controlHoverArgb() : theme.controlArgb());
         NanoUi.drawSurface(vg, stack, button.x, button.y, button.w, button.h, theme.controlRadius(), fill, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 80));
-        NanoUi.drawCenterText(vg, stack, regular, button.x + button.w * 0.5F, button.y + button.h * 0.5F, scaled(11.0F, k), theme.textArgb(), label);
+        NanoUi.drawCenterText(vg, stack, regular, button.x + button.w * 0.5F, button.y + button.h * 0.5F, scaled(12.5F, k), theme.textArgb(), label);
     }
 
     private String formatSliderValue(String sliderKey, float value)
@@ -548,7 +526,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
             NanoFontBook.ensureLoaded(this.lastNanoVg);
         }
 
-        this.numberInput.onMouseDown(mouseX, mouseY, inputRect.x, inputRect.y, inputRect.w, inputRect.h, this.lastNanoVg, NanoFontBook.uiRegular(), scaled(10.2F, UiMotion.clamp(scale, 0.35F, 1.85F)), this.numberInputBuffer.get());
+        this.numberInput.onMouseDown(mouseX, mouseY, inputRect.x, inputRect.y, inputRect.w, inputRect.h, this.lastNanoVg, NanoFontBook.uiRegular(), scaled(11.5F, UiMotion.clamp(scale, 0.35F, 1.85F)), this.numberInputBuffer.get());
     }
 
     private void validateActiveSliderInput()
@@ -1120,26 +1098,12 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
 
     private float liveMouseX()
     {
-        if (this.mc == null)
-        {
-            return (float)this.mouseX;
-        }
-
-        int displayWidth = Math.max(1, this.mc.displayWidth);
-        float raw = (float)Mouse.getX() * (float)this.width / (float)displayWidth;
-        return UiMotion.clamp(raw, 0.0F, Math.max(0.0F, (float)this.width - 1.0F));
+        return NanoScreenKit.liveMouseX(this.mc, this.mouseX, this.width);
     }
 
     private float liveMouseY()
     {
-        if (this.mc == null)
-        {
-            return (float)this.mouseY;
-        }
-
-        int displayHeight = Math.max(1, this.mc.displayHeight);
-        float raw = (float)this.height - (float)Mouse.getY() * (float)this.height / (float)displayHeight - 1.0F;
-        return UiMotion.clamp(raw, 0.0F, Math.max(0.0F, (float)this.height - 1.0F));
+        return NanoScreenKit.liveMouseY(this.mc, this.mouseY, this.height);
     }
 
     private String tr(String key, String fallback, Object... args)
@@ -1160,21 +1124,6 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         return UiAnimProfiles.uiScaleWindowProfile(clickGui, this.module, target, interacting);
     }
 
-    private int mixArgb(int from, int to, float t)
-    {
-        float k = UiMotion.clamp01(t);
-        int a = this.lerpChannel((from >>> 24) & 255, (to >>> 24) & 255, k);
-        int r = this.lerpChannel((from >>> 16) & 255, (to >>> 16) & 255, k);
-        int g = this.lerpChannel((from >>> 8) & 255, (to >>> 8) & 255, k);
-        int b = this.lerpChannel(from & 255, to & 255, k);
-        return (a & 255) << 24 | (r & 255) << 16 | (g & 255) << 8 | b & 255;
-    }
-
-    private int lerpChannel(int from, int to, float t)
-    {
-        return NanoRenderUtils.clamp255(Math.round((float)from + (float)(to - from) * UiMotion.clamp01(t)));
-    }
-
     private Rect fallbackWindow()
     {
         float width = Math.min(Math.max(MIN_WIDTH, BASE_WIDTH), (float)this.width - SCREEN_MARGIN * 2.0F);
@@ -1187,18 +1136,18 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         Rect baseRect = this.window.isInitialized() ? new Rect(this.window.getX(), this.window.getY(), this.window.getWidth(), this.window.getHeight()) : this.fallbackWindow();
         Rect windowRect = this.transitionWindow(baseRect);
         float k = UiMotion.clamp(windowRect.w / BASE_WIDTH, 0.35F, 1.85F);
-        Rect header = new Rect(windowRect.x + scaled(1.0F, k), windowRect.y + scaled(1.0F, k), windowRect.w - scaled(2.0F, k), scaled(34.0F, k));
+        Rect header = new Rect(windowRect.x + scaled(1.0F, k), windowRect.y + scaled(1.0F, k), windowRect.w - scaled(2.0F, k), scaled(38.0F, k));
         Rect headerDrag = new Rect(header.x + scaled(2.0F, k), header.y + scaled(2.0F, k), header.w - scaled(4.0F, k), header.h - scaled(4.0F, k));
         Rect body = new Rect(windowRect.x + scaled(12.0F, k), header.y2() + scaled(10.0F, k), windowRect.w - scaled(24.0F, k), windowRect.h - scaled(58.0F, k));
 
         float chipW = (body.w - scaled(12.0F, k)) * 0.5F;
-        Rect targetClickGui = new Rect(body.x + scaled(4.0F, k), body.y + scaled(8.0F, k), chipW, scaled(22.0F, k));
-        Rect targetHudEdit = new Rect(targetClickGui.x2() + scaled(4.0F, k), body.y + scaled(8.0F, k), chipW, scaled(22.0F, k));
+        Rect targetClickGui = new Rect(body.x + scaled(4.0F, k), body.y + scaled(8.0F, k), chipW, scaled(26.0F, k));
+        Rect targetHudEdit = new Rect(targetClickGui.x2() + scaled(4.0F, k), body.y + scaled(8.0F, k), chipW, scaled(26.0F, k));
 
         float trackX = body.x + scaled(8.0F, k);
         float trackW = body.w - scaled(16.0F, k);
-        float trackH = scaled(3.8F, k);
-        float sliderStartY = body.y + scaled(54.0F, k);
+        float trackH = scaled(5.2F, k);
+        float sliderStartY = body.y + scaled(58.0F, k);
         float sliderEndY = body.y2() - scaled(94.0F, k);
 
         if (sliderEndY < sliderStartY)
@@ -1233,8 +1182,8 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         Rect animTypeButton = new Rect(animEnabledButton.x2() + scaled(4.0F, k), animButtonsY, animButtonW, animButtonH);
 
         float buttonW = (body.w - scaled(20.0F, k)) * 0.5F;
-        Rect openButton = new Rect(body.x + scaled(8.0F, k), buttonsY, buttonW, scaled(20.0F, k));
-        Rect backButton = new Rect(openButton.x2() + scaled(4.0F, k), buttonsY, buttonW, scaled(20.0F, k));
+        Rect openButton = new Rect(body.x + scaled(8.0F, k), buttonsY, buttonW, scaled(24.0F, k));
+        Rect backButton = new Rect(openButton.x2() + scaled(4.0F, k), buttonsY, buttonW, scaled(24.0F, k));
         Rect resize = new Rect(windowRect.x2() - scaled(14.0F, k), windowRect.y2() - scaled(14.0F, k), scaled(10.0F, k), scaled(10.0F, k));
         return new Layout(windowRect, header, headerDrag, body, targetClickGui, targetHudEdit, scaleTrack, motionTrack, anchorXTrack, anchorYTrack, scaleValue, motionValue, anchorXValue, anchorYValue, animSpeedTrack, animSmoothTrack, animEnabledButton, animTypeButton, openButton, backButton, resize, showSliderHints, k);
     }
@@ -1252,9 +1201,10 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         }
 
         float k = UiMotion.clamp(scale, 0.35F, 1.85F);
-        float w = scaled(90.0F, k);
-        float h = scaled(18.0F, k);
-        float y = track.y - h - scaled(4.0F, k);
+        float w = scaled(78.0F, k);
+        float h = scaled(17.0F, k);
+        float labelCenterY = track.y - scaled(13.0F, k);
+        float y = labelCenterY - h * 0.5F;
         return new Rect(track.x2() - w, y, w, h);
     }
 

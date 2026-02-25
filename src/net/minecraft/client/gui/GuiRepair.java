@@ -18,7 +18,7 @@ import net.minecraft.network.PacketBuffer;
 import net.minecraft.network.play.client.C17PacketCustomPayload;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
-import org.lwjgl.input.Keyboard;
+import client.runtime.lwjgl.GlfwKeyboard;
 
 public class GuiRepair extends GuiContainer implements ICrafting
 {
@@ -41,7 +41,7 @@ public class GuiRepair extends GuiContainer implements ICrafting
     public void initGui()
     {
         super.initGui();
-        Keyboard.enableRepeatEvents(true);
+        GlfwKeyboard.enableRepeatEvents(true);
         int i = (this.width - this.xSize) / 2;
         int j = (this.height - this.ySize) / 2;
         this.nameField = new GuiTextField(0, this.fontRendererObj, i + 62, j + 24, 103, 12);
@@ -59,7 +59,7 @@ public class GuiRepair extends GuiContainer implements ICrafting
     public void onGuiClosed()
     {
         super.onGuiClosed();
-        Keyboard.enableRepeatEvents(false);
+        GlfwKeyboard.enableRepeatEvents(false);
         this.inventorySlots.removeCraftingFromCrafters(this);
     }
 

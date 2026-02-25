@@ -25,7 +25,7 @@ import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ResourceLocation;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.lwjgl.input.Keyboard;
+import client.runtime.lwjgl.GlfwKeyboard;
 
 public class GuiScreenBook extends GuiScreen
 {
@@ -113,7 +113,7 @@ public class GuiScreenBook extends GuiScreen
     public void initGui()
     {
         this.buttonList.clear();
-        Keyboard.enableRepeatEvents(true);
+        GlfwKeyboard.enableRepeatEvents(true);
 
         if (this.bookIsUnsigned)
         {
@@ -139,7 +139,7 @@ public class GuiScreenBook extends GuiScreen
      */
     public void onGuiClosed()
     {
-        Keyboard.enableRepeatEvents(false);
+        GlfwKeyboard.enableRepeatEvents(false);
     }
 
     private void updateButtons()

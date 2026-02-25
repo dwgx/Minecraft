@@ -26,7 +26,7 @@ import net.minecraft.stats.StatCrafting;
 import net.minecraft.stats.StatFileWriter;
 import net.minecraft.stats.StatList;
 import net.minecraft.util.ResourceLocation;
-import org.lwjgl.input.Mouse;
+import client.runtime.lwjgl.GlfwMouse;
 
 public class GuiStats extends GuiScreen implements IProgressMeter
 {
@@ -253,7 +253,7 @@ public class GuiStats extends GuiScreen implements IProgressMeter
 
         protected void drawListHeader(int p_148129_1_, int p_148129_2_, Tessellator p_148129_3_)
         {
-            if (!Mouse.isButtonDown(0))
+            if (!GlfwMouse.isButtonDown(0))
             {
                 this.field_148218_l = -1;
             }

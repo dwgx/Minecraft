@@ -13,8 +13,8 @@ import net.minecraft.util.MovingObjectPosition;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
+import client.runtime.lwjgl.GlfwKeyboard;
+import client.runtime.lwjgl.GlfwMouse;
 
 public class GuiChat extends GuiScreen
 {
@@ -54,7 +54,7 @@ public class GuiChat extends GuiScreen
      */
     public void initGui()
     {
-        Keyboard.enableRepeatEvents(true);
+        GlfwKeyboard.enableRepeatEvents(true);
         this.sentHistoryCursor = this.mc.ingameGUI.getChatGUI().getSentMessages().size();
         this.inputField = new GuiTextField(0, this.fontRendererObj, 4, this.height - 12, this.width - 4, 12);
         this.inputField.setMaxStringLength(100);
@@ -69,7 +69,7 @@ public class GuiChat extends GuiScreen
      */
     public void onGuiClosed()
     {
-        Keyboard.enableRepeatEvents(false);
+        GlfwKeyboard.enableRepeatEvents(false);
         this.mc.ingameGUI.getChatGUI().resetScroll();
     }
 
@@ -144,7 +144,7 @@ public class GuiChat extends GuiScreen
     public void handleMouseInput() throws IOException
     {
         super.handleMouseInput();
-        int i = Mouse.getEventDWheel();
+        int i = GlfwMouse.getEventDWheel();
 
         if (i != 0)
         {
@@ -174,7 +174,7 @@ public class GuiChat extends GuiScreen
     {
         if (mouseButton == 0)
         {
-            IChatComponent ichatcomponent = this.mc.ingameGUI.getChatGUI().getChatComponent(Mouse.getX(), Mouse.getY());
+            IChatComponent ichatcomponent = this.mc.ingameGUI.getChatGUI().getChatComponent(GlfwMouse.getX(), GlfwMouse.getY());
 
             if (this.handleComponentClick(ichatcomponent))
             {
@@ -317,7 +317,7 @@ public class GuiChat extends GuiScreen
     {
         drawRect(2, this.height - 14, this.width - 2, this.height - 2, Integer.MIN_VALUE);
         this.inputField.drawTextBox();
-        IChatComponent ichatcomponent = this.mc.ingameGUI.getChatGUI().getChatComponent(Mouse.getX(), Mouse.getY());
+        IChatComponent ichatcomponent = this.mc.ingameGUI.getChatGUI().getChatComponent(GlfwMouse.getX(), GlfwMouse.getY());
 
         if (ichatcomponent != null && ichatcomponent.getChatStyle().getChatHoverEvent() != null)
         {

@@ -12,6 +12,7 @@ import static org.lwjgl.nanovg.NanoVG.*;
 public final class NanoRenderUtils
 {
     private static final float MAX_STABLE_RADIUS = 28.0F;
+    private static final float[] TEXT_BOUNDS_BUFFER = new float[4];
 
     private NanoRenderUtils()
     {
@@ -166,6 +167,11 @@ public final class NanoRenderUtils
         nvgText(vg, x, y, text);
     }
 
+    public static void drawLabel(long vg, MemoryStack stack, int fontId, float x, float y, float size, String text, int argb, int align)
+    {
+        drawLabel(vg, stack, fontId, x, y, size, text, (argb >>> 16) & 255, (argb >>> 8) & 255, argb & 255, (argb >>> 24) & 255, align);
+    }
+
     public static float pixelRatio(int framebufferWidth, int windowWidth)
     {
         if (framebufferWidth <= 0 || windowWidth <= 0)
@@ -188,9 +194,8 @@ public final class NanoRenderUtils
 
         nvgFontFaceId(vg, fontId);
         nvgFontSize(vg, size);
-        float[] bounds = new float[4];
-        nvgTextBounds(vg, 0.0F, 0.0F, text, bounds);
-        return bounds[2] - bounds[0];
+        nvgTextBounds(vg, 0.0F, 0.0F, text, TEXT_BOUNDS_BUFFER);
+        return TEXT_BOUNDS_BUFFER[2] - TEXT_BOUNDS_BUFFER[0];
     }
 
     public static int withAlpha(int argb, int alpha)
@@ -229,7 +234,7 @@ public final class NanoRenderUtils
         return isFinite(value) ? Math.max(0.0F, value) : 0.0F;
     }
 
-    private static boolean isFinite(float value)
+    static boolean isFinite(float value)
     {
         return !Float.isNaN(value) && !Float.isInfinite(value);
     }

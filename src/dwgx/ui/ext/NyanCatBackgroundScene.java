@@ -3,33 +3,11 @@ package dwgx.ui.ext;
 /**
  * Nyan Cat style shader-only background scene.
  */
-public final class NyanCatBackgroundScene implements MainMenuBackgroundScene
+public final class NyanCatBackgroundScene extends AbstractShaderScene
 {
     public String fragmentShaderSource()
     {
         return NyanCatFragmentShaderTemplate.source();
-    }
-
-    public MainMenuSplashShader.TextureAlphaMode textureAlphaMode()
-    {
-        return MainMenuSplashShader.TextureAlphaMode.IGNORE_SOURCE_ALPHA;
-    }
-
-    public void initialize()
-    {
-    }
-
-    public boolean handleKeyInput(char typedChar, int keyCode, boolean sceneEnabled)
-    {
-        return false;
-    }
-
-    public void tick(boolean sceneEnabled)
-    {
-    }
-
-    public void applyShaderUniforms(MainMenuSplashShader shader)
-    {
     }
 
     public String getOverlayHint(boolean sceneEnabled)

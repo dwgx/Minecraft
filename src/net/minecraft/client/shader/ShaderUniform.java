@@ -6,7 +6,7 @@ import net.minecraft.client.renderer.OpenGlHelper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.util.vector.Matrix4f;
+import client.runtime.lwjgl.LegacyMatrix4f;
 
 public class ShaderUniform
 {
@@ -219,7 +219,7 @@ public class ShaderUniform
         this.markDirty();
     }
 
-    public void set(Matrix4f p_148088_1_)
+    public void set(LegacyMatrix4f p_148088_1_)
     {
         this.set(p_148088_1_.m00, p_148088_1_.m01, p_148088_1_.m02, p_148088_1_.m03, p_148088_1_.m10, p_148088_1_.m11, p_148088_1_.m12, p_148088_1_.m13, p_148088_1_.m20, p_148088_1_.m21, p_148088_1_.m22, p_148088_1_.m23, p_148088_1_.m30, p_148088_1_.m31, p_148088_1_.m32, p_148088_1_.m33);
     }

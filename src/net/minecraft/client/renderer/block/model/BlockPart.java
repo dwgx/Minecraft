@@ -13,17 +13,17 @@ import java.util.Map.Entry;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.JsonUtils;
 import net.minecraft.util.MathHelper;
-import org.lwjgl.util.vector.Vector3f;
+import client.runtime.lwjgl.LegacyVec3f;
 
 public class BlockPart
 {
-    public final Vector3f positionFrom;
-    public final Vector3f positionTo;
+    public final LegacyVec3f positionFrom;
+    public final LegacyVec3f positionTo;
     public final Map<EnumFacing, BlockPartFace> mapFaces;
     public final BlockPartRotation partRotation;
     public final boolean shade;
 
-    public BlockPart(Vector3f positionFromIn, Vector3f positionToIn, Map<EnumFacing, BlockPartFace> mapFacesIn, BlockPartRotation partRotationIn, boolean shadeIn)
+    public BlockPart(LegacyVec3f positionFromIn, LegacyVec3f positionToIn, Map<EnumFacing, BlockPartFace> mapFacesIn, BlockPartRotation partRotationIn, boolean shadeIn)
     {
         this.positionFrom = positionFromIn;
         this.positionTo = positionToIn;
@@ -72,8 +72,8 @@ public class BlockPart
         public BlockPart deserialize(JsonElement p_deserialize_1_, Type p_deserialize_2_, JsonDeserializationContext p_deserialize_3_) throws JsonParseException
         {
             JsonObject jsonobject = p_deserialize_1_.getAsJsonObject();
-            Vector3f vector3f = this.parsePositionFrom(jsonobject);
-            Vector3f vector3f1 = this.parsePositionTo(jsonobject);
+            LegacyVec3f vector3f = this.parsePositionFrom(jsonobject);
+            LegacyVec3f vector3f1 = this.parsePositionTo(jsonobject);
             BlockPartRotation blockpartrotation = this.parseRotation(jsonobject);
             Map<EnumFacing, BlockPartFace> map = this.parseFacesCheck(p_deserialize_3_, jsonobject);
 
@@ -95,7 +95,7 @@ public class BlockPart
             if (p_178256_1_.has("rotation"))
             {
                 JsonObject jsonobject = JsonUtils.getJsonObject(p_178256_1_, "rotation");
-                Vector3f vector3f = this.parsePosition(jsonobject, "origin");
+                LegacyVec3f vector3f = this.parsePosition(jsonobject, "origin");
                 vector3f.scale(0.0625F);
                 EnumFacing.Axis enumfacing$axis = this.parseAxis(jsonobject);
                 float f = this.parseAngle(jsonobject);
@@ -177,9 +177,9 @@ public class BlockPart
             }
         }
 
-        private Vector3f parsePositionTo(JsonObject p_178247_1_)
+        private LegacyVec3f parsePositionTo(JsonObject p_178247_1_)
         {
-            Vector3f vector3f = this.parsePosition(p_178247_1_, "to");
+            LegacyVec3f vector3f = this.parsePosition(p_178247_1_, "to");
 
             if (vector3f.x >= -16.0F && vector3f.y >= -16.0F && vector3f.z >= -16.0F && vector3f.x <= 32.0F && vector3f.y <= 32.0F && vector3f.z <= 32.0F)
             {
@@ -191,9 +191,9 @@ public class BlockPart
             }
         }
 
-        private Vector3f parsePositionFrom(JsonObject p_178249_1_)
+        private LegacyVec3f parsePositionFrom(JsonObject p_178249_1_)
         {
-            Vector3f vector3f = this.parsePosition(p_178249_1_, "from");
+            LegacyVec3f vector3f = this.parsePosition(p_178249_1_, "from");
 
             if (vector3f.x >= -16.0F && vector3f.y >= -16.0F && vector3f.z >= -16.0F && vector3f.x <= 32.0F && vector3f.y <= 32.0F && vector3f.z <= 32.0F)
             {
@@ -205,7 +205,7 @@ public class BlockPart
             }
         }
 
-        private Vector3f parsePosition(JsonObject p_178251_1_, String p_178251_2_)
+        private LegacyVec3f parsePosition(JsonObject p_178251_1_, String p_178251_2_)
         {
             JsonArray jsonarray = JsonUtils.getJsonArray(p_178251_1_, p_178251_2_);
 
@@ -222,7 +222,7 @@ public class BlockPart
                     afloat[i] = JsonUtils.getFloat(jsonarray.get(i), p_178251_2_ + "[" + i + "]");
                 }
 
-                return new Vector3f(afloat[0], afloat[1], afloat[2]);
+                return new LegacyVec3f(afloat[0], afloat[1], afloat[2]);
             }
         }
     }

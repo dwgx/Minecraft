@@ -8,7 +8,7 @@ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.renderer.texture.TextureMap;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
-import org.lwjgl.util.vector.Vector3f;
+import client.runtime.lwjgl.LegacyVec3f;
 
 public class ItemModelGenerator
 {
@@ -51,7 +51,7 @@ public class ItemModelGenerator
         map.put(EnumFacing.SOUTH, new BlockPartFace((EnumFacing)null, p_178394_1_, p_178394_2_, new BlockFaceUV(new float[] {0.0F, 0.0F, 16.0F, 16.0F}, 0)));
         map.put(EnumFacing.NORTH, new BlockPartFace((EnumFacing)null, p_178394_1_, p_178394_2_, new BlockFaceUV(new float[] {16.0F, 0.0F, 0.0F, 16.0F}, 0)));
         List<BlockPart> list = Lists.<BlockPart>newArrayList();
-        list.add(new BlockPart(new Vector3f(0.0F, 0.0F, 7.5F), new Vector3f(16.0F, 16.0F, 8.5F), map, (BlockPartRotation)null, true));
+        list.add(new BlockPart(new LegacyVec3f(0.0F, 0.0F, 7.5F), new LegacyVec3f(16.0F, 16.0F, 8.5F), map, (BlockPartRotation)null, true));
         list.addAll(this.func_178397_a(p_178394_3_, p_178394_2_, p_178394_1_));
         return list;
     }
@@ -147,19 +147,19 @@ public class ItemModelGenerator
             switch (itemmodelgenerator$spanfacing)
             {
                 case UP:
-                    list.add(new BlockPart(new Vector3f(f2, f3, 7.5F), new Vector3f(f4, f3, 8.5F), map, (BlockPartRotation)null, true));
+                    list.add(new BlockPart(new LegacyVec3f(f2, f3, 7.5F), new LegacyVec3f(f4, f3, 8.5F), map, (BlockPartRotation)null, true));
                     break;
 
                 case DOWN:
-                    list.add(new BlockPart(new Vector3f(f2, f5, 7.5F), new Vector3f(f4, f5, 8.5F), map, (BlockPartRotation)null, true));
+                    list.add(new BlockPart(new LegacyVec3f(f2, f5, 7.5F), new LegacyVec3f(f4, f5, 8.5F), map, (BlockPartRotation)null, true));
                     break;
 
                 case LEFT:
-                    list.add(new BlockPart(new Vector3f(f2, f3, 7.5F), new Vector3f(f2, f5, 8.5F), map, (BlockPartRotation)null, true));
+                    list.add(new BlockPart(new LegacyVec3f(f2, f3, 7.5F), new LegacyVec3f(f2, f5, 8.5F), map, (BlockPartRotation)null, true));
                     break;
 
                 case RIGHT:
-                    list.add(new BlockPart(new Vector3f(f4, f3, 7.5F), new Vector3f(f4, f5, 8.5F), map, (BlockPartRotation)null, true));
+                    list.add(new BlockPart(new LegacyVec3f(f4, f3, 7.5F), new LegacyVec3f(f4, f5, 8.5F), map, (BlockPartRotation)null, true));
             }
         }
 

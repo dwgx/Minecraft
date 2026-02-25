@@ -22,7 +22,7 @@ import net.minecraft.util.JsonUtils;
 import net.minecraft.util.ResourceLocation;
 import org.apache.commons.io.IOUtils;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.util.vector.Matrix4f;
+import client.runtime.lwjgl.LegacyMatrix4f;
 
 public class ShaderGroup
 {
@@ -32,7 +32,7 @@ public class ShaderGroup
     private final List<Shader> listShaders = Lists.<Shader>newArrayList();
     private final Map<String, Framebuffer> mapFramebuffers = Maps.<String, Framebuffer>newHashMap();
     private final List<Framebuffer> listFramebuffers = Lists.<Framebuffer>newArrayList();
-    private Matrix4f projectionMatrix;
+    private LegacyMatrix4f projectionMatrix;
     private int mainFramebufferWidth;
     private int mainFramebufferHeight;
     private float field_148036_j;
@@ -344,7 +344,7 @@ public class ShaderGroup
 
     private void resetProjectionMatrix()
     {
-        this.projectionMatrix = new Matrix4f();
+        this.projectionMatrix = new LegacyMatrix4f();
         this.projectionMatrix.setIdentity();
         this.projectionMatrix.m00 = 2.0F / (float)this.mainFramebuffer.framebufferTextureWidth;
         this.projectionMatrix.m11 = 2.0F / (float)(-this.mainFramebuffer.framebufferTextureHeight);

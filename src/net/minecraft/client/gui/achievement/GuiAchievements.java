@@ -21,7 +21,7 @@ import net.minecraft.stats.StatFileWriter;
 import net.minecraft.util.ChatComponentTranslation;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.ResourceLocation;
-import org.lwjgl.input.Mouse;
+import client.runtime.lwjgl.GlfwMouse;
 
 public class GuiAchievements extends GuiScreen implements IProgressMeter
 {
@@ -111,7 +111,7 @@ public class GuiAchievements extends GuiScreen implements IProgressMeter
         }
         else
         {
-            if (Mouse.isButtonDown(0))
+            if (GlfwMouse.isButtonDown(0))
             {
                 int i = (this.width - this.field_146555_f) / 2;
                 int j = (this.height - this.field_146557_g) / 2;
@@ -141,7 +141,7 @@ public class GuiAchievements extends GuiScreen implements IProgressMeter
                 this.field_146554_D = 0;
             }
 
-            int i1 = Mouse.getDWheel();
+            int i1 = GlfwMouse.getDWheel();
             float f3 = this.field_146570_r;
 
             if (i1 < 0)

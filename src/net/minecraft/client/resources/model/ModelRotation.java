@@ -4,8 +4,8 @@ import com.google.common.collect.Maps;
 import java.util.Map;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.MathHelper;
-import org.lwjgl.util.vector.Matrix4f;
-import org.lwjgl.util.vector.Vector3f;
+import client.runtime.lwjgl.LegacyMatrix4f;
+import client.runtime.lwjgl.LegacyVec3f;
 
 public enum ModelRotation
 {
@@ -28,7 +28,7 @@ public enum ModelRotation
 
     private static final Map<Integer, ModelRotation> mapRotations = Maps.<Integer, ModelRotation>newHashMap();
     private final int combinedXY;
-    private final Matrix4f matrix4d;
+    private final LegacyMatrix4f matrix4d;
     private final int quartersX;
     private final int quartersY;
 
@@ -40,19 +40,19 @@ public enum ModelRotation
     private ModelRotation(int p_i46087_3_, int p_i46087_4_)
     {
         this.combinedXY = combineXY(p_i46087_3_, p_i46087_4_);
-        this.matrix4d = new Matrix4f();
-        Matrix4f matrix4f = new Matrix4f();
+        this.matrix4d = new LegacyMatrix4f();
+        LegacyMatrix4f matrix4f = new LegacyMatrix4f();
         matrix4f.setIdentity();
-        Matrix4f.rotate((float)(-p_i46087_3_) * 0.017453292F, new Vector3f(1.0F, 0.0F, 0.0F), matrix4f, matrix4f);
+        LegacyMatrix4f.rotate((float)(-p_i46087_3_) * 0.017453292F, new LegacyVec3f(1.0F, 0.0F, 0.0F), matrix4f, matrix4f);
         this.quartersX = MathHelper.abs_int(p_i46087_3_ / 90);
-        Matrix4f matrix4f1 = new Matrix4f();
+        LegacyMatrix4f matrix4f1 = new LegacyMatrix4f();
         matrix4f1.setIdentity();
-        Matrix4f.rotate((float)(-p_i46087_4_) * 0.017453292F, new Vector3f(0.0F, 1.0F, 0.0F), matrix4f1, matrix4f1);
+        LegacyMatrix4f.rotate((float)(-p_i46087_4_) * 0.017453292F, new LegacyVec3f(0.0F, 1.0F, 0.0F), matrix4f1, matrix4f1);
         this.quartersY = MathHelper.abs_int(p_i46087_4_ / 90);
-        Matrix4f.mul(matrix4f1, matrix4f, this.matrix4d);
+        LegacyMatrix4f.mul(matrix4f1, matrix4f, this.matrix4d);
     }
 
-    public Matrix4f getMatrix4d()
+    public LegacyMatrix4f getMatrix4d()
     {
         return this.matrix4d;
     }

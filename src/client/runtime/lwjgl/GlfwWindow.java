@@ -1,6 +1,5 @@
-package org.lwjgl.opengl;
+package client.runtime.lwjgl;
 
-import org.lwjgl.LWJGLException;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWCursorPosCallback;
 import org.lwjgl.glfw.GLFWCursorEnterCallback;
@@ -16,8 +15,6 @@ import org.lwjgl.glfw.GLFWWindowSizeCallback;
 import org.lwjgl.glfw.GLFWVidMode;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -27,7 +24,8 @@ import java.util.List;
  * Lightweight GLFW-backed replacement for legacy Display API usage.
  * Only methods used by Minecraft 1.8.9 are implemented.
  */
-public final class Display {
+public final class GlfwWindow
+{
     private static final boolean RESIZE_DEBUG = Boolean.getBoolean("dwgx.render.resizeDebug");
     private static long window = 0;
     private static GLFWErrorCallback errorCallback;
@@ -36,12 +34,13 @@ public final class Display {
     private static boolean fullscreen = false;
     private static boolean wasResized = false;
     private static int refreshBudgetFrames = 0;
-    private static int width = 854;
-    private static int height = 480;
-    private static int windowWidth = 854;
-    private static int windowHeight = 480;
-    private static DisplayMode desktopMode;
-    private static DisplayMode currentMode;
+    private static int width = DisplayDefaults.WIDTH;
+    private static int height = DisplayDefaults.HEIGHT;
+    private static int windowWidth = DisplayDefaults.WIDTH;
+    private static int windowHeight = DisplayDefaults.HEIGHT;
+    private static GlfwWindowMode desktopMode;
+    private static GlfwWindowMode currentMode;
+
     private static GLFWKeyCallback keyCallback;
     private static GLFWMouseButtonCallback mouseButtonCallback;
     private static GLFWCursorPosCallback cursorPosCallback;
@@ -61,42 +60,49 @@ public final class Display {
     private static final double[] cursorYBuffer = new double[1];
     private static int windowedPosX;
     private static int windowedPosY;
-    private static int windowedWidth = 854;
-    private static int windowedHeight = 480;
+    private static int windowedWidth = DisplayDefaults.WIDTH;
+    private static int windowedHeight = DisplayDefaults.HEIGHT;
     private static boolean hasWindowedPlacement;
     private static long lastSyncNanos = System.nanoTime();
     private static boolean refreshRequested;
+    private static Runnable refreshPresentHandler;
     private static final long SYNC_SLEEP_MARGIN_NANOS = 2000000L;
     private static final long SYNC_YIELD_MARGIN_NANOS = 200000L;
     private static final long SYNC_RESET_LAG_MULTIPLIER = 4L;
 
-    private Display() {}
+    private GlfwWindow() {}
 
-    public static void setVSyncEnabled(boolean enabled) {
+    public static void setVSyncEnabled(boolean enabled)
+    {
         vsync = enabled;
         if (isCreated()) {
             GLFW.glfwSwapInterval(enabled ? 1 : 0);
         }
     }
 
-    public static void setResizable(boolean r) {
+    public static void setResizable(boolean r)
+    {
         resizable = r;
         if (isCreated()) {
             GLFW.glfwSetWindowAttrib(window, GLFW.GLFW_RESIZABLE, r ? GLFW.GLFW_TRUE : GLFW.GLFW_FALSE);
         }
     }
 
-    public static void setTitle(String title) {
+    public static void setTitle(String title)
+    {
         if (isCreated()) {
             GLFW.glfwSetWindowTitle(window, title);
         }
     }
 
-    public static void create() throws LWJGLException {
-        create(new PixelFormat());
+
+    public static void create() throws GlfwInitException
+    {
+        create(null);
     }
 
-    public static void create(PixelFormat ignored) throws LWJGLException {
+    public static void create(Object ignored) throws GlfwInitException
+    {
         if (isCreated()) return;
 
         errorCallback = GLFWErrorCallback.createPrint(System.err);
@@ -104,13 +110,13 @@ public final class Display {
         if (!GLFW.glfwInit()) {
             errorCallback.free();
             errorCallback = null;
-            throw new LWJGLException("Unable to initialize GLFW");
+            throw new GlfwInitException("Unable to initialize GLFW");
         }
 
         try {
             GLFWVidMode desktop = GLFW.glfwGetVideoMode(GLFW.glfwGetPrimaryMonitor());
-            desktopMode = new DisplayMode(desktop.width(), desktop.height(), desktop.redBits() + desktop.greenBits() + desktop.blueBits(), desktop.refreshRate());
-            currentMode = new DisplayMode(width, height, desktopMode.getBitsPerPixel(), desktopMode.getFrequency());
+            desktopMode = new GlfwWindowMode(desktop.width(), desktop.height(), desktop.redBits() + desktop.greenBits() + desktop.blueBits(), desktop.refreshRate());
+            currentMode = new GlfwWindowMode(width, height, desktopMode.getBitsPerPixel(), desktopMode.getFrequency());
 
             GLFW.glfwDefaultWindowHints();
             GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, resizable ? GLFW.GLFW_TRUE : GLFW.GLFW_FALSE);
@@ -119,7 +125,7 @@ public final class Display {
             long monitor = fullscreen ? GLFW.glfwGetPrimaryMonitor() : 0;
             window = GLFW.glfwCreateWindow(currentMode.getWidth(), currentMode.getHeight(), "Minecraft", monitor, 0);
             if (window == 0) {
-                throw new LWJGLException("Failed to create GLFW window");
+                throw new GlfwInitException("Failed to create GLFW window");
             }
 
             if (!fullscreen) {
@@ -131,36 +137,37 @@ public final class Display {
             GLFW.glfwSwapInterval(vsync ? 1 : 0);
 
             // attach input callbacks
-            Keyboard.attachWindow(window);
-            Mouse.attachWindow(window);
+            GlfwKeyboard.attachWindow(window);
+            GlfwMouse.attachWindow(window);
+
 
             keyCallback = GLFWKeyCallback.create((win, key, scancode, action, mods) -> {
                 if (action == GLFW.GLFW_PRESS || action == GLFW.GLFW_RELEASE || action == GLFW.GLFW_REPEAT) {
-                    Keyboard.pushEvent(key, action, scancode, mods);
+                    GlfwKeyboard.pushEvent(key, action, scancode, mods);
                 }
             });
             GLFW.glfwSetKeyCallback(window, keyCallback);
 
             mouseButtonCallback = GLFWMouseButtonCallback.create((win, button, action, mods) -> {
                 readCursorPos(win);
-                Mouse.pushButtonEvent(button, action == GLFW.GLFW_PRESS, cursorXBuffer[0], cursorYBuffer[0]);
+                GlfwMouse.pushButtonEvent(button, action == GLFW.GLFW_PRESS, cursorXBuffer[0], cursorYBuffer[0]);
             });
             GLFW.glfwSetMouseButtonCallback(window, mouseButtonCallback);
 
-            cursorPosCallback = GLFWCursorPosCallback.create((win, xpos, ypos) -> Mouse.pushMoveEvent(xpos, ypos));
+            cursorPosCallback = GLFWCursorPosCallback.create((win, xpos, ypos) -> GlfwMouse.pushMoveEvent(xpos, ypos));
             GLFW.glfwSetCursorPosCallback(window, cursorPosCallback);
 
-            cursorEnterCallback = GLFWCursorEnterCallback.create((win, entered) -> Mouse.onCursorEntered(entered));
+            cursorEnterCallback = GLFWCursorEnterCallback.create((win, entered) -> GlfwMouse.onCursorEntered(entered));
             GLFW.glfwSetCursorEnterCallback(window, cursorEnterCallback);
 
             scrollCallback = GLFWScrollCallback.create((win, xoff, yoff) -> {
                 readCursorPos(win);
-                Mouse.pushWheelEvent(yoff, cursorXBuffer[0], cursorYBuffer[0]);
+                GlfwMouse.pushWheelEvent(yoff, cursorXBuffer[0], cursorYBuffer[0]);
             });
             GLFW.glfwSetScrollCallback(window, scrollCallback);
 
             windowFocusCallback = GLFWWindowFocusCallback.create((win, focused) -> {
-                Mouse.onWindowFocusChanged(focused);
+                GlfwMouse.onWindowFocusChanged(focused);
 
                 if (focused) {
                     refreshDimensions();
@@ -170,6 +177,7 @@ public final class Display {
             });
             GLFW.glfwSetWindowFocusCallback(window, windowFocusCallback);
 
+
             windowSizeCallback = GLFWWindowSizeCallback.create((win, newWindowWidth, newWindowHeight) -> {
                 if (newWindowWidth <= 0 || newWindowHeight <= 0) {
                     return;
@@ -177,7 +185,12 @@ public final class Display {
 
                 windowWidth = newWindowWidth;
                 windowHeight = newWindowHeight;
+                refreshDimensions();
                 markRefreshRequested("window-size-callback");
+                Runnable handler = refreshPresentHandler;
+                if (handler != null) {
+                    handler.run();
+                }
             });
             GLFW.glfwSetWindowSizeCallback(window, windowSizeCallback);
 
@@ -189,10 +202,21 @@ public final class Display {
                 width = newFramebufferWidth;
                 height = newFramebufferHeight;
                 markRefreshRequested("framebuffer-size-callback");
+                Runnable handler = refreshPresentHandler;
+                if (handler != null) {
+                    handler.run();
+                }
             });
             GLFW.glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
-            windowRefreshCallback = GLFWWindowRefreshCallback.create((win) -> markRefreshRequested("window-refresh-callback"));
+            windowRefreshCallback = GLFWWindowRefreshCallback.create((win) -> {
+                refreshDimensions();
+                markRefreshRequested("window-refresh-callback");
+                Runnable handler = refreshPresentHandler;
+                if (handler != null) {
+                    handler.run();
+                }
+            });
             GLFW.glfwSetWindowRefreshCallback(window, windowRefreshCallback);
 
             refreshDimensions();
@@ -203,20 +227,23 @@ public final class Display {
             refreshRequested = false;
             GL11.glViewport(0, 0, width, height);
             debugResize("create");
+
         } catch (Throwable t) {
             cleanupAfterCreateFailure();
-            if (t instanceof LWJGLException) {
-                throw (LWJGLException)t;
+            if (t instanceof GlfwInitException) {
+                throw (GlfwInitException)t;
             }
-            throw new LWJGLException("Failed to initialize GLFW display", t);
+            throw new GlfwInitException("Failed to initialize GLFW display", t);
         }
     }
 
-    public static boolean isCreated() {
+    public static boolean isCreated()
+    {
         return window != 0;
     }
 
-    public static void destroy() {
+    public static void destroy()
+    {
         if (window != 0) {
             GLFW.glfwMakeContextCurrent(0);
             GL.setCapabilities(null);
@@ -249,6 +276,7 @@ public final class Display {
                 cursorEnterCallback.free();
                 cursorEnterCallback = null;
             }
+
             if (cursorPosCallback != null) {
                 cursorPosCallback.free();
                 cursorPosCallback = null;
@@ -268,19 +296,22 @@ public final class Display {
             errorCallback = null;
         }
 
-        Keyboard.reset();
-        Mouse.reset();
+        GlfwKeyboard.reset();
+        GlfwMouse.reset();
         wasResized = false;
         refreshRequested = false;
+        refreshPresentHandler = null;
         hasWindowedPlacement = false;
         lastSyncNanos = System.nanoTime();
     }
 
-    public static boolean isCloseRequested() {
+    public static boolean isCloseRequested()
+    {
         return isCreated() && GLFW.glfwWindowShouldClose(window);
     }
 
-    public static void setDisplayMode(DisplayMode mode) {
+    public static void setDisplayMode(GlfwWindowMode mode)
+    {
         if (mode == null) {
             return;
         }
@@ -296,6 +327,7 @@ public final class Display {
             windowedWidth = Math.max(1, windowWidth);
             windowedHeight = Math.max(1, windowHeight);
         }
+
 
         if (!isCreated()) return;
 
@@ -323,7 +355,8 @@ public final class Display {
         debugResize("setDisplayMode:after " + mode.toString());
     }
 
-    public static void setFullscreen(boolean enable) {
+    public static void setFullscreen(boolean enable)
+    {
         debugResize("setFullscreen:before enable=" + enable);
 
         if (enable == fullscreen && isCreated()) {
@@ -338,12 +371,13 @@ public final class Display {
         long monitor = GLFW.glfwGetPrimaryMonitor();
         GLFWVidMode desktop = GLFW.glfwGetVideoMode(monitor);
 
+
         if (enable) {
             captureWindowedPlacement();
-            DisplayMode mode = currentMode;
+            GlfwWindowMode mode = currentMode;
 
             if (!wasFullscreen) {
-                DisplayMode desktopModeNow = getDesktopDisplayMode();
+                GlfwWindowMode desktopModeNow = getDesktopDisplayMode();
                 if (mode == null || (mode.getWidth() == width && mode.getHeight() == height)) {
                     mode = desktopModeNow;
                 }
@@ -391,6 +425,7 @@ public final class Display {
             );
         }
 
+
         refreshDimensions();
         if (!fullscreen) {
             captureWindowedPlacement();
@@ -399,37 +434,42 @@ public final class Display {
         debugResize("setFullscreen:after enable=" + enable);
     }
 
-    public static DisplayMode getDisplayMode() {
+    public static GlfwWindowMode getDisplayMode()
+    {
         if (currentMode == null) {
             GLFWVidMode vid = GLFW.glfwGetVideoMode(GLFW.glfwGetPrimaryMonitor());
-            currentMode = new DisplayMode(vid.width(), vid.height(), vid.redBits() + vid.greenBits() + vid.blueBits(), vid.refreshRate());
+            currentMode = new GlfwWindowMode(vid.width(), vid.height(), vid.redBits() + vid.greenBits() + vid.blueBits(), vid.refreshRate());
         }
         return currentMode;
     }
 
-    public static DisplayMode getDesktopDisplayMode() {
+    public static GlfwWindowMode getDesktopDisplayMode()
+    {
         if (desktopMode == null) {
             GLFWVidMode vid = GLFW.glfwGetVideoMode(GLFW.glfwGetPrimaryMonitor());
-            desktopMode = new DisplayMode(vid.width(), vid.height(), vid.redBits() + vid.greenBits() + vid.blueBits(), vid.refreshRate());
+            desktopMode = new GlfwWindowMode(vid.width(), vid.height(), vid.redBits() + vid.greenBits() + vid.blueBits(), vid.refreshRate());
         }
         return desktopMode;
     }
 
-    public static DisplayMode[] getAvailableDisplayModes() {
-        List<DisplayMode> list = new ArrayList<>();
+    public static GlfwWindowMode[] getAvailableDisplayModes()
+    {
+        List<GlfwWindowMode> list = new ArrayList<GlfwWindowMode>();
         GLFWVidMode.Buffer modes = GLFW.glfwGetVideoModes(GLFW.glfwGetPrimaryMonitor());
         if (modes != null) {
             for (int i = 0; i < modes.limit(); i++) {
                 GLFWVidMode m = modes.get(i);
-                list.add(new DisplayMode(m.width(), m.height(), m.redBits() + m.greenBits() + m.blueBits(), m.refreshRate()));
+                list.add(new GlfwWindowMode(m.width(), m.height(), m.redBits() + m.greenBits() + m.blueBits(), m.refreshRate()));
             }
         } else {
             list.add(getDesktopDisplayMode());
         }
-        return list.toArray(new DisplayMode[0]);
+        return list.toArray(new GlfwWindowMode[0]);
     }
 
-    public static void setIcon(ByteBuffer[] icons) {
+
+    public static void setIcon(ByteBuffer[] icons)
+    {
         if (!isCreated() || icons == null || icons.length == 0) {
             return;
         }
@@ -479,17 +519,16 @@ public final class Display {
         glfwIcons.free();
     }
 
-    public static void update() {
+
+    public static void update()
+    {
         if (!isCreated()) return;
 
         int iconified = GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_ICONIFIED);
         int focused = GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_FOCUSED);
 
-        // Keep presenting resize/refresh frames even when focus briefly drops during
-        // window edge-drag; otherwise compositor can show stale black frames.
         boolean hasRefreshWork = refreshRequested || wasResized || refreshBudgetFrames > 0;
 
-        // During resize/refresh keep swapping a few frames even if focus blips false
         if (iconified != GLFW.GLFW_TRUE && (focused == GLFW.GLFW_TRUE || hasRefreshWork)) {
             GLFW.glfwSwapBuffers(window);
             if (refreshBudgetFrames > 0) {
@@ -499,19 +538,22 @@ public final class Display {
         refreshDimensions();
     }
 
-    public static void processMessages() {
+    public static void processMessages()
+    {
         if (!isCreated()) return;
         GLFW.glfwPollEvents();
         refreshDimensions();
     }
 
-    public static boolean consumeRefreshRequested() {
+    public static boolean consumeRefreshRequested()
+    {
         boolean requested = refreshRequested;
         refreshRequested = false;
         return requested;
     }
 
-    public static void sync(int fps) {
+    public static void sync(int fps)
+    {
         if (fps <= 0) return;
 
         long frameTime = 1000000000L / fps;
@@ -527,6 +569,7 @@ public final class Display {
             lastSyncNanos = now;
             return;
         }
+
 
         while (target - now > SYNC_SLEEP_MARGIN_NANOS) {
             long sleepNanos = target - now - SYNC_YIELD_MARGIN_NANOS;
@@ -564,37 +607,56 @@ public final class Display {
         lastSyncNanos = target;
     }
 
-    public static boolean wasResized() {
+    public static boolean wasResized()
+    {
         boolean r = wasResized;
         wasResized = false;
         return r;
     }
 
-    public static int getWidth() {
+    public static int getWidth()
+    {
         return width;
     }
 
-    public static int getHeight() {
+    public static int getHeight()
+    {
         return height;
     }
 
-    public static int getWindowWidth() {
+
+    public static int getWindowWidth()
+    {
         return windowWidth;
     }
 
-    public static int getWindowHeight() {
+    public static int getWindowHeight()
+    {
         return windowHeight;
     }
 
-    public static boolean isActive() {
+    public static boolean isActive()
+    {
         return isCreated() && GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_FOCUSED) == GLFW.GLFW_TRUE;
     }
 
-    public static void syncDimensions() {
+    public static long getWindow()
+    {
+        return window;
+    }
+
+    public static void setRefreshPresentHandler(Runnable handler)
+    {
+        refreshPresentHandler = handler;
+    }
+
+    public static void syncDimensions()
+    {
         refreshDimensions();
     }
 
-    private static void refreshDimensions() {
+    private static void refreshDimensions()
+    {
         if (!isCreated()) {
             return;
         }
@@ -608,10 +670,11 @@ public final class Display {
         int rawFramebufferWidth = framebufferWidth[0];
         int rawFramebufferHeight = framebufferHeight[0];
 
+
         if (iconified || rawWindowWidth <= 0 || rawWindowHeight <= 0 || rawFramebufferWidth <= 0 || rawFramebufferHeight <= 0) {
             if (RESIZE_DEBUG) {
                 System.out.println(
-                    "[resize-debug][Display] refreshDimensions:skip-invalid"
+                    "[resize-debug][GlfwWindow] refreshDimensions:skip-invalid"
                         + " iconified=" + iconified
                         + " rawWindow=" + rawWindowWidth + "x" + rawWindowHeight
                         + " rawFramebuffer=" + rawFramebufferWidth + "x" + rawFramebufferHeight
@@ -634,7 +697,8 @@ public final class Display {
         }
     }
 
-    private static int resolveRefreshRate(DisplayMode mode, GLFWVidMode desktop) {
+    private static int resolveRefreshRate(GlfwWindowMode mode, GLFWVidMode desktop)
+    {
         if (mode != null && mode.getFrequency() > 0) {
             return mode.getFrequency();
         }
@@ -642,7 +706,8 @@ public final class Display {
         return desktop == null ? GLFW.GLFW_DONT_CARE : desktop.refreshRate();
     }
 
-    private static void captureWindowedPlacement() {
+    private static void captureWindowedPlacement()
+    {
         if (!isCreated() || fullscreen) {
             return;
         }
@@ -655,14 +720,16 @@ public final class Display {
         hasWindowedPlacement = true;
     }
 
-    private static void debugResize(String stage) {
+
+    private static void debugResize(String stage)
+    {
         if (!RESIZE_DEBUG) {
             return;
         }
 
         String mode = currentMode == null ? "null" : currentMode.toString();
         System.out.println(
-            "[resize-debug][Display] " + stage
+            "[resize-debug][GlfwWindow] " + stage
                 + " | fullscreen=" + fullscreen
                 + " display=" + width + "x" + height
                 + " window=" + windowWidth + "x" + windowHeight
@@ -670,11 +737,13 @@ public final class Display {
         );
     }
 
-    private static void readCursorPos(long win) {
+    private static void readCursorPos(long win)
+    {
         GLFW.glfwGetCursorPos(win, cursorXBuffer, cursorYBuffer);
     }
 
-    private static void cleanupAfterCreateFailure() {
+    private static void cleanupAfterCreateFailure()
+    {
         if (keyCallback != null) {
             keyCallback.free();
             keyCallback = null;
@@ -699,6 +768,7 @@ public final class Display {
             windowRefreshCallback.free();
             windowRefreshCallback = null;
         }
+
         if (cursorEnterCallback != null) {
             cursorEnterCallback.free();
             cursorEnterCallback = null;
@@ -723,13 +793,14 @@ public final class Display {
             errorCallback.free();
             errorCallback = null;
         }
-        Keyboard.reset();
-        Mouse.reset();
+        GlfwKeyboard.reset();
+        GlfwMouse.reset();
         refreshRequested = false;
         hasWindowedPlacement = false;
     }
 
-    private static void markRefreshRequested(String stage) {
+    private static void markRefreshRequested(String stage)
+    {
         wasResized = true;
         refreshRequested = true;
         refreshBudgetFrames = Math.max(refreshBudgetFrames, 12);
@@ -738,7 +809,8 @@ public final class Display {
         }
     }
 
-    private static ByteBuffer toNativeIconBuffer(ByteBuffer icon) {
+    private static ByteBuffer toNativeIconBuffer(ByteBuffer icon)
+    {
         if (icon.isDirect()) {
             return icon.duplicate();
         }

@@ -83,8 +83,8 @@ import net.minecraft.world.chunk.Chunk;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.util.vector.Vector3f;
-import org.lwjgl.util.vector.Vector4f;
+import client.runtime.lwjgl.LegacyVec3f;
+import client.runtime.lwjgl.LegacyVec4f;
 
 public class RenderGlobal implements IWorldAccess, IResourceManagerReloadListener
 {
@@ -159,7 +159,7 @@ public class RenderGlobal implements IWorldAccess, IResourceManagerReloadListene
     private int countEntitiesHidden;
     private boolean debugFixTerrainFrustum = false;
     private ClippingHelper debugFixedClippingHelper;
-    private final Vector4f[] debugTerrainMatrix = new Vector4f[8];
+    private final LegacyVec4f[] debugTerrainMatrix = new LegacyVec4f[8];
     private final Vector3d debugTerrainFrustumPosition = new Vector3d();
     private boolean vboEnabled = false;
     IRenderChunkFactory renderChunkFactory;
@@ -835,7 +835,7 @@ public class RenderGlobal implements IWorldAccess, IResourceManagerReloadListene
 
                 if (set1.size() == 1)
                 {
-                    Vector3f vector3f = this.getViewVector(viewEntity, partialTicks);
+                    LegacyVec3f vector3f = this.getViewVector(viewEntity, partialTicks);
                     EnumFacing enumfacing = EnumFacing.getFacingFromVector(vector3f.x, vector3f.y, vector3f.z).getOpposite();
                     set1.remove(enumfacing);
                 }
@@ -984,14 +984,14 @@ public class RenderGlobal implements IWorldAccess, IResourceManagerReloadListene
         this.debugTerrainFrustumPosition.x = x;
         this.debugTerrainFrustumPosition.y = y;
         this.debugTerrainFrustumPosition.z = z;
-        this.debugTerrainMatrix[0] = new Vector4f(-1.0F, -1.0F, -1.0F, 1.0F);
-        this.debugTerrainMatrix[1] = new Vector4f(1.0F, -1.0F, -1.0F, 1.0F);
-        this.debugTerrainMatrix[2] = new Vector4f(1.0F, 1.0F, -1.0F, 1.0F);
-        this.debugTerrainMatrix[3] = new Vector4f(-1.0F, 1.0F, -1.0F, 1.0F);
-        this.debugTerrainMatrix[4] = new Vector4f(-1.0F, -1.0F, 1.0F, 1.0F);
-        this.debugTerrainMatrix[5] = new Vector4f(1.0F, -1.0F, 1.0F, 1.0F);
-        this.debugTerrainMatrix[6] = new Vector4f(1.0F, 1.0F, 1.0F, 1.0F);
-        this.debugTerrainMatrix[7] = new Vector4f(-1.0F, 1.0F, 1.0F, 1.0F);
+        this.debugTerrainMatrix[0] = new LegacyVec4f(-1.0F, -1.0F, -1.0F, 1.0F);
+        this.debugTerrainMatrix[1] = new LegacyVec4f(1.0F, -1.0F, -1.0F, 1.0F);
+        this.debugTerrainMatrix[2] = new LegacyVec4f(1.0F, 1.0F, -1.0F, 1.0F);
+        this.debugTerrainMatrix[3] = new LegacyVec4f(-1.0F, 1.0F, -1.0F, 1.0F);
+        this.debugTerrainMatrix[4] = new LegacyVec4f(-1.0F, -1.0F, 1.0F, 1.0F);
+        this.debugTerrainMatrix[5] = new LegacyVec4f(1.0F, -1.0F, 1.0F, 1.0F);
+        this.debugTerrainMatrix[6] = new LegacyVec4f(1.0F, 1.0F, 1.0F, 1.0F);
+        this.debugTerrainMatrix[7] = new LegacyVec4f(-1.0F, 1.0F, 1.0F, 1.0F);
 
         for (int i = 0; i < 8; ++i)
         {
@@ -1003,7 +1003,7 @@ public class RenderGlobal implements IWorldAccess, IResourceManagerReloadListene
         }
     }
 
-    protected Vector3f getViewVector(Entity entityIn, double partialTicks)
+    protected LegacyVec3f getViewVector(Entity entityIn, double partialTicks)
     {
         float f = (float)((double)entityIn.prevRotationPitch + (double)(entityIn.rotationPitch - entityIn.prevRotationPitch) * partialTicks);
         float f1 = (float)((double)entityIn.prevRotationYaw + (double)(entityIn.rotationYaw - entityIn.prevRotationYaw) * partialTicks);
@@ -1017,7 +1017,7 @@ public class RenderGlobal implements IWorldAccess, IResourceManagerReloadListene
         float f3 = MathHelper.sin(-f1 * 0.017453292F - (float)Math.PI);
         float f4 = -MathHelper.cos(-f * 0.017453292F);
         float f5 = MathHelper.sin(-f * 0.017453292F);
-        return new Vector3f(f3 * f4, f5, f2 * f4);
+        return new LegacyVec3f(f3 * f4, f5, f2 * f4);
     }
 
     public int renderBlockLayer(EnumWorldBlockLayer blockLayerIn, double partialTicks, int pass, Entity entityIn)
