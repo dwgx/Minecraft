@@ -8,6 +8,7 @@ import client.setting.EnumSetting;
 import client.setting.FloatSetting;
 import client.setting.SettingGroup;
 import client.ui.UIScaleEditScreen;
+import client.ui.editor.GuiEditScreen;
 import client.ui.template.UiAnimation;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
@@ -41,7 +42,7 @@ public final class UiScaleEditModule extends Module
 
     public UiScaleEditModule()
     {
-        super("ui_scale_edit", "UIScaleEdit", Category.CLIENT);
+        super("ui_scale_edit", "GuiEdit", Category.CLIENT);
 
         SettingGroup editor = this.addGroup("editor", "Editor");
         this.editTarget = this.addSetting(new EnumSetting<UiTarget>("edit_target", "Edit Target", "Which UI profile this editor is controlling", UiTarget.class, UiTarget.CLICK_GUI));
@@ -90,14 +91,18 @@ public final class UiScaleEditModule extends Module
 
         if (mc != null)
         {
-            if (mc.currentScreen instanceof UIScaleEditScreen)
+            if (mc.currentScreen instanceof GuiEditScreen)
+            {
+                mc.displayGuiScreen(null);
+            }
+            else if (mc.currentScreen instanceof UIScaleEditScreen)
             {
                 mc.displayGuiScreen(null);
             }
             else
             {
                 GuiScreen parent = mc.currentScreen;
-                mc.displayGuiScreen(new UIScaleEditScreen(this, parent));
+                mc.displayGuiScreen(new GuiEditScreen(this, parent));
             }
         }
     }

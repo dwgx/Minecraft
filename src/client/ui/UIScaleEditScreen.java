@@ -12,9 +12,11 @@ import client.ui.template.NanoSliderController;
 import client.ui.template.NanoTextInput;
 import client.ui.template.UiAnimProfile;
 import client.ui.template.UiAnimProfiles;
+import client.ui.template.UiLayoutProfile;
 import client.ui.template.UiMotion;
 import client.ui.template.UiAnimation;
 import client.ui.template.UiAnimationBus;
+import client.ui.template.ScreenTransitionController;
 import client.ui.template.UiWindowState;
 import dwgx.nano.NanoFontBook;
 import dwgx.nano.NanoPalette;
@@ -31,19 +33,12 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 
 public final class UIScaleEditScreen extends GuiScreen implements NanoRenderableScreen
 {
-    private enum TransitionMode
-    {
-        NONE,
-        CLOSE,
-        SWITCH,
-        BACK
-    }
-
     private static final float BASE_WIDTH = 690.0F;
     private static final float BASE_HEIGHT = 430.0F;
     private static final float MIN_WIDTH = 360.0F;
     private static final float MIN_HEIGHT = 230.0F;
     private static final float SCREEN_MARGIN = 8.0F;
+    private static final ScreenTransitionController.Tuning TRANSITION_TUNING = ScreenTransitionController.Tuning.of(1.90F, 1.18F, 1.48F, 0.95F, 0.90F, 1.12F, 1.24F, 0.08F);
 
     private final UiScaleEditModule module;
     private final GuiScreen parentScreen;
@@ -60,12 +55,21 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
     private long lastSliderDragNanos;
     private boolean draggingAnimSpeed;
     private boolean draggingAnimSmooth;
+    private boolean draggingSidebarRatio;
+    private boolean draggingModulesRatio;
+    private boolean draggingRowCategory;
+    private boolean draggingRowModule;
+    private boolean draggingRowSetting;
+    private boolean draggingBtnHeight;
+    private boolean draggingGapMajor;
+    private boolean draggingValueCol;
+    private int activeTab;
     private long lastNanoAt;
     private long lastNanoVg;
     private String activeSliderInputKey;
     private final StringSetting numberInputBuffer = new StringSetting("__uiscale_number_input_buffer", "Number Input", "UIScale inline number input buffer", "", 32);
     private final NanoTextInput numberInput = new NanoTextInput();
-    private TransitionMode transitionMode = TransitionMode.NONE;
+    private ScreenTransitionController.Mode transitionMode = ScreenTransitionController.Mode.NONE;
     private GuiScreen transitionTarget;
     private boolean transitioningOut;
     private boolean transitionExecuted;
@@ -90,7 +94,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
 
     public void initGui()
     {
-        this.transitionMode = TransitionMode.NONE;
+        this.transitionMode = ScreenTransitionController.Mode.NONE;
         this.transitionTarget = null;
         this.transitioningOut = false;
         this.transitionExecuted = false;
@@ -110,10 +114,19 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         this.draggingMotion = false;
         this.draggingAnchorX = false;
         this.draggingAnchorY = false;
+        this.draggingSidebarRatio = false;
+        this.draggingModulesRatio = false;
+        this.draggingRowCategory = false;
+        this.draggingRowModule = false;
+        this.draggingRowSetting = false;
+        this.draggingBtnHeight = false;
+        this.draggingGapMajor = false;
+        this.draggingValueCol = false;
         this.clearSliderTrackLock();
         this.commitActiveNumberInput();
         this.activeSliderInputKey = null;
         this.numberInput.blur();
+        UiAnimationBus.clearPrefix("uiscale.");
     }
 
     public void drawScreen(int mouseX, int mouseY, float partialTicks)
@@ -139,7 +152,7 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
 
         if (keyCode == 1)
         {
-            this.requestTransition(TransitionMode.BACK, this.parentScreen);
+            this.requestTransition(ScreenTransitionController.Mode.BACK, this.parentScreen);
             return;
         }
 
@@ -252,15 +265,41 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
                 return;
             }
 
+            if (l.tabScale.contains(mouseX, mouseY))
+            {
+                this.activeTab = 0;
+                return;
+            }
+
+            if (l.tabLayout.contains(mouseX, mouseY))
+            {
+                this.activeTab = 1;
+                return;
+            }
+
+            if (this.activeTab == 1)
+            {
+                if (this.handleLayoutSliderClick(l, mouseX))
+                {
+                    return;
+                }
+            }
+
+            if (l.resetButton.contains(mouseX, mouseY))
+            {
+                this.resetLayoutDefaults();
+                return;
+            }
+
             if (l.openButton.contains(mouseX, mouseY))
             {
-                this.requestTransition(TransitionMode.SWITCH, this.createTargetScreen());
+                this.requestTransition(ScreenTransitionController.Mode.SWITCH, this.createTargetScreen());
                 return;
             }
 
             if (l.backButton.contains(mouseX, mouseY))
             {
-                this.requestTransition(TransitionMode.BACK, this.parentScreen);
+                this.requestTransition(ScreenTransitionController.Mode.BACK, this.parentScreen);
                 return;
             }
         }
@@ -300,6 +339,8 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
             this.applyAnchorYFromMouse(l, mouseX);
         }
 
+        this.updateLayoutSliderDrags(l, mouseX);
+
         if (this.activeSliderInputKey != null && this.numberInput.isFocused())
         {
             Rect inputRect = this.activeSliderInputRect(l, this.activeSliderInputKey);
@@ -318,6 +359,14 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         this.draggingMotion = false;
         this.draggingAnchorX = false;
         this.draggingAnchorY = false;
+        this.draggingSidebarRatio = false;
+        this.draggingModulesRatio = false;
+        this.draggingRowCategory = false;
+        this.draggingRowModule = false;
+        this.draggingRowSetting = false;
+        this.draggingBtnHeight = false;
+        this.draggingGapMajor = false;
+        this.draggingValueCol = false;
         this.clearSliderTrackLock();
         this.lastSliderDragNanos = 0L;
         this.draggingAnimSpeed = false;
@@ -383,19 +432,34 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
             }
 
             NanoUi.drawWindow(vg, stack, l.window.x, l.window.y, l.window.w, l.window.h, theme);
-            NanoUi.drawLeftText(vg, stack, bold, l.header.x + scaled(14.0F, k), l.header.y + l.header.h * 0.5F, scaled(18.0F, k), theme.textArgb(), this.tr("uiscale.title", "UIScaleEdit"));
-            NanoUi.drawRightText(vg, stack, regular, l.header.x2() - scaled(14.0F, k), l.header.y + l.header.h * 0.5F, scaled(12.0F, k), theme.textWeakArgb(), this.tr("uiscale.subtitle", "Target based scale profile editor"));
+            NanoUi.drawLeftText(vg, stack, bold, l.header.x + scaled(14.0F, k), l.header.y + l.header.h * 0.5F, scaled(18.0F, k), theme.textArgb(), this.tr("uiedit.title", "UIEdit"));
+            NanoUi.drawRightText(vg, stack, regular, l.header.x2() - scaled(14.0F, k), l.header.y + l.header.h * 0.5F, scaled(12.0F, k), theme.textWeakArgb(), this.tr("uiedit.subtitle", "Scale & Layout editor"));
 
             NanoUi.drawSurface(vg, stack, l.body.x, l.body.y, l.body.w, l.body.h, theme.surfaceRadius(), theme.mainArgb(), NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 55));
             this.drawTargetChip(vg, stack, regular, theme, l.targetClickGui, this.tr("uiscale.target.clickgui", "ClickGUI"), target == UiScaleEditModule.UiTarget.CLICK_GUI);
             this.drawTargetChip(vg, stack, regular, theme, l.targetHudEdit, this.tr("uiscale.target.hudedit", "HudEdit"), target == UiScaleEditModule.UiTarget.HUD_EDIT);
-            this.drawSlider(vg, stack, regular, bold, theme, l.scaleTrack, l.scaleValue, "ui_scale", this.tr("uiscale.slider.ui_scale", "UI Scale"), uiScale, this.module.getUiScaleMin(), this.module.getUiScaleMax(), this.tr("uiscale.hint.ui_scale", "Global interface scale"), l.showSliderHints, this.draggingScale, l.scaleTrack.contains(this.mouseX, this.mouseY));
-            this.drawSlider(vg, stack, regular, bold, theme, l.motionTrack, l.motionValue, "motion_speed", this.tr("uiscale.slider.motion_speed", "Motion Speed"), motion, this.module.getMotionSpeedMin(), this.module.getMotionSpeedMax(), this.tr("uiscale.hint.motion_speed", "Drag/resize response"), l.showSliderHints, this.draggingMotion, l.motionTrack.contains(this.mouseX, this.mouseY));
-            this.drawSlider(vg, stack, regular, bold, theme, l.anchorXTrack, l.anchorXValue, "anchor_x", this.tr("uiscale.slider.horizontal", "Horizontal"), anchorX, 0.0F, 1.0F, this.tr("uiscale.hint.horizontal", "Left <-> Right balance"), l.showSliderHints, this.draggingAnchorX, l.anchorXTrack.contains(this.mouseX, this.mouseY));
-            this.drawSlider(vg, stack, regular, bold, theme, l.anchorYTrack, l.anchorYValue, "anchor_y", this.tr("uiscale.slider.vertical", "Vertical"), anchorY, 0.0F, 1.0F, this.tr("uiscale.hint.vertical", "Top <-> Bottom balance"), l.showSliderHints, this.draggingAnchorY, l.anchorYTrack.contains(this.mouseX, this.mouseY));
-            NanoUi.drawLeftText(vg, stack, regular, l.scaleTrack.x, l.animSpeedTrack.y + scaled(4.0F, k), scaled(11.5F, k), theme.textWeakArgb(), this.tr("uiscale.animation_moved", "Animation controls moved to Setting page"));
+
+            this.drawTargetChip(vg, stack, regular, theme, l.tabScale, this.tr("uiedit.tab.scale", "Scale"), this.activeTab == 0);
+            this.drawTargetChip(vg, stack, regular, theme, l.tabLayout, this.tr("uiedit.tab.layout", "Layout"), this.activeTab == 1);
+
+            if (this.activeTab == 0)
+            {
+                this.drawSlider(vg, stack, regular, bold, theme, l.scaleTrack, l.scaleValue, "ui_scale", this.tr("uiscale.slider.ui_scale", "UI Scale"), uiScale, this.module.getUiScaleMin(), this.module.getUiScaleMax(), this.tr("uiscale.hint.ui_scale", "Global interface scale"), l.showSliderHints, this.draggingScale, l.scaleTrack.contains(this.mouseX, this.mouseY));
+                this.drawSlider(vg, stack, regular, bold, theme, l.motionTrack, l.motionValue, "motion_speed", this.tr("uiscale.slider.motion_speed", "Motion Speed"), motion, this.module.getMotionSpeedMin(), this.module.getMotionSpeedMax(), this.tr("uiscale.hint.motion_speed", "Drag/resize response"), l.showSliderHints, this.draggingMotion, l.motionTrack.contains(this.mouseX, this.mouseY));
+                this.drawSlider(vg, stack, regular, bold, theme, l.anchorXTrack, l.anchorXValue, "anchor_x", this.tr("uiscale.slider.horizontal", "Horizontal"), anchorX, 0.0F, 1.0F, this.tr("uiscale.hint.horizontal", "Left <-> Right balance"), l.showSliderHints, this.draggingAnchorX, l.anchorXTrack.contains(this.mouseX, this.mouseY));
+                this.drawSlider(vg, stack, regular, bold, theme, l.anchorYTrack, l.anchorYValue, "anchor_y", this.tr("uiscale.slider.vertical", "Vertical"), anchorY, 0.0F, 1.0F, this.tr("uiscale.hint.vertical", "Top <-> Bottom balance"), l.showSliderHints, this.draggingAnchorY, l.anchorYTrack.contains(this.mouseX, this.mouseY));
+            }
+            else
+            {
+                this.drawLayoutSliders(vg, stack, regular, bold, theme, l);
+            }
+
             this.drawButton(vg, stack, regular, theme, l.openButton, this.tr("uiscale.open_target", "Open Target"), false);
             this.drawButton(vg, stack, regular, theme, l.backButton, this.tr("ui.back", "Back"), false);
+            if (this.activeTab == 1)
+            {
+                this.drawButton(vg, stack, regular, theme, l.resetButton, this.tr("uiedit.reset", "Reset"), false);
+            }
             this.drawResizeHandle(vg, stack, theme, l.resizeHandle);
             context.getNanoVG().resetScissor();
         }
@@ -475,6 +539,16 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         if ("ui_scale".equals(sliderKey) || "anchor_x".equals(sliderKey) || "anchor_y".equals(sliderKey))
         {
             return String.format(Locale.ROOT, "%d%%", Integer.valueOf(Math.round(value * 100.0F)));
+        }
+
+        if ("sidebar_ratio".equals(sliderKey) || "modules_ratio".equals(sliderKey))
+        {
+            return String.format(Locale.ROOT, "%d%%", Integer.valueOf(Math.round(value * 100.0F)));
+        }
+
+        if ("row_category".equals(sliderKey) || "row_module".equals(sliderKey) || "row_setting".equals(sliderKey) || "btn_height".equals(sliderKey) || "gap_major".equals(sliderKey) || "value_col".equals(sliderKey))
+        {
+            return String.format(Locale.ROOT, "%.1f", Float.valueOf(value));
         }
 
         return String.format(Locale.ROOT, "%.3f", Float.valueOf(value));
@@ -769,6 +843,166 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         clickGui.setGlobalAnimationSmooth(ratio);
     }
 
+    private UiLayoutProfile liveLayout()
+    {
+        ClientBootstrap boot = ClientBootstrap.instance();
+
+        if (boot != null && boot.getConfigManager() != null)
+        {
+            return boot.getConfigManager().getUiLayout();
+        }
+
+        return new UiLayoutProfile();
+    }
+
+    private void markLayoutDirty()
+    {
+        ClientBootstrap boot = ClientBootstrap.instance();
+
+        if (boot != null && boot.getConfigManager() != null)
+        {
+            boot.getConfigManager().markClientDirty();
+        }
+    }
+
+    private boolean handleLayoutSliderClick(Layout l, int mouseX)
+    {
+        Rect[] tracks = { l.sidebarRatioTrack, l.modulesRatioTrack, l.rowCategoryTrack, l.rowModuleTrack, l.rowSettingTrack, l.btnHeightTrack, l.gapMajorTrack, l.valueColTrack };
+        boolean[] flags = new boolean[8];
+
+        for (int i = 0; i < tracks.length; i++)
+        {
+            if (tracks[i] != null && tracks[i].contains(mouseX, this.mouseY))
+            {
+                this.commitActiveNumberInput();
+                this.numberInput.blur();
+                flags[i] = true;
+                this.lockSliderTrack(tracks[i]);
+                break;
+            }
+        }
+
+        this.draggingSidebarRatio = flags[0];
+        this.draggingModulesRatio = flags[1];
+        this.draggingRowCategory = flags[2];
+        this.draggingRowModule = flags[3];
+        this.draggingRowSetting = flags[4];
+        this.draggingBtnHeight = flags[5];
+        this.draggingGapMajor = flags[6];
+        this.draggingValueCol = flags[7];
+
+        for (boolean f : flags)
+        {
+            if (f)
+            {
+                this.applyLayoutSliderFromMouse(l, mouseX);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void updateLayoutSliderDrags(Layout l, int mouseX)
+    {
+        if (this.draggingSidebarRatio || this.draggingModulesRatio || this.draggingRowCategory || this.draggingRowModule || this.draggingRowSetting || this.draggingBtnHeight || this.draggingGapMajor || this.draggingValueCol)
+        {
+            this.applyLayoutSliderFromMouse(l, mouseX);
+        }
+    }
+
+    private void applyLayoutSliderFromMouse(Layout l, int mouseX)
+    {
+        UiLayoutProfile lp = this.liveLayout();
+
+        if (this.draggingSidebarRatio)
+        {
+            float ratio = this.sliderRatioFromMouse(mouseX, l.sidebarRatioTrack);
+            float value = lp.clickGuiSidebarMinRatio() + (lp.clickGuiSidebarMaxRatio() - lp.clickGuiSidebarMinRatio()) * UiMotion.clamp01(ratio);
+            lp.setClickGuiSidebarRatio(value);
+            this.markLayoutDirty();
+        }
+
+        if (this.draggingModulesRatio)
+        {
+            float ratio = this.sliderRatioFromMouse(mouseX, l.modulesRatioTrack);
+            float value = lp.clickGuiModulesMinRatio() + (lp.clickGuiModulesMaxRatio() - lp.clickGuiModulesMinRatio()) * UiMotion.clamp01(ratio);
+            lp.setClickGuiModulesRatio(value);
+            this.markLayoutDirty();
+        }
+
+        if (this.draggingRowCategory)
+        {
+            float ratio = this.sliderRatioFromMouse(mouseX, l.rowCategoryTrack);
+            lp.setRowCategory(18.0F + (36.0F - 18.0F) * UiMotion.clamp01(ratio));
+            this.markLayoutDirty();
+        }
+
+        if (this.draggingRowModule)
+        {
+            float ratio = this.sliderRatioFromMouse(mouseX, l.rowModuleTrack);
+            lp.setRowModule(24.0F + (48.0F - 24.0F) * UiMotion.clamp01(ratio));
+            this.markLayoutDirty();
+        }
+
+        if (this.draggingRowSetting)
+        {
+            float ratio = this.sliderRatioFromMouse(mouseX, l.rowSettingTrack);
+            lp.setRowSetting(20.0F + (38.0F - 20.0F) * UiMotion.clamp01(ratio));
+            this.markLayoutDirty();
+        }
+
+        if (this.draggingBtnHeight)
+        {
+            float ratio = this.sliderRatioFromMouse(mouseX, l.btnHeightTrack);
+            lp.setBtnHeight(16.0F + (28.0F - 16.0F) * UiMotion.clamp01(ratio));
+            this.markLayoutDirty();
+        }
+
+        if (this.draggingGapMajor)
+        {
+            float ratio = this.sliderRatioFromMouse(mouseX, l.gapMajorTrack);
+            lp.setGapMajor(6.0F + (24.0F - 6.0F) * UiMotion.clamp01(ratio));
+            this.markLayoutDirty();
+        }
+
+        if (this.draggingValueCol)
+        {
+            float ratio = this.sliderRatioFromMouse(mouseX, l.valueColTrack);
+            lp.setValueColWidth(80.0F + (200.0F - 80.0F) * UiMotion.clamp01(ratio));
+            this.markLayoutDirty();
+        }
+    }
+
+    private void drawLayoutSliders(long vg, MemoryStack stack, int regular, int bold, NanoTheme theme, Layout l)
+    {
+        UiLayoutProfile lp = this.liveLayout();
+        float k = l.scale;
+
+        this.drawSlider(vg, stack, regular, bold, theme, l.sidebarRatioTrack, null, "sidebar_ratio", this.tr("uiedit.slider.sidebar_ratio", "Sidebar Width"), lp.clickGuiSidebarRatio(), lp.clickGuiSidebarMinRatio(), lp.clickGuiSidebarMaxRatio(), null, false, this.draggingSidebarRatio, l.sidebarRatioTrack.contains(this.mouseX, this.mouseY));
+        this.drawSlider(vg, stack, regular, bold, theme, l.modulesRatioTrack, null, "modules_ratio", this.tr("uiedit.slider.modules_ratio", "Modules Height"), lp.clickGuiModulesRatio(), lp.clickGuiModulesMinRatio(), lp.clickGuiModulesMaxRatio(), null, false, this.draggingModulesRatio, l.modulesRatioTrack.contains(this.mouseX, this.mouseY));
+        this.drawSlider(vg, stack, regular, bold, theme, l.rowCategoryTrack, null, "row_category", this.tr("uiedit.slider.row_category", "Row Category"), lp.rowCategory(), 18.0F, 36.0F, null, false, this.draggingRowCategory, l.rowCategoryTrack.contains(this.mouseX, this.mouseY));
+        this.drawSlider(vg, stack, regular, bold, theme, l.rowModuleTrack, null, "row_module", this.tr("uiedit.slider.row_module", "Row Module"), lp.rowModule(), 24.0F, 48.0F, null, false, this.draggingRowModule, l.rowModuleTrack.contains(this.mouseX, this.mouseY));
+        this.drawSlider(vg, stack, regular, bold, theme, l.rowSettingTrack, null, "row_setting", this.tr("uiedit.slider.row_setting", "Row Setting"), lp.rowSetting(), 20.0F, 38.0F, null, false, this.draggingRowSetting, l.rowSettingTrack.contains(this.mouseX, this.mouseY));
+        this.drawSlider(vg, stack, regular, bold, theme, l.btnHeightTrack, null, "btn_height", this.tr("uiedit.slider.btn_height", "Button Height"), lp.btnHeight(), 16.0F, 28.0F, null, false, this.draggingBtnHeight, l.btnHeightTrack.contains(this.mouseX, this.mouseY));
+        this.drawSlider(vg, stack, regular, bold, theme, l.gapMajorTrack, null, "gap_major", this.tr("uiedit.slider.gap_major", "Gap Major"), lp.gapMajor(), 6.0F, 24.0F, null, false, this.draggingGapMajor, l.gapMajorTrack.contains(this.mouseX, this.mouseY));
+        this.drawSlider(vg, stack, regular, bold, theme, l.valueColTrack, null, "value_col", this.tr("uiedit.slider.value_col", "Value Column"), lp.valueColWidth(), 80.0F, 200.0F, null, false, this.draggingValueCol, l.valueColTrack.contains(this.mouseX, this.mouseY));
+    }
+
+    private void resetLayoutDefaults()
+    {
+        UiLayoutProfile lp = this.liveLayout();
+        lp.setClickGuiSidebarRatio(0.24F);
+        lp.setClickGuiModulesRatio(0.31F);
+        lp.setRowCategory(24.0F);
+        lp.setRowModule(34.0F);
+        lp.setRowSetting(26.0F);
+        lp.setBtnHeight(20.0F);
+        lp.setGapMajor(14.0F);
+        lp.setValueColWidth(132.0F);
+        this.markLayoutDirty();
+    }
+
     private void syncWindowTarget()
     {
         UiScaleEditModule.UiTarget target = this.module.getEditTarget();
@@ -896,14 +1130,14 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         this.mc.displayGuiScreen((GuiScreen)null);
     }
 
-    private void requestTransition(TransitionMode mode, GuiScreen target)
+    private void requestTransition(ScreenTransitionController.Mode mode, GuiScreen target)
     {
-        if (this.mc == null || this.transitioningOut)
+        if (!ScreenTransitionController.canRequest(this.mc, this.transitioningOut))
         {
             return;
         }
 
-        this.transitionMode = mode == null ? TransitionMode.SWITCH : mode;
+        this.transitionMode = ScreenTransitionController.modeOrDefault(mode);
         this.transitionTarget = target;
         this.transitioningOut = true;
         this.transitionExecuted = false;
@@ -911,41 +1145,26 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
 
     private void updateTransition(ClickGuiModule clickGui)
     {
-        long now = System.nanoTime();
-        float dt = this.transitionLastNanos == 0L ? (1.0F / 60.0F) : (float)((double)(now - this.transitionLastNanos) * 1.0E-9D);
-        this.transitionLastNanos = now;
         float speed = clickGui == null ? 0.56F : clickGui.getGlobalAnimationSpeed();
         float smooth = UiAnimProfiles.uiScaleProfile(clickGui).smooth();
         UiAnimation.Type type = this.resolveTransitionType(clickGui);
+        ScreenTransitionController.StepResult step = ScreenTransitionController.step(
+            this.transitioningOut,
+            this.transitionMode,
+            this.transitionProgress,
+            this.transitionLastNanos,
+            speed,
+            smooth,
+            type,
+            TRANSITION_TUNING,
+            this.transitionExecuted,
+            this.transitionTarget,
+            this.mc
+        );
+        this.transitionLastNanos = step.lastNanos();
+        this.transitionProgress = step.progress();
 
-        if (this.transitioningOut)
-        {
-            float boost;
-
-            switch (this.transitionMode)
-            {
-                case CLOSE:
-                    boost = 1.90F;
-                    break;
-                case BACK:
-                    boost = 1.18F;
-                    break;
-                case SWITCH:
-                default:
-                    boost = 1.48F;
-                    break;
-            }
-
-            speed = UiMotion.clamp(speed * boost + 0.08F, 0.05F, 1.0F);
-            smooth = UiMotion.clamp(smooth * (this.transitionMode == TransitionMode.BACK ? 0.95F : 0.90F), 0.0F, 1.0F);
-            dt *= this.transitionMode == TransitionMode.BACK ? 1.12F : 1.24F;
-        }
-
-        float response = UiAnimation.responseFromSpeed(speed, smooth, type, false);
-        float target = this.transitioningOut ? 0.0F : 1.0F;
-        this.transitionProgress = UiAnimation.step(this.transitionProgress, target, response, dt, type, smooth);
-
-        if (this.transitioningOut && !this.transitionExecuted && this.transitionProgress <= 0.02F && this.mc != null)
+        if (step.shouldNavigate())
         {
             this.transitionExecuted = true;
             this.mc.displayGuiScreen(this.transitionTarget);
@@ -959,28 +1178,19 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
             return UiAnimation.Type.EASE_OUT;
         }
 
-        if (!this.transitioningOut)
-        {
-            return clickGui.getGuiOpenAnimationType();
-        }
-
-        switch (this.transitionMode)
-        {
-            case CLOSE:
-                return clickGui.getGuiCloseAnimationType();
-            case BACK:
-                return clickGui.getGuiBackAnimationType();
-            case SWITCH:
-            default:
-                return clickGui.getGuiSwitchAnimationType();
-        }
+        return ScreenTransitionController.resolveType(
+            this.transitioningOut,
+            this.transitionMode,
+            clickGui.getGuiOpenAnimationType(),
+            clickGui.getGuiCloseAnimationType(),
+            clickGui.getGuiSwitchAnimationType(),
+            clickGui.getGuiBackAnimationType()
+        );
     }
 
     private float transitionVisual()
     {
-        float p = UiMotion.clamp01(this.transitionProgress);
-        float eased = (float)Math.pow((double)p, 0.82D);
-        return UiMotion.clamp(eased, 0.0F, 1.0F);
+        return ScreenTransitionController.visual(this.transitionProgress);
     }
 
     private Rect transitionWindow(Rect baseRect)
@@ -1120,7 +1330,15 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
             || this.draggingAnchorX
             || this.draggingAnchorY
             || this.draggingAnimSpeed
-            || this.draggingAnimSmooth;
+            || this.draggingAnimSmooth
+            || this.draggingSidebarRatio
+            || this.draggingModulesRatio
+            || this.draggingRowCategory
+            || this.draggingRowModule
+            || this.draggingRowSetting
+            || this.draggingBtnHeight
+            || this.draggingGapMajor
+            || this.draggingValueCol;
         return UiAnimProfiles.uiScaleWindowProfile(clickGui, this.module, target, interacting);
     }
 
@@ -1144,10 +1362,15 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         Rect targetClickGui = new Rect(body.x + scaled(4.0F, k), body.y + scaled(8.0F, k), chipW, scaled(26.0F, k));
         Rect targetHudEdit = new Rect(targetClickGui.x2() + scaled(4.0F, k), body.y + scaled(8.0F, k), chipW, scaled(26.0F, k));
 
+        float tabW = (body.w - scaled(12.0F, k)) * 0.5F;
+        float tabY = targetClickGui.y2() + scaled(8.0F, k);
+        Rect tabScale = new Rect(body.x + scaled(4.0F, k), tabY, tabW, scaled(22.0F, k));
+        Rect tabLayout = new Rect(tabScale.x2() + scaled(4.0F, k), tabY, tabW, scaled(22.0F, k));
+
         float trackX = body.x + scaled(8.0F, k);
         float trackW = body.w - scaled(16.0F, k);
         float trackH = scaled(5.2F, k);
-        float sliderStartY = body.y + scaled(58.0F, k);
+        float sliderStartY = tabScale.y2() + scaled(24.0F, k);
         float sliderEndY = body.y2() - scaled(94.0F, k);
 
         if (sliderEndY < sliderStartY)
@@ -1155,37 +1378,40 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
             sliderEndY = sliderStartY;
         }
 
-        float rowGap = UiMotion.clamp((sliderEndY - sliderStartY) / 5.0F, scaled(20.0F, k), scaled(44.0F, k));
-        boolean showSliderHints = rowGap >= scaled(30.0F, k) && k >= 0.72F;
+        float scaleRowGap = UiMotion.clamp((sliderEndY - sliderStartY) / 5.0F, scaled(20.0F, k), scaled(44.0F, k));
+        boolean showSliderHints = scaleRowGap >= scaled(30.0F, k) && k >= 0.72F;
         Rect scaleTrack = new Rect(trackX, sliderStartY, trackW, trackH);
-        Rect motionTrack = new Rect(trackX, sliderStartY + rowGap, trackW, trackH);
-        Rect anchorXTrack = new Rect(trackX, sliderStartY + rowGap * 2.0F, trackW, trackH);
-        Rect anchorYTrack = new Rect(trackX, sliderStartY + rowGap * 3.0F, trackW, trackH);
+        Rect motionTrack = new Rect(trackX, sliderStartY + scaleRowGap, trackW, trackH);
+        Rect anchorXTrack = new Rect(trackX, sliderStartY + scaleRowGap * 2.0F, trackW, trackH);
+        Rect anchorYTrack = new Rect(trackX, sliderStartY + scaleRowGap * 3.0F, trackW, trackH);
         Rect scaleValue = this.sliderValueRect(scaleTrack, k);
         Rect motionValue = this.sliderValueRect(motionTrack, k);
         Rect anchorXValue = this.sliderValueRect(anchorXTrack, k);
         Rect anchorYValue = this.sliderValueRect(anchorYTrack, k);
-        Rect animSpeedTrack = new Rect(trackX, sliderStartY + rowGap * 4.0F, trackW, trackH);
-        Rect animSmoothTrack = new Rect(trackX, sliderStartY + rowGap * 5.0F, trackW, trackH);
+        Rect animSpeedTrack = new Rect(trackX, sliderStartY + scaleRowGap * 4.0F, trackW, trackH);
+        Rect animSmoothTrack = new Rect(trackX, sliderStartY + scaleRowGap * 5.0F, trackW, trackH);
 
-        float animButtonsY = animSmoothTrack.y + scaled(22.0F, k);
+        float layoutRowGap = UiMotion.clamp((sliderEndY - sliderStartY) / 9.0F, scaled(16.0F, k), scaled(36.0F, k));
+        Rect sidebarRatioTrack = new Rect(trackX, sliderStartY, trackW, trackH);
+        Rect modulesRatioTrack = new Rect(trackX, sliderStartY + layoutRowGap, trackW, trackH);
+        Rect rowCategoryTrack = new Rect(trackX, sliderStartY + layoutRowGap * 2.0F, trackW, trackH);
+        Rect rowModuleTrack = new Rect(trackX, sliderStartY + layoutRowGap * 3.0F, trackW, trackH);
+        Rect rowSettingTrack = new Rect(trackX, sliderStartY + layoutRowGap * 4.0F, trackW, trackH);
+        Rect btnHeightTrack = new Rect(trackX, sliderStartY + layoutRowGap * 5.0F, trackW, trackH);
+        Rect gapMajorTrack = new Rect(trackX, sliderStartY + layoutRowGap * 6.0F, trackW, trackH);
+        Rect valueColTrack = new Rect(trackX, sliderStartY + layoutRowGap * 7.0F, trackW, trackH);
+
         float buttonsY = body.y2() - scaled(28.0F, k);
-        float animButtonH = scaled(20.0F, k);
-
-        if (animButtonsY + animButtonH > buttonsY - scaled(6.0F, k))
-        {
-            animButtonsY = buttonsY - animButtonH - scaled(6.0F, k);
-        }
-
-        float animButtonW = (trackW - scaled(4.0F, k)) * 0.5F;
-        Rect animEnabledButton = new Rect(trackX, animButtonsY, animButtonW, animButtonH);
-        Rect animTypeButton = new Rect(animEnabledButton.x2() + scaled(4.0F, k), animButtonsY, animButtonW, animButtonH);
-
-        float buttonW = (body.w - scaled(20.0F, k)) * 0.5F;
+        float buttonW = (body.w - scaled(28.0F, k)) / 3.0F;
         Rect openButton = new Rect(body.x + scaled(8.0F, k), buttonsY, buttonW, scaled(24.0F, k));
         Rect backButton = new Rect(openButton.x2() + scaled(4.0F, k), buttonsY, buttonW, scaled(24.0F, k));
+        Rect resetButton = new Rect(backButton.x2() + scaled(4.0F, k), buttonsY, buttonW, scaled(24.0F, k));
+
+        Rect animEnabledButton = new Rect(0.0F, 0.0F, 0.0F, 0.0F);
+        Rect animTypeButton = new Rect(0.0F, 0.0F, 0.0F, 0.0F);
+
         Rect resize = new Rect(windowRect.x2() - scaled(14.0F, k), windowRect.y2() - scaled(14.0F, k), scaled(10.0F, k), scaled(10.0F, k));
-        return new Layout(windowRect, header, headerDrag, body, targetClickGui, targetHudEdit, scaleTrack, motionTrack, anchorXTrack, anchorYTrack, scaleValue, motionValue, anchorXValue, anchorYValue, animSpeedTrack, animSmoothTrack, animEnabledButton, animTypeButton, openButton, backButton, resize, showSliderHints, k);
+        return new Layout(windowRect, header, headerDrag, body, targetClickGui, targetHudEdit, scaleTrack, motionTrack, anchorXTrack, anchorYTrack, scaleValue, motionValue, anchorXValue, anchorYValue, animSpeedTrack, animSmoothTrack, animEnabledButton, animTypeButton, openButton, backButton, resize, showSliderHints, k, tabScale, tabLayout, sidebarRatioTrack, modulesRatioTrack, rowCategoryTrack, rowModuleTrack, rowSettingTrack, btnHeightTrack, gapMajorTrack, valueColTrack, resetButton);
     }
 
     private static float scaled(float value, float scale)
@@ -1233,8 +1459,19 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
         private final Rect resizeHandle;
         private final boolean showSliderHints;
         private final float scale;
+        private final Rect tabScale;
+        private final Rect tabLayout;
+        private final Rect sidebarRatioTrack;
+        private final Rect modulesRatioTrack;
+        private final Rect rowCategoryTrack;
+        private final Rect rowModuleTrack;
+        private final Rect rowSettingTrack;
+        private final Rect btnHeightTrack;
+        private final Rect gapMajorTrack;
+        private final Rect valueColTrack;
+        private final Rect resetButton;
 
-        private Layout(Rect window, Rect header, Rect headerDrag, Rect body, Rect targetClickGui, Rect targetHudEdit, Rect scaleTrack, Rect motionTrack, Rect anchorXTrack, Rect anchorYTrack, Rect scaleValue, Rect motionValue, Rect anchorXValue, Rect anchorYValue, Rect animSpeedTrack, Rect animSmoothTrack, Rect animEnabledButton, Rect animTypeButton, Rect openButton, Rect backButton, Rect resizeHandle, boolean showSliderHints, float scale)
+        private Layout(Rect window, Rect header, Rect headerDrag, Rect body, Rect targetClickGui, Rect targetHudEdit, Rect scaleTrack, Rect motionTrack, Rect anchorXTrack, Rect anchorYTrack, Rect scaleValue, Rect motionValue, Rect anchorXValue, Rect anchorYValue, Rect animSpeedTrack, Rect animSmoothTrack, Rect animEnabledButton, Rect animTypeButton, Rect openButton, Rect backButton, Rect resizeHandle, boolean showSliderHints, float scale, Rect tabScale, Rect tabLayout, Rect sidebarRatioTrack, Rect modulesRatioTrack, Rect rowCategoryTrack, Rect rowModuleTrack, Rect rowSettingTrack, Rect btnHeightTrack, Rect gapMajorTrack, Rect valueColTrack, Rect resetButton)
         {
             this.window = window;
             this.header = header;
@@ -1259,6 +1496,17 @@ public final class UIScaleEditScreen extends GuiScreen implements NanoRenderable
             this.resizeHandle = resizeHandle;
             this.showSliderHints = showSliderHints;
             this.scale = UiMotion.clamp(scale, 0.35F, 1.85F);
+            this.tabScale = tabScale;
+            this.tabLayout = tabLayout;
+            this.sidebarRatioTrack = sidebarRatioTrack;
+            this.modulesRatioTrack = modulesRatioTrack;
+            this.rowCategoryTrack = rowCategoryTrack;
+            this.rowModuleTrack = rowModuleTrack;
+            this.rowSettingTrack = rowSettingTrack;
+            this.btnHeightTrack = btnHeightTrack;
+            this.gapMajorTrack = gapMajorTrack;
+            this.valueColTrack = valueColTrack;
+            this.resetButton = resetButton;
         }
     }
 

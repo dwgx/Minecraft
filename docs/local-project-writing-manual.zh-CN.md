@@ -45,6 +45,7 @@
 | Checkstyle-lite | `scripts/check-checkstyle.ps1` |
 | SpotBugs-lite | `scripts/check-spotbugs.ps1` |
 | 重构守护 | `scripts/check-refactor-guards.ps1` |
+| Smoke Tests | `scripts/check-smoke-tests.ps1` |
 | Checkstyle 规则 | `config/checkstyle/checkstyle.xml` |
 | SpotBugs 排除 | `config/spotbugs/exclude.xml` |
 | OpenMyau 构建入口 | `d:/Project/OpenMyau-main/build.gradle.kts` |
@@ -293,6 +294,8 @@ OpenMyau：
 `scripts/check-spotbugs.ps1`
 - 桥接守护：
 `scripts/check-refactor-guards.ps1`
+- 轻量自动化测试：
+`scripts/check-smoke-tests.ps1`
 
 ### 5.2 `client.auth`
 - 关键类：
@@ -773,6 +776,7 @@ powershell -ExecutionPolicy Bypass -File scripts/check-render-rules.ps1
 powershell -ExecutionPolicy Bypass -File scripts/check-checkstyle.ps1
 powershell -ExecutionPolicy Bypass -File scripts/check-spotbugs.ps1
 powershell -ExecutionPolicy Bypass -File scripts/check-refactor-guards.ps1
+powershell -ExecutionPolicy Bypass -File scripts/check-smoke-tests.ps1
 ```
 
 ### 9.2 OpenMyau 仓库
@@ -840,6 +844,7 @@ cd d:\Project\OpenMyau-main
 - `scripts/check-checkstyle.ps1`
 - `scripts/check-spotbugs.ps1`
 - `scripts/check-refactor-guards.ps1`
+- `scripts/check-smoke-tests.ps1`
 
 ### 11.2 Minecraft 代码锚点
 - `src/net/minecraft/client/Minecraft.java`

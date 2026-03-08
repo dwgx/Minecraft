@@ -91,6 +91,11 @@ public class C03PacketPlayer implements Packet<INetHandlerPlayServer>
         return this.onGround;
     }
 
+    public void setOnGround(boolean onGround)
+    {
+        this.onGround = onGround;
+    }
+
     public boolean isMoving()
     {
         return this.moving;

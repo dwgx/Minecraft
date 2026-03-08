@@ -28,6 +28,7 @@ import org.apache.logging.log4j.Logger;
 public class ChunkProviderServer implements IChunkProvider
 {
     private static final Logger logger = LogManager.getLogger();
+    private static long lastSessionLockWarn;
     private Set<Long> droppedChunksSet = Collections.<Long>newSetFromMap(new ConcurrentHashMap());
 
     /** a dummy chunk, returned in place of an actual chunk. */
@@ -216,7 +217,12 @@ public class ChunkProviderServer implements IChunkProvider
             }
             catch (MinecraftException minecraftexception)
             {
-                logger.error((String)"Couldn\'t save chunk; already in use by another instance of Minecraft?", (Throwable)minecraftexception);
+                long now = System.currentTimeMillis();
+                if (now - lastSessionLockWarn > 30000L)
+                {
+                    lastSessionLockWarn = now;
+                    logger.error("Couldn\'t save chunk; already in use by another instance of Minecraft?", minecraftexception);
+                }
             }
         }
     }

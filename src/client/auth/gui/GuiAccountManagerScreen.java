@@ -132,6 +132,7 @@ public final class GuiAccountManagerScreen extends GuiScreen implements NanoRend
         this.offlineNameInput.onMouseUp();
         this.offlineNameInput.blur();
         this.saveWindowPosition();
+        UiAnimationBus.clearPrefix("account.manager.");
     }
 
     public void drawScreen(int mouseX, int mouseY, float partialTicks)
@@ -627,8 +628,10 @@ public final class GuiAccountManagerScreen extends GuiScreen implements NanoRend
     {
         float baseW = this.profileBaseWidth();
         float baseH = this.profileBaseHeight();
-        float targetWidth = UiMotion.clamp(baseW * this.windowScale, MIN_WIDTH, (float)this.width - SCREEN_MARGIN * 2.0F);
-        float targetHeight = UiMotion.clamp(baseH * this.windowScale, MIN_HEIGHT, (float)this.height - SCREEN_MARGIN * 2.0F);
+        float screenW = Math.max(1.0F, (float)this.width - SCREEN_MARGIN * 2.0F);
+        float screenH = Math.max(1.0F, (float)this.height - SCREEN_MARGIN * 2.0F);
+        float targetWidth = UiMotion.clamp(baseW * this.windowScale, Math.min(MIN_WIDTH, screenW), screenW);
+        float targetHeight = UiMotion.clamp(baseH * this.windowScale, Math.min(MIN_HEIGHT, screenH), screenH);
         float targetX = this.windowAnchorX * (float)this.width - targetWidth * 0.5F;
         float targetY = this.windowAnchorY * (float)this.height - targetHeight * 0.5F;
 

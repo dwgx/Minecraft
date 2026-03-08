@@ -8,6 +8,7 @@ import client.module.ModuleManager;
 import client.module.impl.client.ClickGuiModule;
 import client.module.impl.client.UiScaleEditModule;
 import client.render.RenderContext2D;
+import client.ui.editor.GuiEditScreen;
 import client.setting.BoolSetting;
 import client.setting.ColorSetting;
 import client.setting.ColorValue;
@@ -29,6 +30,7 @@ import client.ui.template.NanoScreenKit;
 import client.ui.template.UiControlAnimations;
 import client.ui.template.UiLayoutProfile;
 import client.ui.template.UiMotion;
+import client.ui.template.ScreenTransitionController;
 import client.ui.template.UiSelectionBox;
 import client.ui.template.UiStateToggle;
 import client.ui.template.UiWindowState;
@@ -63,14 +65,6 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         ANIMATION
     }
 
-    private enum TransitionMode
-    {
-        NONE,
-        CLOSE,
-        SWITCH,
-        BACK
-    }
-
     private static final float BASE_WINDOW_WIDTH = 1120.0F;
     private static final float BASE_WINDOW_HEIGHT = 700.0F;
     private static final float MIN_WINDOW_WIDTH = 260.0F;
@@ -95,6 +89,7 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
     private static final int KEY_ESCAPE = 1;
     private static final int KEY_RETURN = 28;
     private static final int KEY_NUMPADENTER = 156;
+    private static final ScreenTransitionController.Tuning TRANSITION_TUNING = ScreenTransitionController.Tuning.of(1.95F, 1.20F, 1.55F, 0.95F, 0.88F, 1.12F, 1.25F, 0.08F);
 
     private final ModuleManager modules;
     private final UiWindowState window = new UiWindowState(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT);
@@ -134,10 +129,13 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
     private float draggingSliderTrackX;
     private float draggingSliderTrackW;
     private long lastSliderDragNanos;
+    private boolean draggingModulesScrollbar;
+    private boolean draggingSettingsScrollbar;
+    private float scrollbarDragAnchor;
     private float categoryTransition = 1.0F;
     private int categoryTransitionDir = 1;
     private long categoryTransitionNanos;
-    private TransitionMode transitionMode = TransitionMode.NONE;
+    private ScreenTransitionController.Mode transitionMode = ScreenTransitionController.Mode.NONE;
     private GuiScreen transitionTarget;
     private boolean transitioningOut;
     private boolean transitionExecuted;
@@ -158,7 +156,7 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
     {
         this.ensureSelection();
         this.validateActiveColor();
-        this.transitionMode = TransitionMode.NONE;
+        this.transitionMode = ScreenTransitionController.Mode.NONE;
         this.transitionTarget = null;
         this.transitioningOut = false;
         this.transitionExecuted = false;
@@ -195,6 +193,7 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         this.clearSliderTrackLock();
         this.clearInlineEditors(true);
         this.window.endInteraction();
+        UiAnimationBus.clearPrefix("clickgui.");
     }
 
     public void drawScreen(int mouseX, int mouseY, float partialTicks)
@@ -266,7 +265,7 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
                 return;
             }
 
-            this.requestTransition(TransitionMode.CLOSE, null);
+            this.requestTransition(ScreenTransitionController.Mode.CLOSE, null);
             return;
         }
 
@@ -564,6 +563,14 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
             this.colorPicker.stopDragging();
         }
 
+        if (mouseButton == 0)
+        {
+            if (this.tryStartScrollbarDrag(l, mouseX, mouseY))
+            {
+                return;
+            }
+        }
+
         super.mouseClicked(mouseX, mouseY, mouseButton);
     }
 
@@ -588,6 +595,11 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         {
             this.updateDraggedSettingSlider(l, mouseX);
         }
+
+        if (this.draggingModulesScrollbar || this.draggingSettingsScrollbar)
+        {
+            this.updateScrollbarDrag(l, mouseY);
+        }
     }
 
     protected void mouseReleased(int mouseX, int mouseY, int state)
@@ -600,6 +612,8 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
 
         this.window.endInteraction();
         this.draggingSettingSlider = null;
+        this.draggingModulesScrollbar = false;
+        this.draggingSettingsScrollbar = false;
         this.clearSliderTrackLock();
         this.textInput.onMouseUp();
         super.mouseReleased(mouseX, mouseY, state);
@@ -697,7 +711,21 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
                 NanoUi.drawBackdrop(vg, stack, (float)this.width, (float)this.height, theme);
             }
 
-            NanoUi.drawSurface(vg, stack, l.window.x, l.window.y, l.window.w, l.window.h, this.stableWindowRadius(l.scale), theme.windowTopArgb(), theme.windowBorderArgb());
+            float windowRadius = this.stableWindowRadius(l.scale);
+            float shadowSpread = scaled(10.0F, l.scale);
+            float shadowFeather = scaled(20.0F, l.scale);
+            org.lwjgl.nanovg.NVGPaint windowShadow = NanoRenderUtils.boxShadow(vg, stack,
+                    l.window.x - shadowSpread, l.window.y - shadowSpread,
+                    l.window.w + shadowSpread * 2.0F, l.window.h + shadowSpread * 2.0F,
+                    windowRadius + scaled(4.0F, l.scale), shadowFeather, 64, 0);
+            org.lwjgl.nanovg.NanoVG.nvgBeginPath(vg);
+            org.lwjgl.nanovg.NanoVG.nvgRoundedRect(vg,
+                    l.window.x - shadowSpread * 2.0F, l.window.y - shadowSpread * 2.0F,
+                    l.window.w + shadowSpread * 4.0F, l.window.h + shadowSpread * 4.0F,
+                    windowRadius + scaled(8.0F, l.scale));
+            org.lwjgl.nanovg.NanoVG.nvgFillPaint(vg, windowShadow);
+            org.lwjgl.nanovg.NanoVG.nvgFill(vg);
+            NanoUi.drawSurface(vg, stack, l.window.x, l.window.y, l.window.w, l.window.h, windowRadius, theme.windowTopArgb(), theme.windowBorderArgb());
             this.drawTopBar(vg, stack, l, theme, regular, bold);
             if (!this.isSettingsPage() || this.settingsPageProgress < 0.995F)
             {
@@ -715,14 +743,17 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         NanoUi.drawLeftText(vg, stack, bold, l.header.x + scaled(12.0F, l.scale), l.header.y + l.header.h * 0.5F, scaled(16.0F, l.scale), theme.textArgb(), this.tr("clickgui.title.client", "Client"));
         NanoUi.drawLeftText(vg, stack, regular, l.header.x + scaled(140.0F, l.scale), l.header.y + l.header.h * 0.5F + scaled(0.5F, l.scale), scaled(11.0F, l.scale), theme.textWeakArgb(), this.tr("ui.powered_by", "Powered by DWGX"));
         this.drawTopButton(vg, stack, l.topClientSettings, this.tr("clickgui.top.setting", "Setting"), regular, theme, this.isSettingsPage());
-        this.drawTopButton(vg, stack, l.topUiScale, this.tr("clickgui.top.uiscale", "UIScale"), regular, theme, false);
+        this.drawTopButton(vg, stack, l.topUiScale, this.tr("clickgui.top.uiedit", "UIEdit"), regular, theme, false);
         this.drawTopButton(vg, stack, l.topHudEdit, this.tr("clickgui.top.hudedit", "HudEdit"), regular, theme, false);
     }
 
     private void drawTopButton(long vg, MemoryStack stack, Rect button, String label, int font, NanoTheme theme, boolean active)
     {
         boolean hovered = button.contains(this.mouseX, this.mouseY);
-        int fill = active ? theme.controlActiveArgb() : (hovered ? theme.controlHoverArgb() : theme.controlArgb());
+        ClickGuiModule clickGui = this.resolveClickGuiModule();
+        UiAnimProfile animProfile = this.resolveAnimationProfile(clickGui);
+        float hoverRatio = UiAnimationBus.animateControl("clickgui.topbtn." + label.hashCode(), hovered ? 1.0F : 0.0F, animProfile);
+        int fill = active ? theme.controlActiveArgb() : NanoScreenKit.mixArgb(theme.controlArgb(), theme.controlHoverArgb(), UiMotion.clamp01(hoverRatio));
         NanoUi.drawSurface(vg, stack, button.x, button.y, button.w, button.h, this.stableControlRadius(button.h / BTN_HEIGHT), fill, NanoRenderUtils.withAlpha(theme.windowBorderArgb(), 80));
         NanoUi.drawCenterText(vg, stack, font, button.x + button.w * 0.5F, button.y + button.h * 0.5F, scaled(11.0F, UiMotion.clamp(button.h / 20.0F, 0.35F, 1.85F)), theme.textArgb(), label);
     }
@@ -789,11 +820,13 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
             }
 
             float dotRatio = UiMotion.clamp01(Math.max(selectRatio, hoverRatio * 0.55F));
-            float dotSize = scaled(4.0F, l.scale) + scaled(1.5F, l.scale) * dotRatio;
-            float dotX = row.x + scaled(8.0F, l.scale);
-            float dotY = row.y + row.h * 0.5F - dotSize * 0.5F;
+            float barW = scaled(3.0F, l.scale);
+            float barH = row.h * (0.4F + 0.35F * dotRatio);
+            float barX = row.x + scaled(5.0F, l.scale);
+            float barY = row.y + (row.h - barH) * 0.5F;
+            float barRadius = Math.min(barW * 0.5F, scaled(1.5F, l.scale));
             int dotColor = selected ? theme.accentArgb() : NanoRenderUtils.mulAlpha(theme.textWeakArgb(), UiMotion.clamp(0.45F + hoverRatio * 0.25F, 0.0F, 1.0F));
-            NanoUi.drawSurface(vg, stack, dotX, dotY, dotSize, dotSize, dotSize * 0.5F, NanoRenderUtils.mulAlpha(dotColor, rowAlpha), 0);
+            NanoUi.drawSurface(vg, stack, barX, barY, barW, barH, barRadius, NanoRenderUtils.mulAlpha(dotColor, rowAlpha), 0);
 
             int nameColor = selected ? theme.textArgb() : NanoScreenKit.mixArgb(theme.textWeakArgb(), theme.textArgb(), UiMotion.clamp01(hoverRatio * 0.7F));
             NanoUi.drawLeftText(vg, stack, regular, row.x + scaled(18.0F, l.scale), row.y + row.h * 0.5F, scaled(12.5F, l.scale), NanoRenderUtils.mulAlpha(nameColor, rowAlpha), this.categoryDisplayName(entry.category));
@@ -873,11 +906,20 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
                 NanoUi.drawSurface(vg, stack, row.x, row.y, row.w, row.h, rowRadius, NanoRenderUtils.mulAlpha(theme.rowSelectedArgb(), selectRatio * rowAlpha), 0);
             }
 
-            float accentSize = scaled(3.0F, l.scale) + scaled(1.6F, l.scale) * UiMotion.clamp01(Math.max(selectRatio, hoverRatio * 0.4F));
-            float accentX = row.x + scaled(8.0F, l.scale);
-            float accentY = row.y + row.h * 0.5F - accentSize * 0.5F;
+            float accentBarW = scaled(3.0F, l.scale);
+            float accentBarH = row.h * (0.5F + 0.3F * UiMotion.clamp01(Math.max(selectRatio, hoverRatio * 0.4F)));
+            float accentBarX = row.x + scaled(4.0F, l.scale);
+            float accentBarY = row.y + (row.h - accentBarH) * 0.5F;
+            float accentBarRadius = Math.min(accentBarW * 0.5F, scaled(1.5F, l.scale));
             int accentColor = module.isEnabled() ? theme.accentArgb() : NanoRenderUtils.mulAlpha(theme.textWeakArgb(), UiMotion.clamp(0.38F + hoverRatio * 0.2F, 0.0F, 1.0F));
-            NanoUi.drawSurface(vg, stack, accentX, accentY, accentSize, accentSize, accentSize * 0.5F, NanoRenderUtils.mulAlpha(accentColor, rowAlpha), 0);
+            NanoUi.drawSurface(vg, stack, accentBarX, accentBarY, accentBarW, accentBarH, accentBarRadius, NanoRenderUtils.mulAlpha(accentColor, rowAlpha), 0);
+
+            if (selectRatio > 0.01F)
+            {
+                int glowBorder = NanoRenderUtils.withAlpha(theme.accentArgb(), Math.round(selectRatio * 60.0F * rowAlpha));
+                NanoRenderUtils.strokeRoundedRect(vg, row.x, row.y, row.w, row.h, rowRadius, 1.0F, NanoRenderUtils.argb(stack, glowBorder));
+            }
+
             int moduleNameColor = selected ? theme.textArgb() : NanoScreenKit.mixArgb(theme.textWeakArgb(), theme.textArgb(), UiMotion.clamp01(hoverRatio * 0.6F));
             String moduleDisplayName = module.getDisplayName();
             NanoUi.drawLeftText(vg, stack, bold, row.x + scaled(16.0F, l.scale), row.y + scaled(12.0F, l.scale), scaled(14.5F, l.scale), NanoRenderUtils.mulAlpha(moduleNameColor, rowAlpha), this.waitingBind && selected ? this.tr("clickgui.module.bind_waiting", "[bind] {0}", moduleDisplayName) : moduleDisplayName);
@@ -892,6 +934,25 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
 
         this.drawAnimatedSelectionBox(vg, stack, "clickgui.module.selection", selectedRow, theme, l.scale, animProfile, clickGui, pageReveal * this.categoryTransition);
         NanoUi.endClip(vg);
+
+        int totalModules = list.size();
+        int moduleVisible = Math.max(1, (int)(l.moduleRows.h / l.rowModule));
+
+        if (totalModules > moduleVisible)
+        {
+            float scrollRatio = this.moduleScrollVisual / (float)Math.max(1, totalModules - moduleVisible);
+            float thumbRatio = (float)moduleVisible / (float)totalModules;
+            float trackH = l.moduleRows.h;
+            float thumbH = Math.max(scaled(20.0F, l.scale), trackH * thumbRatio);
+            float thumbY = l.moduleRows.y + (trackH - thumbH) * UiMotion.clamp01(scrollRatio);
+            float trackX = l.moduleRows.x + l.moduleRows.w - scaled(4.0F, l.scale);
+            boolean scrollHovered = this.mouseX >= trackX - scaled(4.0F, l.scale) && this.mouseX <= trackX + scaled(6.0F, l.scale) && this.mouseY >= l.moduleRows.y && this.mouseY <= l.moduleRows.y + l.moduleRows.h;
+            float scrollHoverRatio = UiAnimationBus.animateControl("clickgui.modules.scrollbar.hover", scrollHovered ? 1.0F : 0.0F, animProfile);
+            float barW = scaled(2.0F, l.scale) + scaled(2.0F, l.scale) * scrollHoverRatio;
+            float barRadius = barW * 0.5F;
+            int barColor = NanoRenderUtils.withAlpha(theme.textWeakArgb(), Math.round(80.0F + 60.0F * scrollHoverRatio));
+            NanoUi.drawSurface(vg, stack, trackX + scaled(2.0F, l.scale) - barW * 0.5F, thumbY, barW, thumbH, barRadius, NanoRenderUtils.mulAlpha(barColor, listAlpha), 0);
+        }
     }
     private void drawSettings(long vg, MemoryStack stack, Layout l, NanoTheme theme, int regular, int bold)
     {
@@ -977,9 +1038,25 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
                 continue;
             }
 
-            if (!settingsPage && animationSetting && !prevAnimationSetting)
+            Setting<?> prevSetting = idx > 0 ? settings.get(idx - 1) : null;
+            String groupHeader = !settingsPage ? this.settingGroupHeader(this.selectedModule, setting, prevSetting) : null;
+
+            if (groupHeader == null && !settingsPage && animationSetting && !prevAnimationSetting)
             {
-                NanoUi.drawLeftText(vg, stack, regular, row.x + scaled(2.0F, l.scale), row.y - scaled(7.0F, l.scale), scaled(9.0F, l.scale), NanoRenderUtils.mulAlpha(theme.textWeakArgb(), rowAlpha), this.tr("clickgui.settings.group.animation", "Animation"));
+                groupHeader = this.tr("clickgui.settings.group.animation", "Animation");
+            }
+
+            if (groupHeader != null)
+            {
+                float headerY = row.y - scaled(10.0F, l.scale);
+                float accentBarW = scaled(3.0F, l.scale);
+                float accentBarH = scaled(9.0F, l.scale);
+                float accentBarR = accentBarW * 0.5F;
+                NanoUi.drawSurface(vg, stack, row.x + scaled(2.0F, l.scale), headerY - accentBarH * 0.5F + scaled(0.5F, l.scale), accentBarW, accentBarH, accentBarR, NanoRenderUtils.mulAlpha(theme.accentArgb(), rowAlpha * 0.85F), 0);
+                NanoUi.drawLeftText(vg, stack, regular, row.x + scaled(8.0F, l.scale), headerY + scaled(0.5F, l.scale), scaled(9.0F, l.scale), NanoRenderUtils.mulAlpha(theme.textWeakArgb(), rowAlpha), groupHeader);
+                float lineY = headerY + scaled(6.0F, l.scale);
+                float lineX = row.x + scaled(8.0F, l.scale) + scaled(9.0F, l.scale) * (float)groupHeader.length() * 0.52F;
+                NanoUi.drawSurface(vg, stack, lineX, lineY, row.x + row.w - lineX - scaled(4.0F, l.scale), scaled(0.5F, l.scale), 0.0F, NanoRenderUtils.mulAlpha(NanoRenderUtils.withAlpha(theme.textWeakArgb(), 40), rowAlpha), 0);
             }
 
             int base = i % 2 == 0 ? theme.rowArgb() : theme.cardAltArgb();
@@ -995,9 +1072,10 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
 
             if (modified)
             {
-                float md = scaled(4.0F, l.scale);
-                NanoUi.drawSurface(vg, stack, nameX, row.y + row.h * 0.5F - md * 0.5F, md, md, md * 0.5F, NanoRenderUtils.mulAlpha(theme.accentArgb(), rowAlpha), 0);
-                nameX += scaled(8.0F, l.scale);
+                float barW = scaled(2.5F, l.scale);
+                float barH = row.h * 0.5F;
+                float barR = barW * 0.5F;
+                NanoUi.drawSurface(vg, stack, row.x + scaled(2.0F, l.scale), row.y + (row.h - barH) * 0.5F, barW, barH, barR, NanoRenderUtils.mulAlpha(theme.accentArgb(), rowAlpha), 0);
             }
 
             NanoUi.drawLeftText(vg, stack, regular, nameX, row.y + row.h * 0.5F, scaled(11.5F, l.scale), NanoRenderUtils.mulAlpha(theme.textArgb(), rowAlpha), this.settingDisplayName(setting));
@@ -1046,6 +1124,26 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         }
 
         NanoUi.endClip(vg);
+
+        int totalSettings = settings.size();
+        int settingVisible = Math.max(1, (int)(l.settingsRows.h / l.rowSetting));
+
+        if (totalSettings > settingVisible)
+        {
+            float scrollRatio = this.settingScrollVisual / (float)Math.max(1, totalSettings - settingVisible);
+            float thumbRatio = (float)settingVisible / (float)totalSettings;
+            float trackH = l.settingsRows.h;
+            float thumbH = Math.max(scaled(20.0F, l.scale), trackH * thumbRatio);
+            float thumbY = l.settingsRows.y + (trackH - thumbH) * UiMotion.clamp01(scrollRatio);
+            float trackX = l.settingsRows.x + l.settingsRows.w - scaled(4.0F, l.scale);
+            boolean scrollHovered = this.mouseX >= trackX - scaled(4.0F, l.scale) && this.mouseX <= trackX + scaled(6.0F, l.scale) && this.mouseY >= l.settingsRows.y && this.mouseY <= l.settingsRows.y + l.settingsRows.h;
+            float scrollHoverRatio = UiAnimationBus.animateControl("clickgui.settings.scrollbar.hover", scrollHovered ? 1.0F : 0.0F, animProfile);
+            float barW = scaled(2.0F, l.scale) + scaled(2.0F, l.scale) * scrollHoverRatio;
+            float barRadius = barW * 0.5F;
+            int barColor = NanoRenderUtils.withAlpha(theme.textWeakArgb(), Math.round(80.0F + 60.0F * scrollHoverRatio));
+            NanoUi.drawSurface(vg, stack, trackX + scaled(2.0F, l.scale) - barW * 0.5F, thumbY, barW, thumbH, barRadius, barColor, 0);
+        }
+
         this.drawExpandedChoicePopup(vg, stack, l, theme, regular);
     }
 
@@ -2192,6 +2290,40 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
             || key.startsWith("ui_back_");
     }
 
+    /**
+     * Returns the group display name if this setting is the first visible entry in its group, null otherwise.
+     */
+    private String settingGroupHeader(Module module, Setting<?> setting, Setting<?> prevSetting)
+    {
+        if (module == null || setting == null)
+        {
+            return null;
+        }
+
+        List<client.setting.SettingGroup> groups = module.getGroups();
+
+        for (int g = 0; g < groups.size(); ++g)
+        {
+            client.setting.SettingGroup group = groups.get(g);
+            List<Setting<?>> members = group.getSettings();
+
+            for (int m = 0; m < members.size(); ++m)
+            {
+                if (members.get(m) == setting)
+                {
+                    if (prevSetting == null || !members.contains(prevSetting))
+                    {
+                        return group.getDisplayName(module.getId());
+                    }
+
+                    return null;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private boolean isClickGuiModuleSelected()
     {
         return this.selectedModule != null && "click_gui".equalsIgnoreCase(this.selectedModule.getId());
@@ -2859,7 +2991,7 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
             ((UiScaleEditModule)uiScale).setEditTarget(UiScaleEditModule.UiTarget.HUD_EDIT);
         }
 
-        this.requestTransition(TransitionMode.SWITCH, new HudEditorScreen(ClientBootstrap.instance().getHud()));
+        this.requestTransition(ScreenTransitionController.Mode.SWITCH, new HudEditorScreen(ClientBootstrap.instance().getHud()));
     }
 
     private void openUiScaleEdit()
@@ -2868,11 +3000,11 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
 
         if (module instanceof UiScaleEditModule)
         {
-            this.requestTransition(TransitionMode.SWITCH, new UIScaleEditScreen((UiScaleEditModule)module, this));
+            this.requestTransition(ScreenTransitionController.Mode.SWITCH, new GuiEditScreen((UiScaleEditModule)module, this));
             return;
         }
 
-        this.requestTransition(TransitionMode.CLOSE, null);
+        this.requestTransition(ScreenTransitionController.Mode.CLOSE, null);
     }
 
     private boolean isSettingsPage()
@@ -2993,14 +3125,14 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         return this.tr("client.settings.section.theme", "Theme");
     }
 
-    private void requestTransition(TransitionMode mode, GuiScreen target)
+    private void requestTransition(ScreenTransitionController.Mode mode, GuiScreen target)
     {
-        if (this.mc == null || this.transitioningOut)
+        if (!ScreenTransitionController.canRequest(this.mc, this.transitioningOut))
         {
             return;
         }
 
-        this.transitionMode = mode == null ? TransitionMode.SWITCH : mode;
+        this.transitionMode = ScreenTransitionController.modeOrDefault(mode);
         this.transitionTarget = target;
         this.transitioningOut = true;
         this.transitionExecuted = false;
@@ -3008,41 +3140,26 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
 
     private void updateTransition(ClickGuiModule clickGui)
     {
-        long now = System.nanoTime();
-        float dt = this.transitionLastNanos == 0L ? (1.0F / 60.0F) : (float)((double)(now - this.transitionLastNanos) * 1.0E-9D);
-        this.transitionLastNanos = now;
         float speed = clickGui == null ? 0.56F : clickGui.getGlobalAnimationSpeed();
         float smooth = this.resolveAnimationProfile(clickGui).smooth();
         UiAnimation.Type type = this.resolveTransitionType(clickGui);
+        ScreenTransitionController.StepResult step = ScreenTransitionController.step(
+            this.transitioningOut,
+            this.transitionMode,
+            this.transitionProgress,
+            this.transitionLastNanos,
+            speed,
+            smooth,
+            type,
+            TRANSITION_TUNING,
+            this.transitionExecuted,
+            this.transitionTarget,
+            this.mc
+        );
+        this.transitionLastNanos = step.lastNanos();
+        this.transitionProgress = step.progress();
 
-        if (this.transitioningOut)
-        {
-            float boost;
-
-            switch (this.transitionMode)
-            {
-                case CLOSE:
-                    boost = 1.95F;
-                    break;
-                case BACK:
-                    boost = 1.20F;
-                    break;
-                case SWITCH:
-                default:
-                    boost = 1.55F;
-                    break;
-            }
-
-            speed = UiMotion.clamp(speed * boost + 0.08F, 0.05F, 1.0F);
-            smooth = UiMotion.clamp(smooth * (this.transitionMode == TransitionMode.BACK ? 0.95F : 0.88F), 0.0F, 1.0F);
-            dt *= this.transitionMode == TransitionMode.BACK ? 1.12F : 1.25F;
-        }
-
-        float response = UiAnimation.responseFromSpeed(speed, smooth, type, false);
-        float target = this.transitioningOut ? 0.0F : 1.0F;
-        this.transitionProgress = UiAnimation.step(this.transitionProgress, target, response, dt, type, smooth);
-
-        if (this.transitioningOut && !this.transitionExecuted && this.transitionProgress <= 0.02F && this.mc != null)
+        if (step.shouldNavigate())
         {
             this.transitionExecuted = true;
             this.mc.displayGuiScreen(this.transitionTarget);
@@ -3056,21 +3173,14 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
             return UiAnimation.Type.EASE_OUT;
         }
 
-        if (!this.transitioningOut)
-        {
-            return clickGui.getGuiOpenAnimationType();
-        }
-
-        switch (this.transitionMode)
-        {
-            case CLOSE:
-                return clickGui.getGuiCloseAnimationType();
-            case BACK:
-                return clickGui.getGuiBackAnimationType();
-            case SWITCH:
-            default:
-                return clickGui.getGuiSwitchAnimationType();
-        }
+        return ScreenTransitionController.resolveType(
+            this.transitioningOut,
+            this.transitionMode,
+            clickGui.getGuiOpenAnimationType(),
+            clickGui.getGuiCloseAnimationType(),
+            clickGui.getGuiSwitchAnimationType(),
+            clickGui.getGuiBackAnimationType()
+        );
     }
 
     private void updateCategoryTransition(ClickGuiModule clickGui)
@@ -3102,9 +3212,7 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
 
     private float transitionVisual()
     {
-        float p = UiMotion.clamp01(this.transitionProgress);
-        float eased = (float)Math.pow((double)p, 0.82D);
-        return UiMotion.clamp(eased, 0.0F, 1.0F);
+        return ScreenTransitionController.visual(this.transitionProgress);
     }
 
     private Rect transitionWindow(Rect baseRect)
@@ -3224,6 +3332,115 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         this.captureActiveSettingScroll();
     }
 
+    private boolean tryStartScrollbarDrag(Layout l, int mx, int my)
+    {
+        // Modules scrollbar
+        int totalModules = this.currentModules().size();
+        int moduleVisible = Math.max(1, (int)(l.moduleRows.h / l.rowModule));
+
+        if (totalModules > moduleVisible)
+        {
+            float trackX = l.moduleRows.x + l.moduleRows.w - scaled(4.0F, l.scale);
+            float hitLeft = trackX - scaled(6.0F, l.scale);
+            float hitRight = trackX + scaled(8.0F, l.scale);
+
+            if ((float)mx >= hitLeft && (float)mx <= hitRight && (float)my >= l.moduleRows.y && (float)my <= l.moduleRows.y + l.moduleRows.h)
+            {
+                this.draggingModulesScrollbar = true;
+                this.scrollbarDragAnchor = (float)my;
+                float trackH = l.moduleRows.h;
+                float thumbRatio = (float)moduleVisible / (float)totalModules;
+                float thumbH = Math.max(scaled(20.0F, l.scale), trackH * thumbRatio);
+                float scrollRatio = this.moduleScrollVisual / (float)Math.max(1, totalModules - moduleVisible);
+                float thumbY = l.moduleRows.y + (trackH - thumbH) * UiMotion.clamp01(scrollRatio);
+
+                if ((float)my < thumbY || (float)my > thumbY + thumbH)
+                {
+                    float clickRatio = ((float)my - l.moduleRows.y - thumbH * 0.5F) / Math.max(1.0F, trackH - thumbH);
+                    int maxScroll = totalModules - moduleVisible;
+                    this.moduleScroll = Math.round(UiMotion.clamp(clickRatio * (float)maxScroll, 0.0F, (float)maxScroll));
+                }
+
+                return true;
+            }
+        }
+
+        // Settings scrollbar
+        int totalSettings = this.visibleSettings(this.selectedModule).size();
+        int settingVisible = Math.max(1, (int)(l.settingsRows.h / l.rowSetting));
+
+        if (totalSettings > settingVisible)
+        {
+            float trackX = l.settingsRows.x + l.settingsRows.w - scaled(4.0F, l.scale);
+            float hitLeft = trackX - scaled(6.0F, l.scale);
+            float hitRight = trackX + scaled(8.0F, l.scale);
+
+            if ((float)mx >= hitLeft && (float)mx <= hitRight && (float)my >= l.settingsRows.y && (float)my <= l.settingsRows.y + l.settingsRows.h)
+            {
+                this.draggingSettingsScrollbar = true;
+                this.scrollbarDragAnchor = (float)my;
+                float trackH = l.settingsRows.h;
+                float thumbRatio = (float)settingVisible / (float)totalSettings;
+                float thumbH = Math.max(scaled(20.0F, l.scale), trackH * thumbRatio);
+                float scrollRatio = this.settingScrollVisual / (float)Math.max(1, totalSettings - settingVisible);
+                float thumbY = l.settingsRows.y + (trackH - thumbH) * UiMotion.clamp01(scrollRatio);
+
+                if ((float)my < thumbY || (float)my > thumbY + thumbH)
+                {
+                    float clickRatio = ((float)my - l.settingsRows.y - thumbH * 0.5F) / Math.max(1.0F, trackH - thumbH);
+                    int maxScroll = totalSettings - settingVisible;
+                    float target = UiMotion.clamp(clickRatio * (float)maxScroll, 0.0F, (float)maxScroll);
+                    this.settingScrollTarget = target;
+                    this.settingScroll = Math.round(target);
+                }
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void updateScrollbarDrag(Layout l, int my)
+    {
+        float deltaY = (float)my - this.scrollbarDragAnchor;
+        this.scrollbarDragAnchor = (float)my;
+
+        if (this.draggingModulesScrollbar)
+        {
+            int totalModules = this.currentModules().size();
+            int moduleVisible = Math.max(1, (int)(l.moduleRows.h / l.rowModule));
+            int maxScroll = Math.max(0, totalModules - moduleVisible);
+
+            if (maxScroll > 0)
+            {
+                float trackH = l.moduleRows.h;
+                float thumbRatio = (float)moduleVisible / (float)totalModules;
+                float thumbH = Math.max(scaled(20.0F, l.scale), trackH * thumbRatio);
+                float scrollPerPixel = (float)maxScroll / Math.max(1.0F, trackH - thumbH);
+                this.moduleScroll = (int)UiMotion.clamp((float)this.moduleScroll + deltaY * scrollPerPixel, 0.0F, (float)maxScroll);
+            }
+        }
+
+        if (this.draggingSettingsScrollbar)
+        {
+            int totalSettings = this.visibleSettings(this.selectedModule).size();
+            int settingVisible = Math.max(1, (int)(l.settingsRows.h / l.rowSetting));
+            int maxScroll = Math.max(0, totalSettings - settingVisible);
+
+            if (maxScroll > 0)
+            {
+                float trackH = l.settingsRows.h;
+                float thumbRatio = (float)settingVisible / (float)totalSettings;
+                float thumbH = Math.max(scaled(20.0F, l.scale), trackH * thumbRatio);
+                float scrollPerPixel = (float)maxScroll / Math.max(1.0F, trackH - thumbH);
+                float target = UiMotion.clamp(this.settingScrollTarget + deltaY * scrollPerPixel, 0.0F, (float)maxScroll);
+                this.settingScrollTarget = target;
+                this.settingScroll = Math.round(target);
+            }
+        }
+    }
+
     private void updateScrollAnimation(Layout l, ClickGuiModule clickGui)
     {
         if (l == null)
@@ -3294,6 +3511,18 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         return Math.max(0, Math.min(max, value));
     }
 
+    private UiLayoutProfile liveLayout()
+    {
+        ClientBootstrap boot = ClientBootstrap.instance();
+
+        if (boot != null && boot.getConfigManager() != null)
+        {
+            return boot.getConfigManager().getUiLayout();
+        }
+
+        return LAYOUT;
+    }
+
     private float resolveSettingScrollStep(int wheelDelta)
     {
         float notches = Math.max(1.0F, Math.abs((float)wheelDelta) / 120.0F);
@@ -3310,9 +3539,9 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         float gapMajor = scaled(GAP_MAJOR, k);
         float topButtonH = scaled(20.0F, k);
         Rect header = new Rect(windowRect.x + scaled(1.0F, k), windowRect.y + scaled(1.0F, k), windowRect.w - scaled(2.0F, k), headerHeight - scaled(2.0F, k));
-        Rect topHudEdit = new Rect(header.x2() - scaled(80.0F, k), header.y + scaled(8.0F, k), scaled(70.0F, k), topButtonH);
-        Rect topUiScale = new Rect(topHudEdit.x - scaled(84.0F, k), header.y + scaled(8.0F, k), scaled(74.0F, k), topButtonH);
-        Rect topClientSettings = new Rect(topUiScale.x - scaled(80.0F, k), header.y + scaled(8.0F, k), scaled(70.0F, k), topButtonH);
+        Rect topHudEdit = new Rect(header.x2() - scaled(84.0F, k), header.y + scaled(8.0F, k), scaled(70.0F, k), topButtonH);
+        Rect topUiScale = new Rect(topHudEdit.x - scaled(90.0F, k), header.y + scaled(8.0F, k), scaled(74.0F, k), topButtonH);
+        Rect topClientSettings = new Rect(topUiScale.x - scaled(86.0F, k), header.y + scaled(8.0F, k), scaled(70.0F, k), topButtonH);
         Rect headerDrag = new Rect(header.x + scaled(2.0F, k), header.y + scaled(2.0F, k), topClientSettings.x - header.x - scaled(8.0F, k), header.h - scaled(4.0F, k));
         boolean settingsPage = this.isSettingsPage();
         float settingsBlend = UiMotion.clamp01(this.settingsPageProgress);
@@ -3321,7 +3550,8 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         float bodyH = windowRect.h - headerHeight - outerPad;
         float bodyCardH = bodyH - outerPad;
         float contentW = windowRect.w - outerPad * 2.0F - gapMajor;
-        float leftColumnW = UiMotion.clamp(contentW * 0.24F, scaled(160.0F, k), Math.min(scaled(270.0F, k), contentW * 0.34F));
+        UiLayoutProfile lp = this.liveLayout();
+        float leftColumnW = UiMotion.clamp(contentW * lp.clickGuiSidebarRatio(), scaled(160.0F, k), Math.min(scaled(270.0F, k), contentW * lp.clickGuiSidebarMaxRatio()));
         float leftX = windowRect.x + outerPad;
         Rect sidebarModule = new Rect(leftX, bodyY, leftColumnW, bodyCardH);
         Rect sidebarRowsModule = new Rect(sidebarModule.x + scaled(10.0F, k), sidebarModule.y + scaled(32.0F, k), sidebarModule.w - scaled(20.0F, k), Math.max(scaled(24.0F, k), sidebarModule.h - scaled(42.0F, k)));
@@ -3330,7 +3560,9 @@ public final class ClickGuiScreen extends GuiScreen implements NanoRenderableScr
         Rect mainModule = new Rect(mainX, bodyY, mainW, bodyCardH);
         boolean hasPickerPreview = this.activeColor != null;
         float minSettingsHeight = hasPickerPreview ? scaled(370.0F, k) : scaled(280.0F, k);
-        float modulesBaseRatio = hasPickerPreview ? 0.26F : 0.31F;
+        float modulesBaseRatio = hasPickerPreview
+            ? Math.max(lp.clickGuiModulesRatio() - 0.05F, lp.clickGuiModulesMinRatio())
+            : lp.clickGuiModulesRatio();
         float maxModulesHeight = Math.max(scaled(138.0F, k), mainModule.h - minSettingsHeight - gapMajor);
         float modulesH = UiMotion.clamp(mainModule.h * modulesBaseRatio, scaled(96.0F, k), maxModulesHeight);
         Rect modulesCardModule = new Rect(mainModule.x, mainModule.y, mainModule.w, modulesH);

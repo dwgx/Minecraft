@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "clientVersion": "1.0.0",
+  "buildVersion": "1.0.0",
+  "timestamp": 1772337722842,
+  "elements": {
+    "hud_fps": {
+      "enabled": true,
+      "anchor": "TOP_LEFT",
+      "dock": "NONE",
+      "x": 15.0,
+      "y": 64.0,
+      "scale": 1.0,
+      "snapToGrid": false,
+      "settings": {
+        "fps_source": "GAME_DEBUG"
+      }
+    }
+  }
+}

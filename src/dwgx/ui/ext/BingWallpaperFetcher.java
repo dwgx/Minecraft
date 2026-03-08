@@ -3,6 +3,7 @@ package dwgx.ui.ext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -15,19 +16,22 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * Lightweight one-shot downloader for Bing daily/random wallpapers.
  *
- * The goal is to avoid adding menu options: every client start pulls one image
- * into a temp file and the main menu uses STATIC_IMAGE mode to render it.
+ * Downloads to a persistent location ({@code config/client/bing-wallpaper.jpg})
+ * so the image survives restarts and can be displayed immediately on the next
+ * launch while a fresh download runs in the background.
  */
 public final class BingWallpaperFetcher
 {
     private static final Logger LOGGER = LogManager.getLogger(BingWallpaperFetcher.class);
+    private static final String PERSISTENT_FILENAME = "bing-wallpaper.jpg";
     private static final String[] SOURCES = new String[]
     {
-        // Prefer 1080p to keep download small while still crisp.
         "https://bing.img.run/rand.php",
         "https://bing.img.run/1920x1080.php",
         "https://bing.img.run/rand_uhd.php"
     };
+
+    private static volatile Path persistentDir;
 
     private BingWallpaperFetcher()
     {
@@ -36,6 +40,31 @@ public final class BingWallpaperFetcher
     public interface Callback
     {
         void onComplete(String localPath);
+    }
+
+    /**
+     * Sets the persistent directory where the wallpaper file is stored.
+     * Should be called early in startup (e.g. from config init).
+     */
+    public static void setPersistentDir(Path dir)
+    {
+        persistentDir = dir;
+    }
+
+    /**
+     * Returns the path to the cached wallpaper if it exists on disk, or null.
+     */
+    public static String getCachedPath()
+    {
+        Path dir = persistentDir;
+
+        if (dir == null)
+        {
+            return null;
+        }
+
+        File file = dir.resolve(PERSISTENT_FILENAME).toFile();
+        return file.isFile() && file.length() > 0 ? file.getAbsolutePath() : null;
     }
 
     public static String downloadOnce()
@@ -91,7 +120,6 @@ public final class BingWallpaperFetcher
 
     private static String pickSource(int attempt)
     {
-        // First attempt: random pick, later attempts: deterministic fallback.
         if (attempt == 0)
         {
             return SOURCES[ThreadLocalRandom.current().nextInt(SOURCES.length)];
@@ -128,18 +156,45 @@ public final class BingWallpaperFetcher
             return null;
         }
 
-        Path tmp = Files.createTempFile("bing-wallpaper-", ".jpg");
-        tmp.toFile().deleteOnExit();
+        Path target = resolvePersistentPath();
+
+        if (target == null)
+        {
+            // Fallback to temp if no persistent dir configured
+            target = Files.createTempFile("bing-wallpaper-", ".jpg");
+            target.toFile().deleteOnExit();
+        }
 
         try (InputStream in = conn.getInputStream())
         {
-            Files.copy(in, tmp, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
         }
         finally
         {
             conn.disconnect();
         }
 
-        return tmp.toAbsolutePath().toString();
+        return target.toAbsolutePath().toString();
+    }
+
+    private static Path resolvePersistentPath()
+    {
+        Path dir = persistentDir;
+
+        if (dir == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            Files.createDirectories(dir);
+            return dir.resolve(PERSISTENT_FILENAME);
+        }
+        catch (IOException ex)
+        {
+            LOGGER.warn("Cannot create persistent wallpaper directory: {}", dir, ex);
+            return null;
+        }
     }
 }

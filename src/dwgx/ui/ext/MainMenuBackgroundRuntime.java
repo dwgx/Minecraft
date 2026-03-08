@@ -510,6 +510,20 @@ public final class MainMenuBackgroundRuntime
         }
 
         // Resource path — load synchronously (fast, from jar)
+        // Guard: if the path looks like an absolute file path (e.g. a stale temp
+        // file from a previous Bing wallpaper download), do NOT fall through to
+        // ResourceLocation which would prepend "minecraft:" and always fail.
+        if (normalized.length() >= 2 && (normalized.charAt(1) == ':' || normalized.charAt(0) == '/'))
+        {
+            if (!this.imageLoadWarned && logger != null)
+            {
+                this.imageLoadWarned = true;
+                logger.warn("Main-menu static image background load failed: {}", normalized);
+            }
+
+            return false;
+        }
+
         this.closeImageOnly(mc);
         this.imageSourceKey = normalized;
 
@@ -563,6 +577,13 @@ public final class MainMenuBackgroundRuntime
             {
                 return ImageIO.read(input);
             }
+        }
+
+        // If the path looks like an absolute file path but the file doesn't exist,
+        // return null instead of falling through to ResourceLocation.
+        if (sourcePath.length() >= 2 && (sourcePath.charAt(1) == ':' || sourcePath.charAt(0) == '/'))
+        {
+            return null;
         }
 
         String resourcePath = sourcePath;

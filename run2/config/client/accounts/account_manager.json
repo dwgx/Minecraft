@@ -1,0 +1,23 @@
+{
+  "selectedId": "a3f3b951-75ff-46d8-aa7a-ad0be907ad04",
+  "accounts": [
+    {
+      "id": "3b504d01-20bd-4c6d-a8de-321f2e680204",
+      "type": "offline",
+      "name": "sb",
+      "uuid": "ea07e4103cb9313f9ba586529ce92772",
+      "refreshToken": "",
+      "createdAt": 1771591352597,
+      "updatedAt": 1771591352597
+    },
+    {
+      "id": "a3f3b951-75ff-46d8-aa7a-ad0be907ad04",
+      "type": "microsoft",
+      "name": "dwgx1337",
+      "uuid": "5f2d75508a2541c89fbd420a5df20e0c",
+      "refreshToken": "M.C511_BL2.0.U.-Cox3uz3wHSCUCDjwNpBpIQJkS9ePp3hbcuWv*y*lzu67BL1QAhG259mqMh0DU2*j*uKaIMjZDs7tX7zAjcEaqzDDsx0!h5OrkIZ4KcEC5di5828DVcySoGe9DpiX0kh8D3pLmV99WktoCpep71v7T!o78qo33OhStoNCZyqevpR1OygfojYfdbOsLWNaFeHlAsDgQ7EL21wkW4QmLidPChFzb3QRchg79sD3xZRSroV2IvvrUTWVEAt2nEPhaAKJGPk3pj9Z1wXSHkxfODziQ1hzD8eZ7ZM9axYZBcZNL7SJ6OKvwOiftxSCpQAk7DNP!g$$",
+      "createdAt": 1771591438217,
+      "updatedAt": 1772314700565
+    }
+  ]
+}

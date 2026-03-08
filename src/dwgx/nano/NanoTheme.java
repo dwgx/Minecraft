@@ -162,6 +162,30 @@ public final class NanoTheme
         return this.dangerArgb;
     }
 
+    /** Alias for {@link #cardArgb()} — used by social/IRC panel backgrounds. */
+    public int panelArgb()
+    {
+        return this.cardArgb;
+    }
+
+    /** Alias for {@link #mainArgb()} — used by social/IRC surface backgrounds. */
+    public int surfaceArgb()
+    {
+        return this.mainArgb;
+    }
+
+    /** Alias for {@link #textWeakArgb()} — used by placeholder/dim text. */
+    public int textDimArgb()
+    {
+        return this.textWeakArgb;
+    }
+
+    /** Alias for {@link #windowBorderArgb()} — used by social/IRC panel borders. */
+    public int borderArgb()
+    {
+        return this.windowBorderArgb;
+    }
+
     public float windowRadius()
     {
         return this.windowRadius;

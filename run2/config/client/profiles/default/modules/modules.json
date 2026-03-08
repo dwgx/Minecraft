@@ -1,0 +1,297 @@
+{
+  "schemaVersion": 1,
+  "clientVersion": "1.0.0",
+  "buildVersion": "1.0.0",
+  "timestamp": 1772337722840,
+  "modules": {
+    "click_gui": {
+      "enabled": false,
+      "bind": {
+        "key": 54
+      },
+      "settings": {
+        "palette": "COBALT",
+        "locale": "EN_US",
+        "corner_radius": 12.0,
+        "panel_alpha": 226,
+        "backdrop": true,
+        "backdrop_alpha": 108,
+        "accent_override_enabled": false,
+        "accent_override": {
+          "r": 55,
+          "g": 148,
+          "b": 255,
+          "a": 255,
+          "rainbow": false
+        },
+        "ui_anim_enabled": true,
+        "ui_anim_speed": 0.49,
+        "ui_anim_smooth": 0.19999999,
+        "ui_control_anim_speed": 0.19999999,
+        "ui_slider_anim_enabled": true,
+        "ui_slider_anim_speed": 0.19999999,
+        "ui_page_anim_speed": 0.84999996,
+        "ui_list_anim_speed": 0.19999999,
+        "ui_selection_anim_speed": 0.19999999,
+        "ui_input_anim_speed": 0.19999999,
+        "ui_input_anim_smooth": 0.19999999,
+        "ui_anim_type": "LINEAR",
+        "ui_input_anim_type": "LINEAR",
+        "ui_open_anim_type": "LINEAR",
+        "ui_close_anim_type": "LINEAR",
+        "ui_switch_anim_type": "LINEAR",
+        "ui_back_anim_type": "LINEAR",
+        "last_category_ordinal": 5,
+        "last_module_index": 3,
+        "last_category_scroll": 0,
+        "last_module_scroll": 0,
+        "last_setting_scroll": 0,
+        "last_compat_setting_scroll": 0,
+        "setting_center_scale": 1.0,
+        "setting_center_anchor_x": 0.5,
+        "setting_center_anchor_y": 0.5,
+        "setting_center_picker_x": 0.0,
+        "setting_center_picker_y": 0.0
+      }
+    },
+    "account_manager": {
+      "enabled": false,
+      "bind": {
+        "key": 0
+      },
+      "settings": {}
+    },
+    "hud_edit": {
+      "enabled": false,
+      "bind": {
+        "key": 0
+      },
+      "settings": {}
+    },
+    "ui_scale_edit": {
+      "enabled": false,
+      "bind": {
+        "key": 0
+      },
+      "settings": {
+        "edit_target": "HUD_EDIT",
+        "click_gui_scale": 0.96999997,
+        "click_gui_motion": 0.68,
+        "click_gui_anchor_x": 0.51000005,
+        "click_gui_anchor_y": 0.53000003,
+        "hud_edit_scale": 0.95,
+        "hud_edit_motion": 0.5,
+        "hud_edit_anchor_x": 0.45000002,
+        "hud_edit_anchor_y": 0.49600002,
+        "ui_anim_enabled": true,
+        "ui_anim_speed": 0.56,
+        "ui_anim_smooth": 0.62,
+        "ui_anim_type": "EASE_OUT"
+      }
+    },
+    "chat_overlay": {
+      "enabled": false,
+      "bind": {
+        "key": 34
+      },
+      "settings": {
+        "chat_sound": true,
+        "chat_notifications": true,
+        "chat_max_history": 500,
+        "chat_overlay_opacity": 0.65000004,
+        "chat_compact": true,
+        "chat_allow_dm": true,
+        "chat_show_status": true
+      }
+    },
+    "auto_clicker": {
+      "enabled": false,
+      "bind": {
+        "key": 0
+      },
+      "settings": {
+        "require_attack_key": true,
+        "weapon_only": false,
+        "randomize_cps": true,
+        "min_cps": 9,
+        "max_cps": 13
+      }
+    },
+    "kill_aura": {
+      "enabled": false,
+      "bind": {
+        "key": 0
+      },
+      "settings": {
+        "range": 3.8,
+        "discover_offset": 1.0,
+        "cps": 10,
+        "target_mode": "SWITCH",
+        "rotation_speed": 180.0,
+        "auto_block": true,
+        "players_only": true,
+        "through_walls": false
+      }
+    },
+    "velocity": {
+      "enabled": false,
+      "bind": {
+        "key": 0
+      },
+      "settings": {
+        "horizontal": 0.0,
+        "vertical": 0.0,
+        "explosions": true
+      }
+    },
+    "eagle": {
+      "enabled": false,
+      "bind": {
+        "key": 0
+      },
+      "settings": {
+        "only_ground": true,
+        "only_moving": true,
+        "disable_flying": true,
+        "sample_depth": 0.6,
+        "sample_inset": 0.08
+      }
+    },
+    "keep_sprint": {
+      "enabled": true,
+      "bind": {
+        "key": 0
+      },
+      "settings": {
+        "air_sprint": true,
+        "use_item_sprint": false
+      }
+    },
+    "no_fall": {
+      "enabled": true,
+      "bind": {
+        "key": 0
+      },
+      "settings": {
+        "mode": "PACKET"
+      }
+    },
+    "speed": {
+      "enabled": false,
+      "bind": {
+        "key": 0
+      },
+      "settings": {
+        "mode": "BHOP",
+        "speed": 1.5,
+        "potion_check": true
+      }
+    },
+    "fly": {
+      "enabled": false,
+      "bind": {
+        "key": 0
+      },
+      "settings": {
+        "mode": "VANILLA",
+        "speed": 2.0,
+        "anti_kick": true
+      }
+    },
+    "no_slow": {
+      "enabled": false,
+      "bind": {
+        "key": 0
+      },
+      "settings": {
+        "multiplier": 1.0,
+        "swords": true,
+        "bows": true,
+        "food": true,
+        "potions": true
+      }
+    },
+    "sprint": {
+      "enabled": false,
+      "bind": {
+        "key": 0
+      },
+      "settings": {}
+    },
+    "no_push": {
+      "enabled": true,
+      "bind": {
+        "key": 0
+      },
+      "settings": {
+        "entities": true,
+        "water": true,
+        "blocks": false
+      }
+    },
+    "auto_tool": {
+      "enabled": false,
+      "bind": {
+        "key": 0
+      },
+      "settings": {
+        "require_attack_key": true,
+        "switch_back": true
+      }
+    },
+    "stealer": {
+      "enabled": false,
+      "bind": {
+        "key": 0
+      },
+      "settings": {
+        "min_delay_ms": 80,
+        "max_delay_ms": 145,
+        "close_after_empty_checks": 2,
+        "useful_only": true,
+        "auto_close": true,
+        "chest_title_guard": false
+      }
+    },
+    "fast_place": {
+      "enabled": false,
+      "bind": {
+        "key": 0
+      },
+      "settings": {
+        "delay": 0
+      }
+    },
+    "anti_void": {
+      "enabled": false,
+      "bind": {
+        "key": 0
+      },
+      "settings": {
+        "fall_distance": 5.0
+      }
+    },
+    "skin_changer": {
+      "enabled": true,
+      "bind": {
+        "key": 0
+      },
+      "settings": {
+        "official_name": "notch",
+        "clear_on_disable": true
+      }
+    },
+    "inventory_move": {
+      "enabled": false,
+      "bind": {
+        "key": 0
+      },
+      "settings": {
+        "allow_jump": true,
+        "allow_sneak": false,
+        "allow_sprint": true,
+        "allow_in_chat": false
+      }
+    }
+  }
+}

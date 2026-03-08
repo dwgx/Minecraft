@@ -1,0 +1,35 @@
+{
+  "player2": {
+    "displayNick": "Player2",
+    "friends": [],
+    "channels": [
+      "#general"
+    ]
+  },
+  "dwgx1337": {
+    "displayNick": "dwgx1337",
+    "friends": [],
+    "channels": [
+      "#general"
+    ]
+  },
+  "notch": {
+    "displayNick": "Notch",
+    "friends": [],
+    "channels": [
+      "#general"
+    ]
+  },
+  "dwgx1337_": {
+    "displayNick": "dwgx1337_",
+    "friends": [],
+    "channels": [
+      "#general"
+    ]
+  },
+  "sb": {
+    "displayNick": "sb",
+    "friends": [],
+    "channels": []
+  }
+}

@@ -36,7 +36,7 @@ Frame N+1:
 // 修改前
 public void updateDisplay() {
     this.mcProfiler.startSection("display_update");
-    Display.update();
+    GlfwWindow.update();
     this.mcProfiler.endSection();
     this.checkWindowResize();  // ← swap 后重建 FBO，清黑
 }
@@ -44,7 +44,7 @@ public void updateDisplay() {
 // 修改后
 public void updateDisplay() {
     this.mcProfiler.startSection("display_update");
-    Display.update();
+    GlfwWindow.update();
     this.mcProfiler.endSection();
     // checkWindowResize 已移除
     // resize 由帧起始（line 1126）和 tick 后（line 1182）的调用处理
@@ -59,7 +59,7 @@ resize 检测仍然在游戏循环的两个安全位置执行：
 
 ### 2. 注册 GLFW 回调即时呈现处理器
 
-**文件**: `src/org/lwjgl/opengl/Display.java`
+**文件**: `src/client/runtime/lwjgl/GlfwWindow.java`
 
 新增 `refreshPresentHandler` 机制：
 
@@ -100,13 +100,13 @@ windowSizeCallback = GLFWWindowSizeCallback.create((win, w, h) -> {
 ```java
 private void registerResizeRefreshHandler() {
     final Minecraft mc = this;
-    Display.setRefreshPresentHandler(new Runnable() {
+    GlfwWindow.setRefreshPresentHandler(new Runnable() {
         public void run() {
             if (mc.framebufferMc == null) return;
-            int presentW = Math.max(1, Display.getWidth());
-            int presentH = Math.max(1, Display.getHeight());
+            int presentW = Math.max(1, GlfwWindow.getWidth());
+            int presentH = Math.max(1, GlfwWindow.getHeight());
             mc.framebufferMc.framebufferRenderExt(presentW, presentH, true);
-            GLFW.glfwSwapBuffers(Display.getWindow());
+            GLFW.glfwSwapBuffers(GlfwWindow.getWindow());
         }
     });
 }
@@ -125,4 +125,4 @@ private void registerResizeRefreshHandler() {
 | 文件 | 改动 |
 |------|------|
 | `src/net/minecraft/client/Minecraft.java` | 移除 `updateDisplay()` 中的 `checkWindowResize()`；新增 `registerResizeRefreshHandler()` |
-| `src/org/lwjgl/opengl/Display.java` | 新增 `refreshPresentHandler` / `getWindow()` / `setRefreshPresentHandler()`；三个回调触发 handler |
+| `src/client/runtime/lwjgl/GlfwWindow.java` | 新增 `refreshPresentHandler` / `getWindow()` / `setRefreshPresentHandler()`；三个回调触发 handler |

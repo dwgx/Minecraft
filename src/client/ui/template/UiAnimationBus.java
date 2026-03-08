@@ -11,6 +11,7 @@ public final class UiAnimationBus
 {
     private static final long STALE_CHANNEL_TTL_NANOS = 12000000000L;
     private static final long PRUNE_INTERVAL_NANOS = 2000000000L;
+    private static final int MAX_CHANNELS = 2048;
     private static final Map<String, Channel> CHANNELS = new HashMap<String, Channel>();
     private static long frameNowNanos;
     private static long lastPruneAtNanos;
@@ -72,6 +73,16 @@ public final class UiAnimationBus
 
         if (channel == null)
         {
+            if (CHANNELS.size() >= MAX_CHANNELS)
+            {
+                pruneStaleChannels(currentTimeNanos());
+
+                if (CHANNELS.size() >= MAX_CHANNELS)
+                {
+                    return target;
+                }
+            }
+
             channel = new Channel();
             channel.value = target;
             channel.lastNanos = currentTimeNanos();
@@ -103,6 +114,7 @@ public final class UiAnimationBus
         frameNowNanos = 0L;
         lastPruneAtNanos = 0L;
     }
+
 
     public static void clearPrefix(String prefix)
     {

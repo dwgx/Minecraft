@@ -42,6 +42,25 @@ public final class UiLayoutProfile
     private float accountAnchorX = 0.5F;
     private float accountAnchorY = 0.5F;
 
+    // ClickGui panel ratios
+    private float clickGuiSidebarRatio = 0.24F;
+    private float clickGuiSidebarMinRatio = 0.15F;
+    private float clickGuiSidebarMaxRatio = 0.40F;
+    private float clickGuiModulesRatio = 0.31F;
+    private float clickGuiModulesMinRatio = 0.18F;
+    private float clickGuiModulesMaxRatio = 0.55F;
+
+    // ChatOverlay defaults
+    private float chatWidth = 960.0F;
+    private float chatHeight = 600.0F;
+    private float chatMinWidth = 480.0F;
+    private float chatMinHeight = 320.0F;
+    private float chatServerListWidth = 56.0F;
+    private float chatChannelRatio = 0.20F;
+    private float chatTopBarHeight = 42.0F;
+    private float chatInputBarHeight = 52.0F;
+    private float chatStatusBarHeight = 28.0F;
+
     // Shared layout constants
     private float screenMargin = 8.0F;
     private float headerHeight = 36.0F;
@@ -129,6 +148,42 @@ public final class UiLayoutProfile
     public float valueColWidth() { return this.valueColWidth; }
     public float resetColWidth() { return this.resetColWidth; }
 
+    // --- ClickGui panel ratios ---
+    public float clickGuiSidebarRatio() { return this.clickGuiSidebarRatio; }
+    public float clickGuiSidebarMinRatio() { return this.clickGuiSidebarMinRatio; }
+    public float clickGuiSidebarMaxRatio() { return this.clickGuiSidebarMaxRatio; }
+    public float clickGuiModulesRatio() { return this.clickGuiModulesRatio; }
+    public float clickGuiModulesMinRatio() { return this.clickGuiModulesMinRatio; }
+    public float clickGuiModulesMaxRatio() { return this.clickGuiModulesMaxRatio; }
+    public void setClickGuiSidebarRatio(float v) { this.clickGuiSidebarRatio = v; }
+    public void setClickGuiModulesRatio(float v) { this.clickGuiModulesRatio = v; }
+
+    // --- ChatOverlay ---
+    public float chatWidth() { return this.chatWidth; }
+    public float chatHeight() { return this.chatHeight; }
+    public float chatMinWidth() { return this.chatMinWidth; }
+    public float chatMinHeight() { return this.chatMinHeight; }
+    public float chatServerListWidth() { return this.chatServerListWidth; }
+    public float chatChannelRatio() { return this.chatChannelRatio; }
+    public float chatTopBarHeight() { return this.chatTopBarHeight; }
+    public float chatInputBarHeight() { return this.chatInputBarHeight; }
+    public float chatStatusBarHeight() { return this.chatStatusBarHeight; }
+    public void setChatWidth(float v) { this.chatWidth = v; }
+    public void setChatHeight(float v) { this.chatHeight = v; }
+    public void setChatServerListWidth(float v) { this.chatServerListWidth = v; }
+    public void setChatChannelRatio(float v) { this.chatChannelRatio = v; }
+    public void setChatTopBarHeight(float v) { this.chatTopBarHeight = v; }
+    public void setChatInputBarHeight(float v) { this.chatInputBarHeight = v; }
+    public void setChatStatusBarHeight(float v) { this.chatStatusBarHeight = v; }
+
+    // --- Shared layout setters ---
+    public void setGapMajor(float v) { this.gapMajor = v; }
+    public void setRowCategory(float v) { this.rowCategory = v; }
+    public void setRowModule(float v) { this.rowModule = v; }
+    public void setRowSetting(float v) { this.rowSetting = v; }
+    public void setBtnHeight(float v) { this.btnHeight = v; }
+    public void setValueColWidth(float v) { this.valueColWidth = v; }
+
     // --- Serialization ---
 
     public JsonObject toJson()
@@ -173,6 +228,21 @@ public final class UiLayoutProfile
         obj.add("radiusControl", new JsonPrimitive(this.radiusControl));
         obj.add("valueColWidth", new JsonPrimitive(this.valueColWidth));
         obj.add("resetColWidth", new JsonPrimitive(this.resetColWidth));
+        obj.add("clickGuiSidebarRatio", new JsonPrimitive(this.clickGuiSidebarRatio));
+        obj.add("clickGuiSidebarMinRatio", new JsonPrimitive(this.clickGuiSidebarMinRatio));
+        obj.add("clickGuiSidebarMaxRatio", new JsonPrimitive(this.clickGuiSidebarMaxRatio));
+        obj.add("clickGuiModulesRatio", new JsonPrimitive(this.clickGuiModulesRatio));
+        obj.add("clickGuiModulesMinRatio", new JsonPrimitive(this.clickGuiModulesMinRatio));
+        obj.add("clickGuiModulesMaxRatio", new JsonPrimitive(this.clickGuiModulesMaxRatio));
+        obj.add("chatWidth", new JsonPrimitive(this.chatWidth));
+        obj.add("chatHeight", new JsonPrimitive(this.chatHeight));
+        obj.add("chatMinWidth", new JsonPrimitive(this.chatMinWidth));
+        obj.add("chatMinHeight", new JsonPrimitive(this.chatMinHeight));
+        obj.add("chatServerListWidth", new JsonPrimitive(this.chatServerListWidth));
+        obj.add("chatChannelRatio", new JsonPrimitive(this.chatChannelRatio));
+        obj.add("chatTopBarHeight", new JsonPrimitive(this.chatTopBarHeight));
+        obj.add("chatInputBarHeight", new JsonPrimitive(this.chatInputBarHeight));
+        obj.add("chatStatusBarHeight", new JsonPrimitive(this.chatStatusBarHeight));
         return obj;
     }
 
@@ -224,6 +294,21 @@ public final class UiLayoutProfile
         p.radiusControl = getFloat(obj, "radiusControl", p.radiusControl);
         p.valueColWidth = getFloat(obj, "valueColWidth", p.valueColWidth);
         p.resetColWidth = getFloat(obj, "resetColWidth", p.resetColWidth);
+        p.clickGuiSidebarRatio = getFloat(obj, "clickGuiSidebarRatio", p.clickGuiSidebarRatio);
+        p.clickGuiSidebarMinRatio = getFloat(obj, "clickGuiSidebarMinRatio", p.clickGuiSidebarMinRatio);
+        p.clickGuiSidebarMaxRatio = getFloat(obj, "clickGuiSidebarMaxRatio", p.clickGuiSidebarMaxRatio);
+        p.clickGuiModulesRatio = getFloat(obj, "clickGuiModulesRatio", p.clickGuiModulesRatio);
+        p.clickGuiModulesMinRatio = getFloat(obj, "clickGuiModulesMinRatio", p.clickGuiModulesMinRatio);
+        p.clickGuiModulesMaxRatio = getFloat(obj, "clickGuiModulesMaxRatio", p.clickGuiModulesMaxRatio);
+        p.chatWidth = getFloat(obj, "chatWidth", p.chatWidth);
+        p.chatHeight = getFloat(obj, "chatHeight", p.chatHeight);
+        p.chatMinWidth = getFloat(obj, "chatMinWidth", p.chatMinWidth);
+        p.chatMinHeight = getFloat(obj, "chatMinHeight", p.chatMinHeight);
+        p.chatServerListWidth = getFloat(obj, "chatServerListWidth", p.chatServerListWidth);
+        p.chatChannelRatio = getFloat(obj, "chatChannelRatio", p.chatChannelRatio);
+        p.chatTopBarHeight = getFloat(obj, "chatTopBarHeight", p.chatTopBarHeight);
+        p.chatInputBarHeight = getFloat(obj, "chatInputBarHeight", p.chatInputBarHeight);
+        p.chatStatusBarHeight = getFloat(obj, "chatStatusBarHeight", p.chatStatusBarHeight);
         return p;
     }
 

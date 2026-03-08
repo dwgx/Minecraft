@@ -14,7 +14,6 @@ import org.lwjgl.glfw.GLFWWindowRefreshCallback;
 import org.lwjgl.glfw.GLFWWindowSizeCallback;
 import org.lwjgl.glfw.GLFWVidMode;
 import org.lwjgl.opengl.GL;
-import org.lwjgl.opengl.GL11;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -225,7 +224,6 @@ public final class GlfwWindow
             }
             lastSyncNanos = System.nanoTime();
             refreshRequested = false;
-            GL11.glViewport(0, 0, width, height);
             debugResize("create");
 
         } catch (Throwable t) {

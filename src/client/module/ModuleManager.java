@@ -2,6 +2,7 @@ package client.module;
 
 import client.bridge.MinecraftBridge;
 import client.event.KeyEvent;
+import client.event.MotionUpdateEvent;
 import client.render.RenderContext2D;
 import client.setting.KeybindSetting;
 import java.util.ArrayList;
@@ -118,6 +119,28 @@ public final class ModuleManager implements ModuleStateListener
         }
     }
 
+    public void onMotionUpdate(MotionUpdateEvent event)
+    {
+        List<Module> snapshot = this.getAll();
+
+        for (int i = 0; i < snapshot.size(); ++i)
+        {
+            Module module = snapshot.get(i);
+
+            if (module.isEnabled())
+            {
+                try
+                {
+                    module.onMotionUpdate(event);
+                }
+                catch (Throwable throwable)
+                {
+                    this.logModuleFailure("onMotionUpdate", module, throwable);
+                }
+            }
+        }
+    }
+
     public void onKey(KeyEvent event)
     {
         if (MinecraftBridge.shared().isScreenOpen())
@@ -139,6 +162,10 @@ public final class ModuleManager implements ModuleStateListener
                     try
                     {
                         module.toggle();
+                        if (MinecraftBridge.shared().isScreenOpen())
+                        {
+                            return;
+                        }
                     }
                     catch (Throwable throwable)
                     {

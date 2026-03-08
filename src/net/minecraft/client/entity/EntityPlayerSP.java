@@ -188,6 +188,15 @@ public class EntityPlayerSP extends AbstractClientPlayer
      */
     public void onUpdateWalkingPlayer()
     {
+        // --- PRE_UPDATE: modules can pick targets and compute desired rotations ---
+        client.core.ClientBootstrap bootstrap = client.core.ClientBootstrap.instance();
+
+        if (bootstrap != null)
+        {
+            bootstrap.onMotionUpdate(new client.event.MotionUpdateEvent(
+                    client.event.MotionUpdateEvent.Phase.PRE_UPDATE, this, this.ticksExisted));
+        }
+
         boolean flag = this.isSprinting();
 
         if (flag != this.serverSprintState)
@@ -222,6 +231,13 @@ public class EntityPlayerSP extends AbstractClientPlayer
 
         if (this.isCurrentViewEntity())
         {
+            // --- PRE_MOTION: modules can finalize yaw/pitch before packets ---
+            if (bootstrap != null)
+            {
+                bootstrap.onMotionUpdate(new client.event.MotionUpdateEvent(
+                        client.event.MotionUpdateEvent.Phase.PRE_MOTION, this, this.ticksExisted));
+            }
+
             double d0 = this.posX - this.lastReportedPosX;
             double d1 = this.getEntityBoundingBox().minY - this.lastReportedPosY;
             double d2 = this.posZ - this.lastReportedPosZ;
@@ -269,6 +285,13 @@ public class EntityPlayerSP extends AbstractClientPlayer
             {
                 this.lastReportedYaw = this.rotationYaw;
                 this.lastReportedPitch = this.rotationPitch;
+            }
+
+            // --- POST_MOTION: modules can restore visual rotations ---
+            if (bootstrap != null)
+            {
+                bootstrap.onMotionUpdate(new client.event.MotionUpdateEvent(
+                        client.event.MotionUpdateEvent.Phase.POST_MOTION, this, this.ticksExisted));
             }
         }
     }

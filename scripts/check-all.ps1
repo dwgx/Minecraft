@@ -38,6 +38,8 @@ Run-Step "compile-javac-1.8" {
     }
 }
 
+Run-Step "check-smoke-tests" { & powershell -ExecutionPolicy Bypass -File (Join-Path $rootPath "scripts/check-smoke-tests.ps1") -Root $rootPath }
+
 Run-Step "check-encoding" { & powershell -ExecutionPolicy Bypass -File (Join-Path $rootPath "scripts/check-encoding.ps1") -Root $rootPath }
 Run-Step "check-render-rules" { & powershell -ExecutionPolicy Bypass -File (Join-Path $rootPath "scripts/check-render-rules.ps1") -Root $rootPath }
 Run-Step "check-checkstyle" { & powershell -ExecutionPolicy Bypass -File (Join-Path $rootPath "scripts/check-checkstyle.ps1") -Root $rootPath }
@@ -46,4 +48,3 @@ Run-Step "check-refactor-guards" { & powershell -ExecutionPolicy Bypass -File (J
 
 Write-Output "[OK] All checks passed."
 exit 0
-

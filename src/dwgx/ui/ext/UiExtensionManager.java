@@ -452,6 +452,31 @@ public final class UiExtensionManager
         mainMenuBackgroundGlslPath = path == null ? "" : path.trim();
     }
 
+    /**
+     * Sets the persistent directory for Bing wallpaper caching and re-checks
+     * for a cached file. Call this early in startup before GuiMainMenu is created.
+     */
+    public static void setBingWallpaperDir(java.nio.file.Path dir)
+    {
+        BingWallpaperFetcher.setPersistentDir(dir);
+
+        // Re-check: if we haven't applied a wallpaper yet and a cached file
+        // now exists (persistent dir was set after static init), apply it.
+        if (!bingBackgroundApplied)
+        {
+            String cached = BingWallpaperFetcher.getCachedPath();
+
+            if (cached != null)
+            {
+                mainMenuBackgroundMode = MainMenuBackgroundMode.STATIC_IMAGE;
+                mainMenuBackgroundImagePath = cached;
+                backgroundShaderEnabled = true;
+                bingBackgroundApplied = true;
+                LOGGER.info("Using cached Bing wallpaper (late init): {}", cached);
+            }
+        }
+    }
+
     public static void setMainMenuVideoFrameProviderFactory(MainMenuVideoFrameProviderFactory factory)
     {
         videoFrameProviderFactory = factory == null ? DEFAULT_VIDEO_FRAME_PROVIDER_FACTORY : factory;
@@ -461,6 +486,20 @@ public final class UiExtensionManager
     {
         try
         {
+            // If a cached wallpaper exists from a previous session, apply it
+            // immediately so the main menu never flashes the default background.
+            String cached = BingWallpaperFetcher.getCachedPath();
+
+            if (cached != null)
+            {
+                mainMenuBackgroundMode = MainMenuBackgroundMode.STATIC_IMAGE;
+                mainMenuBackgroundImagePath = cached;
+                backgroundShaderEnabled = true;
+                bingBackgroundApplied = true;
+                LOGGER.info("Using cached Bing wallpaper: {}", cached);
+            }
+
+            // Always start a background refresh to get today's image.
             BingWallpaperFetcher.downloadOnceAsync(new BingWallpaperFetcher.Callback()
             {
                 public void onComplete(String localPath)
@@ -468,6 +507,7 @@ public final class UiExtensionManager
                     if (localPath != null && !localPath.isEmpty())
                     {
                         pendingBingBackgroundPath = localPath;
+                        bingBackgroundApplied = false;
                         LOGGER.info("Bing wallpaper downloaded in background: {}", localPath);
                     }
                 }
@@ -495,7 +535,7 @@ public final class UiExtensionManager
 
         mainMenuBackgroundMode = MainMenuBackgroundMode.STATIC_IMAGE;
         mainMenuBackgroundImagePath = path;
-        backgroundShaderEnabled = false;
+        backgroundShaderEnabled = true;
         pendingBingBackgroundPath = "";
         bingBackgroundApplied = true;
         LOGGER.info("Applied Bing wallpaper to main menu: {}", path);

@@ -13,6 +13,7 @@ import client.setting.IntSetting;
 import client.setting.SettingGroup;
 import client.setting.Visibility;
 import client.ui.ClickGuiScreen;
+import client.ui.template.UiAnimationBus;
 import client.ui.template.UiAnimation;
 import dwgx.nano.NanoPalette;
 import net.minecraft.client.Minecraft;
@@ -206,9 +207,21 @@ public final class ClickGuiModule extends Module
             }
             else
             {
+                UiAnimationBus.clearPrefix("chat.");
                 mc.displayGuiScreen(new ClickGuiScreen(ClientBootstrap.instance().getModules()));
             }
         }
+    }
+
+    @Override
+    public void onDisable()
+    {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc != null && mc.currentScreen instanceof ClickGuiScreen)
+        {
+            mc.displayGuiScreen(null);
+        }
+        UiAnimationBus.clearPrefix("clickgui.");
     }
 
     public boolean isActionModule()

@@ -109,6 +109,18 @@ public final class NanoRenderUtils
         nvgFill(vg);
     }
 
+    public static void fillCircle(long vg, float cx, float cy, float radius, NVGColor color)
+    {
+        if (!isFinite(cx) || !isFinite(cy) || !isFinite(radius) || radius <= 0.0F || color == null)
+        {
+            return;
+        }
+        nvgBeginPath(vg);
+        nvgCircle(vg, cx, cy, radius);
+        nvgFillColor(vg, color);
+        nvgFill(vg);
+    }
+
     public static void strokeRoundedRect(long vg, float x, float y, float w, float h, float radius, float strokeWidth, NVGColor color)
     {
         float width = safeDimension(w);

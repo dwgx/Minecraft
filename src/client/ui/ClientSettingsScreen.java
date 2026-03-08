@@ -24,6 +24,7 @@ import client.ui.template.UiAnimation;
 import client.ui.template.UiAnimationBus;
 import client.ui.template.UiLayoutProfile;
 import client.ui.template.UiMotion;
+import client.ui.template.ScreenTransitionController;
 import client.ui.template.UiWindowState;
 import dwgx.nano.NanoFontBook;
 import dwgx.nano.NanoPalette;
@@ -44,14 +45,6 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 
 public final class ClientSettingsScreen extends GuiScreen implements NanoRenderableScreen
 {
-    private enum TransitionMode
-    {
-        NONE,
-        CLOSE,
-        SWITCH,
-        BACK
-    }
-
     private enum SettingsSection
     {
         THEME,
@@ -75,6 +68,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
     private static final float RADIUS_CONTROL = LAYOUT.radiusControl();
     private static final float VALUE_COL_WIDTH = LAYOUT.valueColWidth();
     private static final float RESET_COL_WIDTH = LAYOUT.resetColWidth();
+    private static final ScreenTransitionController.Tuning TRANSITION_TUNING = ScreenTransitionController.Tuning.of(1.90F, 1.18F, 1.48F, 0.95F, 0.90F, 1.12F, 1.24F, 0.08F);
 
     private final ModuleManager modules;
     private final GuiScreen parentScreen;
@@ -115,7 +109,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
     private boolean sectionSwitching;
     private SettingsSection sectionSwitchTarget;
 
-    private TransitionMode transitionMode = TransitionMode.NONE;
+    private ScreenTransitionController.Mode transitionMode = ScreenTransitionController.Mode.NONE;
     private GuiScreen transitionTarget;
     private boolean transitioningOut;
     private boolean transitionExecuted;
@@ -135,7 +129,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
     public void initGui()
     {
-        this.transitionMode = TransitionMode.NONE;
+        this.transitionMode = ScreenTransitionController.Mode.NONE;
         this.transitionTarget = null;
         this.transitioningOut = false;
         this.transitionExecuted = false;
@@ -172,6 +166,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         this.numberInput.blur();
         this.colorPicker.stopDragging();
         this.draggingPicker = false;
+        UiAnimationBus.clearPrefix("client.settings.");
     }
 
     private void saveCurrentScroll()
@@ -209,7 +204,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
         if (keyCode == 1)
         {
-            this.requestTransition(TransitionMode.BACK, this.parentScreen);
+            this.requestTransition(ScreenTransitionController.Mode.BACK, this.parentScreen);
             return;
         }
 
@@ -237,7 +232,7 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         {
             if (l.backButton.contains(mouseX, mouseY))
             {
-                this.requestTransition(TransitionMode.BACK, this.parentScreen);
+                this.requestTransition(ScreenTransitionController.Mode.BACK, this.parentScreen);
                 return;
             }
 
@@ -1956,14 +1951,14 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
         this.settingScrollVisual = this.draggingSettingSlider == null ? UiAnimationBus.animateWithSpeed("client.settings.scroll", target, animProfile, speed) : target;
     }
 
-    private void requestTransition(TransitionMode mode, GuiScreen target)
+    private void requestTransition(ScreenTransitionController.Mode mode, GuiScreen target)
     {
-        if (this.mc == null || this.transitioningOut)
+        if (!ScreenTransitionController.canRequest(this.mc, this.transitioningOut))
         {
             return;
         }
 
-        this.transitionMode = mode == null ? TransitionMode.SWITCH : mode;
+        this.transitionMode = ScreenTransitionController.modeOrDefault(mode);
         this.transitionTarget = target;
         this.transitioningOut = true;
         this.transitionExecuted = false;
@@ -1971,41 +1966,26 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
 
     private void updateTransition(ClickGuiModule clickGui)
     {
-        long now = System.nanoTime();
-        float dt = this.transitionLastNanos == 0L ? (1.0F / 60.0F) : (float)((double)(now - this.transitionLastNanos) * 1.0E-9D);
-        this.transitionLastNanos = now;
         float speed = clickGui == null ? 0.56F : clickGui.getGlobalAnimationSpeed();
         float smooth = this.resolveAnimationProfile(clickGui).smooth();
         UiAnimation.Type type = this.resolveTransitionType(clickGui);
+        ScreenTransitionController.StepResult step = ScreenTransitionController.step(
+            this.transitioningOut,
+            this.transitionMode,
+            this.transitionProgress,
+            this.transitionLastNanos,
+            speed,
+            smooth,
+            type,
+            TRANSITION_TUNING,
+            this.transitionExecuted,
+            this.transitionTarget,
+            this.mc
+        );
+        this.transitionLastNanos = step.lastNanos();
+        this.transitionProgress = step.progress();
 
-        if (this.transitioningOut)
-        {
-            float boost;
-
-            switch (this.transitionMode)
-            {
-                case CLOSE:
-                    boost = 1.90F;
-                    break;
-                case BACK:
-                    boost = 1.18F;
-                    break;
-                case SWITCH:
-                default:
-                    boost = 1.48F;
-                    break;
-            }
-
-            speed = UiMotion.clamp(speed * boost + 0.08F, 0.05F, 1.0F);
-            smooth = UiMotion.clamp(smooth * (this.transitionMode == TransitionMode.BACK ? 0.95F : 0.90F), 0.0F, 1.0F);
-            dt *= this.transitionMode == TransitionMode.BACK ? 1.12F : 1.24F;
-        }
-
-        float response = UiAnimation.responseFromSpeed(speed, smooth, type, false);
-        float target = this.transitioningOut ? 0.0F : 1.0F;
-        this.transitionProgress = UiAnimation.step(this.transitionProgress, target, response, dt, type, smooth);
-
-        if (this.transitioningOut && !this.transitionExecuted && this.transitionProgress <= 0.02F && this.mc != null)
+        if (step.shouldNavigate())
         {
             this.transitionExecuted = true;
             this.mc.displayGuiScreen(this.transitionTarget);
@@ -2041,28 +2021,19 @@ public final class ClientSettingsScreen extends GuiScreen implements NanoRendera
             return UiAnimation.Type.EASE_OUT;
         }
 
-        if (!this.transitioningOut)
-        {
-            return clickGui.getGuiOpenAnimationType();
-        }
-
-        switch (this.transitionMode)
-        {
-            case CLOSE:
-                return clickGui.getGuiCloseAnimationType();
-            case BACK:
-                return clickGui.getGuiBackAnimationType();
-            case SWITCH:
-            default:
-                return clickGui.getGuiSwitchAnimationType();
-        }
+        return ScreenTransitionController.resolveType(
+            this.transitioningOut,
+            this.transitionMode,
+            clickGui.getGuiOpenAnimationType(),
+            clickGui.getGuiCloseAnimationType(),
+            clickGui.getGuiSwitchAnimationType(),
+            clickGui.getGuiBackAnimationType()
+        );
     }
 
     private float transitionVisual()
     {
-        float p = UiMotion.clamp01(this.transitionProgress);
-        float eased = (float)Math.pow((double)p, 0.82D);
-        return UiMotion.clamp(eased, 0.0F, 1.0F);
+        return ScreenTransitionController.visual(this.transitionProgress);
     }
 
     private Rect transitionWindow(Rect baseRect)

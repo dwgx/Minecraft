@@ -480,6 +480,7 @@ public class HudEditorScreen extends GuiScreen implements NanoRenderableScreen
         this.numberInput.blur();
         this.closeConfigPanel();
         this.draggingElement = false;
+        UiAnimationBus.clearPrefix("hud.editor.");
     }
 
     public void renderNano(RenderContext2D context)

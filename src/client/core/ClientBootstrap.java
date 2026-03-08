@@ -4,6 +4,7 @@ import client.auth.AccountRepository;
 import client.auth.MicrosoftAuthResult;
 import client.auth.MicrosoftAuthService;
 import client.auth.MicrosoftSessionManager;
+import client.chat.cache.IRCLocalCache;
 import client.command.ClientCommandManager;
 import client.config.ConfigManager;
 import client.event.EventBus;
@@ -48,6 +49,7 @@ public final class ClientBootstrap
     private final ShutdownHook shutdownHook = new ShutdownHook();
 
     private ConfigManager configManager;
+    private IRCLocalCache ircLocalCache;
     // Main-thread-only flags; synchronized in initialize() for safe publication.
     private volatile boolean initialized;
     private boolean modulesRegistered;
@@ -72,6 +74,10 @@ public final class ClientBootstrap
             return;
         }
 
+        // Set persistent wallpaper dir early so the cached Bing image is
+        // available before GuiMainMenu is created.
+        dwgx.ui.ext.UiExtensionManager.setBingWallpaperDir(configRoot);
+
         this.i18n.reload();
         this.configManager = new ConfigManager(configRoot, this.clientInfo, this.modules, this.hud, this.i18n);
         this.registerBuiltinModules();
@@ -93,6 +99,29 @@ public final class ClientBootstrap
             this.notifyUser(this.i18n.translateOrDefault("config.load.failed", "\u00a7cFailed to load client config. See logs."));
         }
 
+        // Initialize SQLite local cache for IRC data
+        try
+        {
+            this.ircLocalCache = new IRCLocalCache(
+                    configRoot.resolve("irc_cache.db").toString());
+            this.ircLocalCache.open();
+        }
+        catch (Exception ex)
+        {
+            LOGGER.warn("Failed to open IRC local cache", ex);
+            this.ircLocalCache = null;
+        }
+
+        this.shutdownHook.addAction(new Runnable()
+        {
+            public void run()
+            {
+                if (ClientBootstrap.this.ircLocalCache != null)
+                {
+                    ClientBootstrap.this.ircLocalCache.close();
+                }
+            }
+        });
         this.shutdownHook.addAction(new Runnable()
         {
             public void run()
@@ -157,9 +186,16 @@ public final class ClientBootstrap
 
     private void attemptAutoLogin(Path configRoot)
     {
+        String autoLoginProp = System.getProperty("client.autologin");
+        if (autoLoginProp != null && "false".equalsIgnoreCase(autoLoginProp.trim()))
+        {
+            LOGGER.info("Auto-login disabled by JVM property: client.autologin=false");
+            return;
+        }
+
         try
         {
-            File mcDataDir = configRoot.toFile().getParentFile();
+            File mcDataDir = configRoot.toFile().getParentFile().getParentFile();
             AccountRepository repo = new AccountRepository(mcDataDir);
             repo.load();
             String selectedId = repo.getSelectedId();
@@ -333,6 +369,11 @@ public final class ClientBootstrap
         return this.configManager;
     }
 
+    public IRCLocalCache getIrcLocalCache()
+    {
+        return this.ircLocalCache;
+    }
+
     public ShutdownHook getShutdownHook()
     {
         return this.shutdownHook;
@@ -481,6 +522,12 @@ public final class ClientBootstrap
     public void onMouse(int button, int x, int y, boolean pressed)
     {
         this.eventBus.post(new MouseEvent(button, x, y, pressed));
+    }
+
+    public void onMotionUpdate(client.event.MotionUpdateEvent event)
+    {
+        this.eventBus.post(event);
+        this.modules.onMotionUpdate(event);
     }
 
     public boolean onPacketSend(Packet<?> packet)
