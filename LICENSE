@@ -1,0 +1,38 @@
+RESEARCH / EDUCATIONAL USE LICENSE
+研究 / 教育用途声明
+
+This repository contains Minecraft client source code recovered via MCP (Mod Coder Pack)
+decompilation, together with runtime libraries and native binaries from the vanilla
+Minecraft distribution.
+
+NO OWNERSHIP CLAIM.
+Minecraft, its code, assets, libraries, and native binaries are the property of
+Mojang AB / Microsoft Corporation and/or their respective rights holders. The maintainer
+of this repository claims NO ownership or copyright over any Minecraft / Mojang material
+contained here, and grants no rights to it.
+
+PERMITTED USE.
+This material is published solely for personal education, reverse-engineering research,
+debugging, and interoperability study. You must own a valid, licensed copy of Minecraft.
+
+PROHIBITED USE.
+- Any use that violates the Minecraft EULA, the Mojang/Microsoft Terms of Service, or
+  applicable law.
+- Distributing, reproducing, or using this to provide pirated Minecraft or to bypass,
+  replace, or circumvent Minecraft's authentication / online license verification
+  (e.g. authlib / Mojang/Microsoft account validation).
+- Cheating against online services, malware delivery, or service disruption.
+
+NO WARRANTY.
+Provided "AS IS", without warranty of any kind. The maintainer accepts no liability for
+any use or misuse.
+
+TAKEDOWN.
+If you are a rights holder (including Mojang/Microsoft) and believe any content here
+infringes your rights, open an issue or contact the maintainer for prompt removal.
+
+中文摘要:本仓库为 MCP 反编译的 Minecraft 客户端源码及随附库/原生文件。Minecraft 及其
+代码、资源、库、原生二进制的版权归 Mojang AB / Microsoft 所有,维护者不主张任何所有权。
+内容仅供个人教育、逆向研究、调试与互操作学习,使用者须持有正版 Minecraft 授权。严禁用于
+盗版分发、绕过正版/authlib 验证、在线作弊或任何违反 Minecraft EULA 与当地法律的行为。
+按"现状"提供,不附带任何担保。如权利人认为侵权,请联系维护者下架。
